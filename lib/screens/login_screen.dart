@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'forgot_password_screen.dart';
+import 'main_layout.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -18,9 +19,10 @@ class _LoginScreenState extends State<LoginScreen> {
     String password = _passwordController.text;
 
     if (email.isNotEmpty && password.isNotEmpty) {
-      ScaffoldMessenger.of(
+      Navigator.pushReplacement(
         context,
-      ).showSnackBar(SnackBar(content: Text('ENTRANDO NO APP')));
+        MaterialPageRoute(builder: (context) => const MainLayout()),
+      );
     }
   }
 
