@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import 'main_layout.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -16,6 +18,12 @@ class _SignupScreenState extends State<SignupScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  var maskFormatter = MaskTextInputFormatter(
+    mask: '(##) #####-####',
+    filter: {"#": RegExp(r'[0-9]')},
+    type: MaskAutoCompletionType.lazy,
+  );
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -34,27 +42,22 @@ class _SignupScreenState extends State<SignupScreen> {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    // verificações de campos
     if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
       _showError('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
 
-    // Validar e-mail
     if (!email.contains('@') || !email.contains('.')) {
       _showError('Informe um e-mail com formato válido.');
       return;
     }
 
-    // Verificar senhas iguais
     if (password != confirmPassword) {
       _showError('As senhas não coincidem!');
       return;
     }
 
-    // Salva no Provider e navega
     try {
-      // notifica o estado global via ChangeNotifier
       Provider.of<UserProvider>(
         context,
         listen: false,
@@ -68,7 +71,6 @@ class _SignupScreenState extends State<SignupScreen> {
         ),
       );
 
-      // Navegação para a tela principal
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const MainLayout()),
@@ -107,11 +109,11 @@ class _SignupScreenState extends State<SignupScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: RadialGradient(
-            center: const Alignment(0.5, -0.5),
+            center: Alignment(0.5, -0.5),
             radius: 1.5,
-            colors: [const Color(0xFF1E1E1E), const Color(0xFF121212)],
+            colors: [Color(0xFF1E1E1E), Color(0xFF121212)],
           ),
         ),
         child: Center(
@@ -175,6 +177,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         label: 'TELEFONE',
                         hint: '(00) 00000-0000',
                         icon: Icons.phone_android_outlined,
+                        inputFormatters: [maskFormatter],
                       ),
                       const SizedBox(height: 20),
                       _buildSportyTextField(
@@ -264,6 +267,7 @@ class _SignupScreenState extends State<SignupScreen> {
     required String hint,
     required IconData icon,
     bool isPassword = false,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,6 +284,11 @@ class _SignupScreenState extends State<SignupScreen> {
         TextField(
           controller: controller,
           obscureText: isPassword,
+          inputFormatters: inputFormatters,
+          // Se tiver formatador, abre teclado numérico, senão, texto padrão
+          keyboardType: inputFormatters != null
+              ? TextInputType.number
+              : TextInputType.text,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
             hintText: hint,
