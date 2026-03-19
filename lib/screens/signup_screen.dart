@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import 'main_layout.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -10,16 +13,68 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _handleSignup() {
-    if (_passwordController.text == _confirmPasswordController.text) {
-      print("Conta criada com sucesso para: ${_nameController.text}");
-    } else {
-      ScaffoldMessenger.of(
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    // verificações de campos
+    if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty) {
+      _showError('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    // Validar e-mail
+    if (!email.contains('@') || !email.contains('.')) {
+      _showError('Informe um e-mail com formato válido.');
+      return;
+    }
+
+    // Verificar senhas iguais
+    if (password != confirmPassword) {
+      _showError('As senhas não coincidem!');
+      return;
+    }
+
+    // Salva no Provider e navega
+    try {
+      // notifica o estado global via ChangeNotifier
+      Provider.of<UserProvider>(
         context,
-      ).showSnackBar(const SnackBar(content: Text('As senhas não coincidem!')));
+        listen: false,
+      ).realizarCadastro(name, email, phone);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Bem-vindo ao time, $name!'),
+          backgroundColor: const Color(0xFF06B6D4),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // Navegação para a tela principal
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainLayout()),
+      );
+    } catch (e) {
+      _showError('Erro ao realizar cadastro. Tente novamente.');
     }
   }
 
@@ -28,8 +83,8 @@ class _SignupScreenState extends State<SignupScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        backgroundColor: Colors.transparent, // Deixa a barra invisível
-        elevation: 0, // remove a sombra
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Container(
@@ -48,8 +103,7 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         ),
       ),
-      extendBodyBehindAppBar:
-          true, // Faz o corpo da tela subir para trás da barra
+      extendBodyBehindAppBar: true,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -66,7 +120,7 @@ class _SignupScreenState extends State<SignupScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 40),
+                const SizedBox(height: 80),
                 ShaderMask(
                   shaderCallback: (bounds) => const LinearGradient(
                     colors: [Colors.white, Color(0xFF06B6D4)],
@@ -75,7 +129,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     'Criar uma Conta',
                     style: TextStyle(
                       fontSize: 32,
-                      letterSpacing: 1,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                     ),
@@ -86,8 +139,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   style: TextStyle(color: Colors.white38, letterSpacing: 1.2),
                 ),
                 const SizedBox(height: 40),
-
-                // Card Integrado
                 Container(
                   constraints: const BoxConstraints(maxWidth: 400),
                   padding: const EdgeInsets.all(32.0),
@@ -120,6 +171,13 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                       const SizedBox(height: 20),
                       _buildSportyTextField(
+                        controller: _phoneController,
+                        label: 'TELEFONE',
+                        hint: '(00) 00000-0000',
+                        icon: Icons.phone_android_outlined,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildSportyTextField(
                         controller: _passwordController,
                         label: 'SENHA',
                         hint: '••••••••',
@@ -135,8 +193,6 @@ class _SignupScreenState extends State<SignupScreen> {
                         isPassword: true,
                       ),
                       const SizedBox(height: 40),
-
-                      // Botão Criar Conta
                       SizedBox(
                         width: double.infinity,
                         height: 55,
@@ -161,9 +217,9 @@ class _SignupScreenState extends State<SignupScreen> {
                                 'CRIAR MINHA CONTA',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.5,
+                                  letterSpacing: 1.2,
                                 ),
                               ),
                             ),
@@ -174,8 +230,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
                 const SizedBox(height: 30),
-
-                // Voltar para o Login
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -204,7 +258,6 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  // Mesma função auxiliar do Login para manter o padrão
   Widget _buildSportyTextField({
     required TextEditingController controller,
     required String label,
@@ -219,7 +272,7 @@ class _SignupScreenState extends State<SignupScreen> {
           label,
           style: const TextStyle(
             color: Color(0xFF06B6D4),
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: FontWeight.bold,
             letterSpacing: 2,
           ),
@@ -230,7 +283,7 @@ class _SignupScreenState extends State<SignupScreen> {
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Colors.white12),
+            hintStyle: const TextStyle(color: Colors.white12, fontSize: 14),
             prefixIcon: Icon(icon, color: Colors.white38, size: 20),
             enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.white10),

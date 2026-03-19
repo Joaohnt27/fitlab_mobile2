@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 import 'about_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -35,7 +37,7 @@ class ProfileScreen extends StatelessWidget {
                     child: Divider(color: Colors.white10),
                   ),
 
-                  // BOTÃO SOBRE (Requisito RF004)
+                  // BOTÃO SOBRE
                   _buildMenuTile(Icons.info_outline, "Sobre o Projeto", () {
                     Navigator.push(
                       context,
@@ -61,53 +63,64 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildProfileHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.only(top: 60, bottom: 30),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF1D4ED8), Color(0xFF0D0D0D)],
-        ),
-      ),
-      child: Column(
-        children: [
-          // Avatar com borda neon
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
+    // usamos o Consumer p/ ouvir as mudanças no UserProvider
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(top: 60, bottom: 30),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF1D4ED8), Color(0xFF0D0D0D)],
+            ),
+          ),
+          child: Column(
+            children: [
+              // Avatar com borda neon
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
+                  ),
+                ),
+                child: const CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Color(0xFF1A1A1A),
+                  child: Icon(Icons.person, size: 50, color: Colors.white24),
+                ),
               ),
-            ),
-            child: const CircleAvatar(
-              radius: 50,
-              backgroundColor: Color(0xFF1A1A1A),
-              child: Icon(Icons.person, size: 50, color: Colors.white24),
-            ),
+              const SizedBox(height: 16),
+
+              // NOME VINDO DO PROVIDER
+              Text(
+                userProvider.nome.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+
+              // EMAIL VINDO DO PROVIDER
+              Text(
+                userProvider.email.isNotEmpty
+                    ? userProvider.email
+                    : "Nível 67 • Corredor Jedi",
+                style: const TextStyle(
+                  color: Color(0xFF06B6D4),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          const Text(
-            "JOÃO FRAGAEL UA",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
-            ),
-          ),
-          const Text(
-            "Nível 67 • Corredor Jedi",
-            style: TextStyle(
-              color: Color(0xFF06B6D4),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
