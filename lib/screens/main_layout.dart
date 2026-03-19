@@ -1,3 +1,4 @@
+import 'package:fitlab_mobile2/screens/feed_screen.dart';
 import 'package:fitlab_mobile2/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -15,9 +16,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   // Lista de telas
   final List<Widget> _screens = [
-    const Center(
-      child: Text('Feed inicial', style: TextStyle(color: Colors.white)),
-    ),
+    const FeedScreen(),
     const WorkoutsScreen(),
     const Center(
       child: Text('Corrida (Play)', style: TextStyle(color: Colors.white)),

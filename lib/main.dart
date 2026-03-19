@@ -6,6 +6,7 @@ import 'providers/user_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/main_layout.dart';
+import 'package:flutter/gestures.dart';
 
 void main() {
   runApp(
@@ -30,6 +31,7 @@ class MyApp extends StatelessWidget {
       locale: DevicePreview.locale(context),
       builder: DevicePreview.appBuilder,
       debugShowCheckedModeBanner: false,
+      scrollBehavior: MyCustomScrollBehavior(),
 
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -46,4 +48,13 @@ class MyApp extends StatelessWidget {
       },
     );
   }
+}
+
+// permite que o mouse simule o toque do dedo
+class MyCustomScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+  };
 }
