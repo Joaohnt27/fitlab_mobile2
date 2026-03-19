@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/feed_card.dart';
 import '../models/feed_item.dart';
 import '../widgets/suggest_user_card.dart';
+import '../widgets/trending_challenge_card.dart';
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -123,9 +124,23 @@ class FeedScreen extends StatelessWidget {
             ],
           ),
 
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 20, left: 24, right: 24),
+              child: Text(
+                "Acompanhe outros usuários do FitLab",
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+
           const SliverToBoxAdapter(child: SizedBox(height: 30)),
 
-          // --- SEÇÃO QUEM SEGUIR ---
+          //Seção QUEM SEGUIR
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,6 +174,57 @@ class FeedScreen extends StatelessWidget {
             ),
           ),
 
+          const SliverToBoxAdapter(child: SizedBox(height: 30)),
+
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    "DESAFIOS EM ALTA",
+                    style: TextStyle(
+                      color: Color(0xFF06B6D4),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 160,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    children: const [
+                      TrendingChallengeCard(
+                        title: "Maratona Jedi",
+                        category: "Resistência",
+                        xp: "500",
+                        icon: Icons.bolt,
+                      ),
+                      TrendingChallengeCard(
+                        title: "Sprint Noturno",
+                        category: "Velocidade",
+                        xp: "350",
+                        icon: Icons.nightlight_round,
+                      ),
+                      TrendingChallengeCard(
+                        title: "Conquistador",
+                        category: "Território",
+                        xp: "800",
+                        icon: Icons.map,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // Espaçamento para o conteúdo não colar na barra
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
@@ -171,6 +237,21 @@ class FeedScreen extends StatelessWidget {
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              child: Text(
+                "SOCIAL",
+                style: TextStyle(
+                  color: Color(0xFF06B6D4),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
+              ),
+            ),
+          ),
 
           // Listagem do Feed
           SliverPadding(
