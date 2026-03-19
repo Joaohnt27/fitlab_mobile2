@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/feed_card.dart';
 import '../models/feed_item.dart';
+import '../widgets/suggest_user_card.dart';
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -146,13 +147,11 @@ class FeedScreen extends StatelessWidget {
                   height: 180,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    // ADICIONE ESTA LINHA PARA O SCROLL FUNCIONAR:
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: sugestoes.length,
                     itemBuilder: (context, index) {
-                      // 2. PASSE O NOME DA LISTA PARA O MÉTODO
-                      return _buildSuggestUserCard(sugestoes[index]);
+                      return SuggestUserCard(nome: sugestoes[index]);
                     },
                   ),
                 ),
@@ -193,70 +192,5 @@ class FeedScreen extends StatelessWidget {
   // O seu widget de mapa (mesmo código anterior)
   Widget _buildTerritoryMapCard() {
     return Container(/* ... mesmo código do card anterior ... */);
-  }
-
-  Widget _buildSuggestUserCard(String nome) {
-    return Container(
-      width: 130,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Avatar com gradiente (Estilo FitLab)
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
-              ),
-            ),
-            child: const CircleAvatar(
-              radius: 25,
-              backgroundColor: Color(0xFF0D0D0D),
-              child: Icon(Icons.person, color: Colors.white24),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            nome, // <--- REMOVA O 'const' e use a variável nome aqui!
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 12),
-          // Botão Seguir pequeno
-          Container(
-            height: 30,
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF06B6D4).withOpacity(0.1),
-                foregroundColor: const Color(0xFF06B6D4),
-                elevation: 0,
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text(
-                "SEGUIR",
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
