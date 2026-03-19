@@ -1,4 +1,7 @@
+import 'package:fitlab_mobile2/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
+
+import 'workouts_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -10,23 +13,19 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
 
-  // Lista de telas 
+  // Lista de telas
   final List<Widget> _screens = [
     const Center(
-      child: Text('Falar sobre o app', style: TextStyle(color: Colors.white)),
+      child: Text('Feed inicial', style: TextStyle(color: Colors.white)),
     ),
-    const Center(
-      child: Text('Treinos', style: TextStyle(color: Colors.white)),
-    ),
+    const WorkoutsScreen(),
     const Center(
       child: Text('Corrida (Play)', style: TextStyle(color: Colors.white)),
     ),
     const Center(
       child: Text('Comunidade', style: TextStyle(color: Colors.white)),
     ),
-    const Center(
-      child: Text('Você (Perfil)', style: TextStyle(color: Colors.white)),
-    ),
+    const ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -81,7 +80,7 @@ class _MainLayoutState extends State<MainLayout> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.home_rounded, 'Home'),
+              _buildNavItem(0, Icons.home_rounded, 'Feed'),
               _buildNavItem(1, Icons.fitness_center_rounded, 'Treinos'),
               const SizedBox(width: 40), // Espaço para o botão central
               _buildNavItem(3, Icons.people_alt_rounded, 'Comunidade'),
