@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/experiment_progress_card.dart';
 import '../widgets/feed_card.dart';
 import '../models/feed_item.dart';
 import '../widgets/suggest_user_card.dart';
@@ -135,6 +136,13 @@ class FeedScreen extends StatelessWidget {
                   fontWeight: FontWeight.w400,
                 ),
               ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              child: ExperimentProgressCard(), 
             ),
           ),
 
