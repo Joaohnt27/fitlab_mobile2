@@ -6,6 +6,59 @@ import 'about_screen.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A), // Fundo dark do seu app
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            "LOGOUT",
+            style: TextStyle(
+              color: Color(0xFF06B6D4),
+              letterSpacing: 2,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            "Deseja realmente sair da sua conta?",
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            // Botão NÃO -> Apenas fecha o diálogo e continua no perfil
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("NÃO", style: TextStyle(color: Colors.white38)),
+            ),
+            // Botão SIM -> Limpa a pilha e volta para o Login
+            TextButton(
+              onPressed: () {
+                // Navigator.pushNamedAndRemoveUntil limpa o histórico de telas
+                // assim o usuário não consegue "voltar" pro perfil depois de sair
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/login',
+                  (route) => false,
+                );
+              },
+              child: const Text(
+                "SIM, SAIR",
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -50,9 +103,13 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // Botão de sair
-                  _buildMenuTile(Icons.logout, "Sair", () {
-                    Navigator.pushReplacementNamed(context, '/login');
-                  }, color: Colors.redAccent),
+                  _buildMenuTile(
+                    Icons.logout,
+                    "Sair",
+                    () =>
+                        _showLogoutDialog(context), // Chama a função do diálogo
+                    color: Colors.redAccent,
+                  ),
                 ],
               ),
             ),

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:device_preview/device_preview.dart';
 import 'package:provider/provider.dart';
 import 'providers/user_provider.dart';
-// import 'providers/challenge_provider.dart'; // Quando criar o de desafios
-
 import 'screens/login_screen.dart';
+import 'screens/signup_screen.dart';
+import 'screens/main_layout.dart';
 
 void main() {
   runApp(
@@ -26,18 +26,24 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'FitLab',
-      // Configurações do Device Preview
       useInheritedMediaQuery: true,
       locale: DevicePreview.locale(context),
       builder: DevicePreview.appBuilder,
-
       debugShowCheckedModeBanner: false,
+
       theme: ThemeData(
         brightness: Brightness.dark,
-        primarySwatch: Colors.blue,
+        primaryColor: const Color(0xFF1D4ED8),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+
+      initialRoute: '/login',
+
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/signup': (context) => const SignupScreen(),
+        '/main': (context) => const MainLayout(),
+      },
     );
   }
 }
