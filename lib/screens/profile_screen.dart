@@ -170,16 +170,28 @@ class ProfileScreen extends StatelessWidget {
               ),
 
               ValueListenableBuilder(
-                valueListenable: AppData.userXP,
-                builder: (context, xp, child) {
-                  final nivel = AppData.nivelAtual;
-                  return Text(
-                    "Nível ${nivel['lv']} • ${nivel['nome']}",
-                    style: const TextStyle(
-                      color: Color(0xFF06B6D4),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                valueListenable: AppData.perfilAtleta,
+                builder: (context, perfil, child) {
+                  return Column(
+                    children: [
+                      Text(
+                        perfil.classeIdentificada,
+                        style: const TextStyle(
+                          color: Color(0xFF06B6D4),
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Baseado em ${perfil.totalCorridas} experimentos",
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
