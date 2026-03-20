@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/app_data.dart';
 import '../providers/user_provider.dart';
 import '../widgets/profile_level_card.dart';
+import '../widgets/radar_chart_interactive.dart';
 import 'about_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -73,6 +74,60 @@ class ProfileScreen extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 24),
               child: ProfileLevelCard(),
+            ),
+
+            const SizedBox(height: 32),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "BIOMETRIA DE PERFORMANCE",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.psychology,
+                          color: Colors.white24,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    // O Gráfico propriamente dito
+                    // Dentro do Column da ProfileScreen
+                    ValueListenableBuilder(
+                      valueListenable: AppData.perfilAtleta,
+                      builder: (context, perfil, child) {
+                        return Center(
+                          // Certifique-se de que está centralizado
+                          child: RadarChartInteractive(
+                            // Chame o widget direto, sem SizedBox restritivo
+                            data: perfil.normalizedData,
+                            color: const Color(0xFF06B6D4), // Ciano FitLab
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ),
 
             const SizedBox(height: 32),
