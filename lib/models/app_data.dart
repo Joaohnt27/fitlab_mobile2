@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
 
 class AppData {
-  // avisa aos widgets quando o dado muda
-  static ValueNotifier<Map<String, dynamic>?> experimentoAtivo = ValueNotifier(
-    null,
-  );
+  static ValueNotifier<Map<String, dynamic>?> experimentoAtivo = ValueNotifier(null);
+  
+  // Sistema de níveis
+  static ValueNotifier<int> userXP = ValueNotifier(0);
+
+  // Função para ganhar XP
+  static void ganharXP(int quantidade) {
+    userXP.value += quantidade;
+  }
+
+  // Lógica de Tradução de XP para nome da patente
+  static Map<String, dynamic> get nivelAtual {
+    int xp = userXP.value;
+    if (xp < 75) return {"lv": 1, "nome": "Recruta do laboratório", "icon": "🧪", "min": 0, "max": 75};
+    if (xp < 115) return {"lv": 2, "nome": "Voluntário Ativo", "icon": "🧬", "min": 75, "max": 115};
+    if (xp < 150) return {"lv": 3, "nome": "Testador de Performance", "icon": "📊", "min": 115, "max": 150};
+    if (xp < 200) return {"lv": 4, "nome": "Atleta em análise", "icon": "🏃", "min": 150, "max": 200};
+    if (xp < 260) return {"lv": 5, "nome": "Protótipo atlético", "icon": "🏋️", "min": 200, "max": 260};
+    if (xp < 320) return {"lv": 6, "nome": "Modelo avançado", "icon": "💪", "min": 260, "max": 320};
+    if (xp < 380) return {"lv": 7, "nome": "Unidade de Alta Performance", "icon": "⚡", "min": 320, "max": 380};
+    return {"lv": 8, "nome": "Elite Experimental", "icon": "🎖️", "min": 380, "max": 1000};
+  }
 
   static void salvarExperimento(String volume, String frequencia) {
     experimentoAtivo.value = {
@@ -13,5 +31,7 @@ class AppData {
       'progresso': 0.3,
       'diasRestantes': 7,
     };
+    // Ganha 10 XP só por configurar um experimento
+    ganharXP(10); 
   }
 }

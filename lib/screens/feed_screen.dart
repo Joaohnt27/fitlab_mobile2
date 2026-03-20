@@ -1,3 +1,4 @@
+import 'package:fitlab_mobile2/widgets/feed_level_radial.dart';
 import 'package:flutter/material.dart';
 import '../widgets/experiment_progress_card.dart';
 import '../widgets/feed_card.dart';
@@ -5,6 +6,7 @@ import '../models/feed_item.dart';
 import '../widgets/suggest_user_card.dart';
 import '../widgets/trending_challenge_card.dart';
 import '../models/app_data.dart';
+import '../widgets/user_level_badge.dart';
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -137,6 +139,13 @@ class FeedScreen extends StatelessWidget {
                   fontWeight: FontWeight.w400,
                 ),
               ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(24, 24, 24, 8),
+              child: FeedLevelRadial(),
             ),
           ),
 

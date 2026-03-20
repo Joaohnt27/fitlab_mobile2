@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/app_data.dart';
 import '../providers/user_provider.dart';
+import '../widgets/profile_level_card.dart';
 import 'about_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -11,7 +13,7 @@ class ProfileScreen extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A), // Fundo dark do seu app
+          backgroundColor: const Color(0xFF1A1A1A),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -34,11 +36,8 @@ class ProfileScreen extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: const Text("NÃO", style: TextStyle(color: Colors.white38)),
             ),
-            // Botão SIM -> Limpa a pilha e volta para o Login
             TextButton(
               onPressed: () {
-                // Navigator.pushNamedAndRemoveUntil limpa o histórico de telas
-                // assim o usuário não consegue "voltar" pro perfil depois de sair
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/login',
@@ -70,6 +69,13 @@ class ProfileScreen extends StatelessWidget {
             _buildProfileHeader(),
 
             const SizedBox(height: 30),
+
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: ProfileLevelCard(),
+            ),
+
+            const SizedBox(height: 32),
 
             // menu de opções
             Padding(
@@ -163,16 +169,19 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
 
-              // EMAIL VINDO DO PROVIDER
-              Text(
-                userProvider.email.isNotEmpty
-                    ? userProvider.email
-                    : "Nível 67 • Corredor Jedi",
-                style: const TextStyle(
-                  color: Color(0xFF06B6D4),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
+              ValueListenableBuilder(
+                valueListenable: AppData.userXP,
+                builder: (context, xp, child) {
+                  final nivel = AppData.nivelAtual;
+                  return Text(
+                    "Nível ${nivel['lv']} • ${nivel['nome']}",
+                    style: const TextStyle(
+                      color: Color(0xFF06B6D4),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  );
+                },
               ),
             ],
           ),
