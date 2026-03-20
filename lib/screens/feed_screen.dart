@@ -4,6 +4,7 @@ import '../widgets/feed_card.dart';
 import '../models/feed_item.dart';
 import '../widgets/suggest_user_card.dart';
 import '../widgets/trending_challenge_card.dart';
+import '../models/app_data.dart';
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -139,11 +140,34 @@ class FeedScreen extends StatelessWidget {
             ),
           ),
 
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-              child: ExperimentProgressCard(), 
-            ),
+          ValueListenableBuilder(
+            valueListenable: AppData.experimentoAtivo,
+            builder: (context, experimento, child) {
+              if (experimento == null) {
+                return const SliverToBoxAdapter(child: SizedBox.shrink());
+              }
+
+              final String volumeRaw = experimento['volume']
+                  .toString()
+                  .replaceAll(RegExp(r'[^0-9.]'), '');
+              final double meta = double.tryParse(volumeRaw) ?? 0.0;
+              final double progressoPercentual =
+                  experimento['progresso'] ?? 0.0;
+
+              return SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
+                  child: ExperimentProgressCard(
+                    kmMeta: meta,
+                    kmAtual: meta * progressoPercentual,
+                    diasRestantes: experimento['diasRestantes'] ?? 7,
+                  ),
+                ),
+              );
+            },
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 30)),

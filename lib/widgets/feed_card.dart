@@ -115,7 +115,6 @@ class FeedCard extends StatelessWidget {
   }
 
   Widget _buildTypeBadge(FeedType type) {
-    // Lógica de cores baseada no tipo (Similar ao getTypeColor do React)
     Color color = type == FeedType.territory ? Colors.cyan : Colors.orange;
     return Container(
       padding: const EdgeInsets.all(6),

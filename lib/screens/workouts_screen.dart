@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/app_data.dart';
 import '../widgets/pace_calculator_card.dart';
 import '../widgets/challenge_card.dart';
 import '../widgets/lab_goals_card.dart';
@@ -50,10 +51,12 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   final _tempoController = TextEditingController();
   String _resultadoPace = "0:00";
 
-  // --- NOVA LÓGICA DO BOTÃO "INICIAR MISTURA" ---
-  void _iniciarExperimento() {
+  void _iniciarExperimento(String volume, String frequencia) {
+    debugPrint("Iniciando experimento: $volume km, $frequencia vezes/semana");
+    AppData.salvarExperimento(volume, frequencia);
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
           backgroundColor: const Color(0xFF1A1A1A),
@@ -77,10 +80,10 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  "Seu experimento foi configurado com sucesso e já está rodando no seu Feed.",
+                Text(
+                  "Seu experimento de $volume configurado com sucesso e já está rodando no seu Feed.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 24),
                 SizedBox(
@@ -93,6 +96,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: const Text(
                       "VAMOS NESSA!",
@@ -238,7 +242,11 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                   const SizedBox(height: 16),
 
                   // AGORA PASSAMOS A FUNÇÃO PARA O WIDGET
-                  LabGoalsCard(onIniciar: _iniciarExperimento),
+                  LabGoalsCard(
+                    onIniciar: (volume, frequencia) {
+                      _iniciarExperimento(volume, frequencia);
+                    },
+                  ),
 
                   const SizedBox(height: 32),
                   _buildSectionHeader(

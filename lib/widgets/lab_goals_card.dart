@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class LabGoalsCard extends StatefulWidget {
-  final VoidCallback onIniciar;
+  // Alterado para receber os dados capturados
+  final Function(String volume, String frequencia) onIniciar;
 
   const LabGoalsCard({super.key, required this.onIniciar});
 
@@ -10,21 +11,46 @@ class LabGoalsCard extends StatefulWidget {
 }
 
 class _LabGoalsCardState extends State<LabGoalsCard> {
-  // Estados do botão: 0 = idle, 1 = loading, 2 = success
   int _buttonState = 0;
+
+  // Controllers para capturar o que o usuário digita
+  final TextEditingController _volumeController = TextEditingController();
+  final TextEditingController _frequenciaController = TextEditingController();
+
+  @override
+  void dispose() {
+    _volumeController.dispose();
+    _frequenciaController.dispose();
+    super.dispose();
+  }
 
   void _handlePress() async {
     if (_buttonState != 0) return;
 
+    // Captura os valores atuais dos campos
+    String volume = _volumeController.text;
+    String freq = _frequenciaController.text;
+
+    // Validação simples para não iniciar vazio
+    if (volume.isEmpty || freq.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Preencha todos os campos do experimento!"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     setState(() => _buttonState = 1);
 
-    // Simula o tempo de "mistura" do laboratório (2 segundos)
+    // Simula o tempo de "mistura" (2 segundos)
     await Future.delayed(const Duration(seconds: 2));
 
     setState(() => _buttonState = 2);
 
-    // Chama a função que você definiu na WorkoutsScreen (o SnackBar)
-    widget.onIniciar();
+    // Envia os dados para a WorkoutsScreen
+    widget.onIniciar(volume, freq);
 
     // Volta ao estado original após 3 segundos
     await Future.delayed(const Duration(seconds: 3));
@@ -50,7 +76,7 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
               const Icon(Icons.science, color: Color(0xFF06B6D4), size: 20),
               const SizedBox(width: 8),
               Text(
-                "CONFIGURAR EXPERIMENTO",
+                "Defina a fórmula da sua evolução!",
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.9),
                   fontSize: 12,
@@ -61,16 +87,23 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
             ],
           ),
           const SizedBox(height: 20),
-          _buildGoalInput("Meta de Volume", "Ex: 40km", Icons.straighten),
+          // Passando o controller para o input
+          _buildGoalInput(
+            "Meta de Volume (KM)",
+            "Ex: 40km",
+            Icons.straighten,
+            _volumeController,
+          ),
           const SizedBox(height: 16),
           _buildGoalInput(
-            "Frequência Semanal",
+            "Frequência Semanal (dias)",
             "Ex: 4 dias",
             Icons.calendar_today,
+            _frequenciaController,
           ),
           const SizedBox(height: 24),
 
-          // --- BOTÃO ANIMADO ---
+          // BOTÃO ANIMADO 
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -122,13 +155,18 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
       );
     } else {
       return const Text(
-        "INICIAR MISTURA",
+        "INICIAR EXPERIMENTO",
         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
       );
     }
   }
 
-  Widget _buildGoalInput(String label, String hint, IconData icon) {
+  Widget _buildGoalInput(
+    String label,
+    String hint,
+    IconData icon,
+    TextEditingController controller,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -138,6 +176,7 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
         ),
         const SizedBox(height: 8),
         TextField(
+          controller: controller,
           style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
