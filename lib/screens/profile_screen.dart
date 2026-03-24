@@ -7,6 +7,7 @@ import '../widgets/badge_item.dart';
 import '../widgets/profile_level_card.dart';
 import '../widgets/radar_chart_interactive.dart';
 import 'about_screen.dart';
+import 'badges_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -81,7 +82,7 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _buildBadgesGallery(),
+              child: _buildBadgesGallery(context),
             ),
             const SizedBox(height: 32),
 
@@ -346,54 +347,11 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBadgesGallery() {
-    final List<BadgeModel> badges = [
-      BadgeModel(
-        id: '1',
-        name: 'Mestre Jedi',
-        icon: '⚔️',
-        rarity: BadgeRarity.legendary,
-        isUnlocked: true,
-      ),
-      BadgeModel(
-        id: '2',
-        name: 'Vingador',
-        icon: '🦸',
-        rarity: BadgeRarity.epic,
-        isUnlocked: true,
-      ),
-      BadgeModel(
-        id: '3',
-        name: 'Maratonista',
-        icon: '🎖️',
-        rarity: BadgeRarity.rare,
-        isUnlocked: true,
-      ),
-      BadgeModel(
-        id: '4',
-        name: 'Velocista',
-        icon: '⚡',
-        rarity: BadgeRarity.common,
-        isUnlocked: true,
-      ),
-      BadgeModel(
-        id: '5',
-        name: 'Explorador',
-        icon: '🗺️',
-        rarity: BadgeRarity.rare,
-        isUnlocked: false,
-      ),
-      BadgeModel(
-        id: '6',
-        name: 'Mestre',
-        icon: '🪄',
-        rarity: BadgeRarity.legendary,
-        isUnlocked: false,
-      ),
-    ];
+  Widget _buildBadgesGallery(BuildContext context) {
+    final displayBadges = AppData.allBadges.take(8).toList();
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(24),
@@ -402,65 +360,63 @@ class ProfileScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabeçalho com Título e Botão Ver Mais
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Text(
-                    "CONQUISTAS",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "${badges.where((b) => b.isUnlocked).length}/${badges.length}",
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
-                  ),
-                ],
+              const Text(
+                "CONQUISTAS",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  fontSize: 12,
+                ),
               ),
-              // Botão Ver Mais
               TextButton(
                 onPressed: () {
-                  // Implementar navegação para tela de todas as conquistas
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BadgesScreen(
+                        allBadges: AppData.allBadges,
+                      ), // Passa a lista completa
+                    ),
+                  );
                 },
                 style: TextButton.styleFrom(
-                  minimumSize: Size.zero,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(50, 30),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: const Text(
                   "Ver mais",
-                  style: TextStyle(
-                    color: Color(0xFF06B6D4),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Color(0xFF06B6D4), fontSize: 12),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 8),
+          const Text(
+            "Veja as conquistas que você desbloqueou",
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+
+          const SizedBox(height: 16),
 
           GridView.builder(
+            padding: EdgeInsets.zero,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              childAspectRatio: 0.75,
+              childAspectRatio: 0.8,
             ),
-            itemCount: 4,
+            itemCount: displayBadges.length,
             itemBuilder: (context, index) {
-              return BadgeItem(badge: badges[index]);
-            },
+              return BadgeItem(badge: displayBadges[index], context: context);
+            }
           ),
         ],
       ),

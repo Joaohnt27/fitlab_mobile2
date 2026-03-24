@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'athlete_profile.dart';
+import 'badge_model.dart';
 
 class AppData {
   static ValueNotifier<Map<String, dynamic>?> experimentoAtivo = ValueNotifier(null);
@@ -62,4 +63,96 @@ class AppData {
     // Ganha 10 XP só por configurar um experimento
     ganharXP(10); 
   }
+
+  static final List<BadgeModel> allBadges = [
+    BadgeModel(
+      id: '1',
+      name: 'Primeiro Experimento',
+      icon: '🧪',
+      rarity: BadgeRarity.common,
+      isUnlocked: false,
+      theme: 'O laboratório', 
+      requisito: 'Complete seu primeiro experimento configurando um volume e frequência de treino.',
+    ),
+    BadgeModel(
+      id: '2',
+      name: 'Teste de Campo',
+      icon: '🔬',
+      rarity: BadgeRarity.common,
+      isUnlocked: false,
+      theme: 'O laboratório',
+    ),
+    BadgeModel(
+      id: '3',
+      name: 'Experimento Estável',
+      icon: '⚗️',
+      rarity: BadgeRarity.rare,
+      isUnlocked: false,
+      theme: 'O laboratório',
+    ),
+    BadgeModel(
+      id: '4',
+      name: 'Experimento Promissor',
+      icon: '📈',
+      rarity: BadgeRarity.rare,
+      isUnlocked: false,
+      theme: 'O laboratório',
+    ),
+    BadgeModel(
+      id: '5',
+      name: 'Protótipo Atlético',
+      icon: '🧬',
+      rarity: BadgeRarity.epic,
+      isUnlocked: false,
+      theme: 'O laboratório',
+    ),
+    BadgeModel(
+      id: '6',
+      name: 'Experimento de Elite',
+      icon: '💎',
+      rarity: BadgeRarity.legendary,
+      isUnlocked: false,
+      theme: 'O laboratório',
+    ),
+    BadgeModel(
+      id: '7',
+      name: 'Velocidade de Ignição',
+      icon: '⚡',
+      rarity: BadgeRarity.rare,
+      isUnlocked: false,
+      theme: 'DC Comics',
+    ),
+    BadgeModel(
+      id: '8',
+      name: 'Treino do Cavaleiro das Trevas',
+      icon: '🦇',
+      rarity: BadgeRarity.epic,
+      isUnlocked: false,
+      theme: 'DC Comics',
+    ),
+    BadgeModel(
+      id: '9',
+      name: 'Sentido Aranha',
+      icon: '🕸️',
+      rarity: BadgeRarity.epic,
+      isUnlocked: false,
+      theme: 'Marvel',
+    ),
+    BadgeModel(
+      id: '10',
+      name: 'Vigilante Noturno',
+      icon: '🌃',
+      rarity: BadgeRarity.common,
+      isUnlocked: false,
+      theme: 'DC Comics',
+    ),
+    BadgeModel(
+      id: '11',
+      name: 'Salvador do Multiverso',
+      icon: '🦾',
+      rarity: BadgeRarity.legendary,
+      isUnlocked: false,
+      theme: 'Marvel',
+    )
+  ];
 }

@@ -8,6 +8,8 @@ class BadgeModel {
   final String icon;
   final BadgeRarity rarity;
   final bool isUnlocked;
+  final String theme;
+  final String requisito; 
 
   BadgeModel({
     required this.id,
@@ -15,6 +17,8 @@ class BadgeModel {
     required this.icon,
     required this.rarity,
     this.isUnlocked = false,
+    this.theme = 'Geral',
+    this.requisito = 'Requisito não definido',
   });
 
   List<Color> get gradientColors {

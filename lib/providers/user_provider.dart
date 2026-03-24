@@ -4,7 +4,7 @@ import '../models/user_model.dart';
 class UserProvider with ChangeNotifier {
   // Lista em memória 
   final List<UserModel> _usuariosCadastrados = [
-    UserModel(nome: "João Gabriel", email: "joao@unarp.br", senha: "123"),
+    UserModel(nome: "Usuário Teste - UA", email: "teste@teste.com", senha: "123"),
   ];
 
   UserModel? _usuarioLogado;
