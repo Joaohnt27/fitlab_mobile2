@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 
 class LabGoalsCard extends StatefulWidget {
-  // Alterado para receber os dados capturados
   final Function(String volume, String frequencia) onIniciar;
 
   const LabGoalsCard({super.key, required this.onIniciar});
@@ -29,7 +28,6 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
   void _handlePress() async {
     if (_buttonState != 0) return;
 
-    // 1. Captura e Validação
     String volume = _volumeController.text;
     String freq = _frequenciaController.text;
 
@@ -43,7 +41,6 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
       return;
     }
 
-    // 2. Inicia animação de Loading
     setState(() => _buttonState = 1);
 
     // Simula o tempo de "mistura" química (2 segundos)
@@ -51,16 +48,16 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
 
     if (!mounted) return;
 
-    // 3. Salva os dados no Provider (Lógica de Negócio)
+    //Salva os dados no Provider
     Provider.of<UserProvider>(
       context,
       listen: false,
     ).salvarExperimentoUsuario(context, volume, freq);
 
-    // 4. Muda para o estado de Sucesso (Check verde)
+    // Muda para o estado de Sucesso
     setState(() => _buttonState = 2);
 
-    // 5. Exibe o Card de confirmação "Fórmula Pronta"
+    // Exibe o Card de confirmação "Fórmula Pronta"
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -125,7 +122,6 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
       },
     );
 
-    // 6. Reseta o botão após um tempo para permitir novos experimentos no futuro
     await Future.delayed(const Duration(seconds: 3));
     if (mounted) {
       setState(() => _buttonState = 0);

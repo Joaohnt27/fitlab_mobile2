@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/app_data.dart';
+import '../providers/user_provider.dart';
 
 class UserLevelBadge extends StatelessWidget {
   const UserLevelBadge({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: AppData.userXP,
-      builder: (context, xp, child) {
-        final nivel = AppData.nivelAtual;
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        final xp = userProvider.usuarioLogado?.xp ?? 0;
+
+        final nivel = AppData.getNivelAtual(xp);
+
+        // Cálculo do progresso
         double progresso = (xp - nivel['min']) / (nivel['max'] - nivel['min']);
 
         return Container(
@@ -50,7 +55,7 @@ class UserLevelBadge extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               LinearProgressIndicator(
-                value: progresso.clamp(0.0, 1.0),
+                value: progresso.isFinite ? progresso.clamp(0.0, 1.0) : 0.0,
                 backgroundColor: Colors.white10,
                 color: const Color(0xFF06B6D4),
                 minHeight: 4,

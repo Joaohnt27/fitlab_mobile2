@@ -1,56 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/app_data.dart';
+import '../providers/user_provider.dart';
 
 class LevelsDetailScreen extends StatelessWidget {
   const LevelsDetailScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Lista de todos os níveis
-    final List<Map<String, dynamic>> todosNiveis = [
-      {
-        "lv": 1,
-        "nome": "Recruta do laboratório",
-        "xp": "0 - 75 XP",
-        "icon": "🧪",
-      },
-      {"lv": 2, "nome": "Voluntário Ativo", "xp": "75 - 115 XP", "icon": "🧬"},
-      {
-        "lv": 3,
-        "nome": "Testador de Performance",
-        "xp": "115 - 150 XP",
-        "icon": "📊",
-      },
-      {
-        "lv": 4,
-        "nome": "Atleta em análise",
-        "xp": "150 - 200 XP",
-        "icon": "🏃",
-      },
-      {
-        "lv": 5,
-        "nome": "Protótipo atlético",
-        "xp": "200 - 260 XP",
-        "icon": "🦾",
-      },
-      {"lv": 6, "nome": "Modelo avançado", "xp": "260 - 320 XP", "icon": "⚡"},
-      {
-        "lv": 7,
-        "nome": "Unidade de Alta Performance",
-        "xp": "320 - 380 XP",
-        "icon": "🛰️",
-      },
-      {"lv": 8, "nome": "Elite Experimental", "xp": "380+ XP", "icon": "🏆"},
-    ];
+    final todosNiveis = AppData.levels;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
           "RANKING DO LABORATÓRIO",
           style: TextStyle(
+            color: Colors.white,
             fontSize: 14,
             fontWeight: FontWeight.bold,
             letterSpacing: 2,
@@ -58,18 +30,22 @@ class LevelsDetailScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: ValueListenableBuilder(
-        valueListenable: AppData.userXP,
-        builder: (context, xpAtual, child) {
-          final nivelUsuario = AppData.nivelAtual['lv'];
+      body: Consumer<UserProvider>(
+        builder: (context, userProvider, child) {
+          final xpAtual = userProvider.usuarioLogado?.xp ?? 0;
+
+          final nivelUsuarioAtual = AppData.getNivelByXP(xpAtual);
+          final int lvAtivo = nivelUsuarioAtual['lv'];
 
           return ListView.builder(
             padding: const EdgeInsets.all(24),
             itemCount: todosNiveis.length,
             itemBuilder: (context, index) {
               final nivel = todosNiveis[index];
-              bool ehAtual = nivel['lv'] == nivelUsuario;
-              bool bloqueado = nivel['lv'] > nivelUsuario;
+              final int lvItem = nivel['lv'];
+
+              bool ehAtual = lvItem == lvAtivo;
+              bool bloqueado = lvItem > lvAtivo;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -88,7 +64,6 @@ class LevelsDetailScreen extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    // Ícone com opacidade se estiver bloqueado
                     Opacity(
                       opacity: bloqueado ? 0.3 : 1.0,
                       child: Text(
@@ -128,22 +103,29 @@ class LevelsDetailScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          nivel['xp'],
+                          "${nivel['min']} - ${nivel['max']} XP",
                           style: const TextStyle(
                             color: Colors.white38,
                             fontSize: 10,
                           ),
                         ),
+                        const SizedBox(height: 4),
                         if (ehAtual)
                           const Icon(
                             Icons.check_circle,
                             color: Color(0xFF06B6D4),
                             size: 16,
-                          ),
-                        if (bloqueado)
+                          )
+                        else if (bloqueado)
                           const Icon(
                             Icons.lock_outline,
                             color: Colors.white10,
+                            size: 16,
+                          )
+                        else
+                          const Icon(
+                            Icons.verified,
+                            color: Colors.white24,
                             size: 16,
                           ),
                       ],

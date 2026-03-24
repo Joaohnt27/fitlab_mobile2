@@ -8,9 +8,6 @@ class AppData {
     null,
   );
 
-  // Sistema de níveis
-  static ValueNotifier<int> userXP = ValueNotifier(0);
-
   // Perfil do atleta
   static ValueNotifier<AthleteProfile> perfilAtleta = ValueNotifier(
     AthleteProfile(),
@@ -31,14 +28,12 @@ class AppData {
   static void resetarPerfil() {
     perfilAtleta.value = AthleteProfile();
 
-    // RESET: Criamos uma nova lista onde todos os isUnlocked são false
     allBadges = allBadges.map((b) => b.copyWith(isUnlocked: false)).toList();
 
     perfilAtleta.notifyListeners();
   }
 
   static void desbloquearConquistasDemo() {
-    // DESBLOQUEIO: Percorremos a lista e desbloqueamos quase todos (exceto os 2 últimos)
     List<BadgeModel> novaLista = [];
 
     for (int i = 0; i < allBadges.length; i++) {
@@ -51,34 +46,6 @@ class AppData {
 
     allBadges = novaLista;
     perfilAtleta.notifyListeners(); // Notifica a UI para colorir os ícones
-  }
-
-  static void registrarCorrida({
-    required double km,
-    required double minutos,
-    required bool novaRota,
-  }) {
-    var perfil = perfilAtleta.value;
-    double pace = minutos / km;
-
-    perfil.totalCorridas++;
-
-    // Lógica de Atribuição de Pontos
-    if (pace < 5.0) perfil.velocidade += 10; // pace rápido -> Velocidade
-    if (km > 8.0) perfil.resistencia += 10; // Distância longa -> Resistência
-    if (novaRota) perfil.exploracao += 10; // Rota nova -> Exploração
-    perfil.consistencia += 5; // Toda corrida gera consistência
-
-    // Notifica os widgets da mudança
-    perfilAtleta.notifyListeners();
-
-    // Aproveita e ganha XP geral
-    ganharXP(25);
-  }
-
-  // Função para ganhar XP
-  static void ganharXP(int quantidade) {
-    userXP.value += quantidade;
   }
 
   // Lógica de Tradução de XP para nome da patente
@@ -129,23 +96,25 @@ class AppData {
     },
   ];
 
-  static Map<String, dynamic> get nivelAtual {
-    return getNivelByXP(userXP.value);
+  static Map<String, dynamic> getNivelAtual(int xp) {
+    return levels.firstWhere(
+      (lvl) => xp >= lvl['min'] && xp <= lvl['max'],
+      orElse: () => levels.last,
+    );
   }
 
   static void desbloquearPrimeiroBadge() {
     int index = allBadges.indexWhere((b) => b.id == '1');
     if (index != -1) {
-      // Usando o copyWith que criamos!
       allBadges[index] = allBadges[index].copyWith(isUnlocked: true);
-      perfilAtleta.notifyListeners(); // Notifica para atualizar a galeria
+      perfilAtleta.notifyListeners();
     }
   }
 
   static Map<String, dynamic> getNivelByXP(int xp) {
     return levels.firstWhere(
       (lvl) => xp >= lvl['min'] && xp <= lvl['max'],
-      orElse: () => levels.last, // Retorna o último nível se o XP for altíssimo
+      orElse: () => levels.last,
     );
   }
 

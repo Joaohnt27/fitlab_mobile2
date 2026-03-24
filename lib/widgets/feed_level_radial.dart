@@ -1,17 +1,20 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/app_data.dart';
+import '../providers/user_provider.dart';
 
 class FeedLevelRadial extends StatelessWidget {
   const FeedLevelRadial({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: AppData.userXP,
-      builder: (context, xp, child) {
-        final nivel = AppData.nivelAtual;
-        // Cálculo da porcentagem do nível atual
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        final xp = userProvider.usuarioLogado?.xp ?? 0;
+
+        final nivel = AppData.getNivelAtual(xp);
+
         double progressoPercentual =
             (xp - nivel['min']) / (nivel['max'] - nivel['min']);
 
@@ -32,22 +35,22 @@ class FeedLevelRadial extends StatelessWidget {
             ),
             child: Row(
               children: [
-                //PARTE RADIAL
+                // PARTE RADIAL
                 SizedBox(
                   width: 50,
                   height: 50,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Arco de Progresso
                       CustomPaint(
                         size: const Size(50, 50),
                         painter: RadialProgressPainter(
-                          progress: progressoPercentual.clamp(0.0, 1.0),
+                          progress: progressoPercentual.isFinite
+                              ? progressoPercentual.clamp(0.0, 1.0)
+                              : 0.0,
                           color: const Color(0xFF06B6D4),
                         ),
                       ),
-                      // O Ícone/Símbolo do Nível no centro
                       Text(nivel['icon'], style: const TextStyle(fontSize: 24)),
                     ],
                   ),
@@ -78,7 +81,7 @@ class FeedLevelRadial extends StatelessWidget {
                 ),
                 Text(
                   "$xp XP",
-                  style: const TextStyle(color: Colors.white10, fontSize: 10),
+                  style: const TextStyle(color: Colors.white12, fontSize: 10),
                 ),
               ],
             ),
@@ -115,7 +118,7 @@ class RadialProgressPainter extends CustomPainter {
     // Desenha o círculo de fundo
     canvas.drawCircle(center, radius, backgroundPaint);
 
-    // Desenha o arco de progresso 
+    // Desenha o arco de progresso
     double angle = 2 * pi * progress;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_data.dart';
-import '../models/user_model.dart'; // Certifique-se de importar o modelo
+import '../models/user_model.dart'; 
 import '../providers/user_provider.dart';
 import '../widgets/badge_item.dart';
 import '../widgets/profile_level_card.dart';

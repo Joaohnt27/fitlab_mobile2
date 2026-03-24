@@ -50,13 +50,10 @@ class UserProvider with ChangeNotifier {
       );
       _usuarioLogado = user;
 
-      // Lógica de Mock
       if (user.email == "fraga@email.com") {
-        AppData.userXP.value = user.xp;
         AppData.configurarPerfilElite();
         AppData.desbloquearConquistasDemo();
       } else {
-        AppData.userXP.value = 0;
         AppData.resetarPerfil();
       }
 
@@ -168,28 +165,29 @@ class UserProvider with ChangeNotifier {
     if (_usuarioLogado != null) {
       // 1. Atualizamos o usuário com o experimento e ganhamos XP
       _usuarioLogado = _usuarioLogado!.copyWith(
-        xp: _usuarioLogado!.xp + 10,
         experimento: {
           'volume': volume,
           'frequencia': freq,
-          'progresso': 0.3,
+          'progresso': 0.0,
           'diasRestantes': 7,
         },
       );
 
-      // 2. Lógica de Desbloqueio do Badge (Ainda acessamos o AppData para a lista global)
+      ganharXPeVerificarLevelUp(context, 50);
+
+      //Lógica de Desbloqueio do Badge
       int index = AppData.allBadges.indexWhere((b) => b.id == '1');
       if (index != -1 && !AppData.allBadges[index].isUnlocked) {
         AppData.allBadges[index] = AppData.allBadges[index].copyWith(
           isUnlocked: true,
         );
 
-        // 3. Incrementamos o contador de conquistas no perfil do usuário
+        // Incrementa o contador de conquistas no perfil do usuário
         _usuarioLogado = _usuarioLogado!.copyWith(
           conquistas: _usuarioLogado!.conquistas + 1,
         );
 
-        // 4. Disparamos o Alerta de Badge (Achievement Unlocked!)
+        // Dispara o Alerta de Badge
         mostrarAlertaBadge(
           context,
           AppData.allBadges[index].name,
@@ -256,5 +254,91 @@ class UserProvider with ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  void ganharXPeVerificarLevelUp(BuildContext context, int quantidade) {
+    if (_usuarioLogado == null) return;
+
+    final nivelAntes = AppData.getNivelByXP(_usuarioLogado!.xp);
+
+    _usuarioLogado = _usuarioLogado!.copyWith(
+      xp: _usuarioLogado!.xp + quantidade,
+    );
+
+    final nivelDepois = AppData.getNivelByXP(_usuarioLogado!.xp);
+
+    if (nivelDepois['lv'] > nivelAntes['lv']) {
+      _mostrarDialogoLevelUp(context, nivelDepois);
+    }
+
+    notifyListeners();
+  }
+
+  // Widget de Level Up
+  void _mostrarDialogoLevelUp(
+    BuildContext context,
+    Map<String, dynamic> novoNivel,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "🚀 NOVO NÍVEL ALCANÇADO!",
+                style: TextStyle(
+                  color: Color(0xFF06B6D4),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(novoNivel['icon'], style: const TextStyle(fontSize: 80)),
+              const SizedBox(height: 10),
+              Text(
+                "PATENTE: ${novoNivel['nome']}".toUpperCase(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Sua biometria evoluiu. Você desbloqueou novas capacidades no laboratório.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF06B6D4),
+                  ),
+                  child: const Text(
+                    "CONTINUAR EVOLUÇÃO",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
