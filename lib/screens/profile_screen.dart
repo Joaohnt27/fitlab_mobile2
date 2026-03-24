@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_data.dart';
-import '../models/badge_model.dart';
 import '../providers/user_provider.dart';
 import '../widgets/badge_item.dart';
 import '../widgets/profile_level_card.dart';
@@ -245,7 +244,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
 
-              // DESCRIÇÃO / BIO 
+              // DESCRIÇÃO / BIO
               if (usuario?.bio != null && usuario!.bio.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -289,7 +288,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
 
                       const SizedBox(height: 30),
-                      _buildQuickStatsGrid(),
+                      _buildQuickStatsGrid(context),
                     ],
                   );
                 },
@@ -325,7 +324,11 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickStatsGrid() {
+  Widget _buildQuickStatsGrid(BuildContext context) {
+    // 1. Pegamos o provedor de usuário
+    final userProvider = Provider.of<UserProvider>(context);
+    final usuario = userProvider.usuarioLogado;
+
     return ValueListenableBuilder(
       valueListenable: AppData.perfilAtleta,
       builder: (context, perfil, child) {
@@ -334,14 +337,20 @@ class ProfileScreen extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Agora usamos os dados do objeto 'usuario'
+              // Se for nulo (usuário recém criado), o '?? 0' garante que mostre zero
               Expanded(
-                child: _buildStatCard(Icons.map_outlined, "12", "Territórios"),
+                child: _buildStatCard(
+                  Icons.map_outlined,
+                  "${usuario?.territorios ?? 0}", // Dinâmico!
+                  "Territórios",
+                ),
               ),
-              const SizedBox(width: 8), 
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatCard(
                   Icons.emoji_events_outlined,
-                  "28",
+                  "${usuario?.conquistas ?? 0}", // Dinâmico!
                   "Conquistas",
                 ),
               ),
@@ -349,7 +358,7 @@ class ProfileScreen extends StatelessWidget {
               Expanded(
                 child: _buildStatCard(
                   Icons.local_fire_department_outlined,
-                  "15",
+                  "${usuario?.streak ?? 0}", // Dinâmico!
                   "Streak",
                 ),
               ),
@@ -357,7 +366,8 @@ class ProfileScreen extends StatelessWidget {
               Expanded(
                 child: _buildStatCard(
                   Icons.track_changes_outlined,
-                  "#3",
+                  // No ranking, se for 0, podemos mostrar "N/A" ou "#--"
+                  usuario?.ranking != null ? "#${usuario!.ranking}" : "#--",
                   "Ranking",
                 ),
               ),

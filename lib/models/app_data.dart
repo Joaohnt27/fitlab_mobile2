@@ -158,6 +158,20 @@ class AppData {
     };
     // Ganha 10 XP só por configurar um experimento
     ganharXP(10);
+    int index = allBadges.indexWhere((b) => b.id == '1');
+    if (index != -1 && !allBadges[index].isUnlocked) {
+      allBadges[index] = allBadges[index].copyWith(isUnlocked: true);
+      // Aqui você pode disparar um SnackBar ou Alerta de "Novo Badge Ganho!"
+    }
+  }
+
+  static void desbloquearPrimeiroBadge() {
+    int index = allBadges.indexWhere((b) => b.id == '1');
+    if (index != -1) {
+      // Usando o copyWith que criamos!
+      allBadges[index] = allBadges[index].copyWith(isUnlocked: true);
+      perfilAtleta.notifyListeners(); // Notifica para atualizar a galeria
+    }
   }
 
   static List<BadgeModel> allBadges = [

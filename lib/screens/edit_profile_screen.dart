@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/app_data.dart';
 import '../providers/user_provider.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -28,19 +29,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // Painel de seleção de avatar estilo Duolingo/CyberLab
   void _showAvatarSelector() {
+    final unlockedIcons = AppData.allBadges
+        .where((b) => b.isUnlocked)
+        .map((b) => b.icon)
+        .toList();
     final List<String> availableAvatars = [
       "🧪",
       "🧬",
       "🏃‍♂️",
-      "⚡",
-      "🦇",
-      "🕸️",
-      "🏎️",
-      "🏆",
-      "🌳",
-      "🎯",
-      "🦾",
-      "🔥",
+      ...unlockedIcons
     ];
 
     showModalBottomSheet(

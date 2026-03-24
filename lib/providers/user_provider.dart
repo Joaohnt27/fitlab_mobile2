@@ -13,6 +13,10 @@ class UserProvider with ChangeNotifier {
       xp: 400,
       classe: "Elite Experimental",
       avatar: "🧬",
+      territorios: 6,
+      conquistas: 7,
+      streak: 15,
+      ranking: 1,
     ),
     UserModel(
       nome: "Usuário Teste - UA",
@@ -67,12 +71,16 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void atualizarPerfil({required String novoNome, String? novoAvatar, String? novaBio}) {
+  void atualizarPerfil({
+    required String novoNome,
+    String? novoAvatar,
+    String? novaBio,
+  }) {
     if (_usuarioLogado != null) {
       // Usa copyWith para criar o novo estado do usuário
       _usuarioLogado = _usuarioLogado!.copyWith(
         nome: novoNome,
-        avatar: novoAvatar, 
+        avatar: novoAvatar,
         bio: novaBio,
       );
 
@@ -83,6 +91,30 @@ class UserProvider with ChangeNotifier {
       if (index != -1) _usuariosCadastrados[index] = _usuarioLogado!;
 
       notifyListeners(); // ISSO FAZ O PERFIL E A TELA DE EDIÇÃO ATUALIZAREM!!!!!
+    }
+
+    void atualizarEstatisticas({
+      int? novosTerritorios,
+      int? novasConquistas,
+      int? novoStreak,
+      int? novoRanking,
+    }) {
+      if (_usuarioLogado != null) {
+        _usuarioLogado = _usuarioLogado!.copyWith(
+          territorios: novosTerritorios,
+          conquistas: novasConquistas,
+          streak: novoStreak,
+          ranking: novoRanking,
+        );
+
+        // Atualiza a referência na lista global de usuários
+        int index = _usuariosCadastrados.indexWhere(
+          (u) => u.email == _usuarioLogado!.email,
+        );
+        if (index != -1) _usuariosCadastrados[index] = _usuarioLogado!;
+
+        notifyListeners(); // Faz o Grid de Stats da ProfileScreen atualizar na hora!
+      }
     }
   }
 }

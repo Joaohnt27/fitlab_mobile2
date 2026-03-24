@@ -7,6 +7,10 @@ class UserModel {
   final String classe;
   final String avatar;
   final String bio;
+  final int territorios;
+  final int conquistas;
+  final int streak;
+  final int ranking;
 
   UserModel({
     required this.nome,
@@ -16,7 +20,12 @@ class UserModel {
     this.xp = 0, // Padrão: 0 XP
     this.classe = "Recruta", // Padrão: Recruta
     this.avatar = "🧪", // Avatar padrão
-    this.bio = "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino. Vamos juntos nessa jornada de evolução física!",
+    this.bio =
+        "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino. Vamos juntos nessa jornada de evolução física!",
+    this.territorios = 0,
+    this.conquistas = 0,
+    this.streak = 0,
+    this.ranking = 0,
   });
 
   UserModel copyWith({
@@ -28,6 +37,10 @@ class UserModel {
     String? classe,
     String? avatar,
     String? bio,
+    int? territorios,
+    int? conquistas,
+    int? streak,
+    int? ranking,
   }) {
     return UserModel(
       nome: nome ?? this.nome,
@@ -38,6 +51,10 @@ class UserModel {
       classe: classe ?? this.classe,
       avatar: avatar ?? this.avatar,
       bio: bio ?? this.bio,
+      territorios: territorios ?? this.territorios,
+      conquistas: conquistas ?? this.conquistas,
+      streak: streak ?? this.streak,
+      ranking: ranking ?? this.ranking,
     );
   }
 }
