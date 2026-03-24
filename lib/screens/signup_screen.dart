@@ -77,7 +77,7 @@ class _SignupScreenState extends State<SignupScreen> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainLayout()),
-          (route) => false, 
+          (route) => false,
         );
       } else {
         _showError('Este e-mail já está cadastrado!');
@@ -247,13 +247,29 @@ class _SignupScreenState extends State<SignupScreen> {
                       "Já faz parte do time? ",
                       style: TextStyle(color: Colors.white54),
                     ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ButtonStyle(
+                        padding: WidgetStateProperty.all(EdgeInsets.zero),
+                        minimumSize: WidgetStateProperty.all(Size.zero),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        foregroundColor: WidgetStateProperty.resolveWith<Color>(
+                          (states) {
+                            if (states.contains(WidgetState.hovered)) {
+                              return const Color(0xFF06B6D4);
+                            }
+                            return const Color(0xFF06B6D4).withOpacity(0.7);
+                          },
+                        ),
+                        overlayColor: WidgetStateProperty.all(
+                          const Color(0xFF06B6D4).withOpacity(0.1),
+                        ),
+                      ),
                       child: const Text(
                         "ENTRAR",
                         style: TextStyle(
-                          color: Color(0xFF06B6D4),
                           fontWeight: FontWeight.bold,
+                          fontSize: 13,
                         ),
                       ),
                     ),
