@@ -8,6 +8,7 @@ import '../widgets/profile_level_card.dart';
 import '../widgets/radar_chart_interactive.dart';
 import 'about_screen.dart';
 import 'badges_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -145,7 +146,14 @@ class ProfileScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 children: [
-                  _buildMenuTile(Icons.person_outline, "Editar Perfil", () {}),
+                  _buildMenuTile(Icons.person_outline, "Editar Perfil", () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EditProfileScreen(),
+                      ),
+                    );
+                  }),
                   _buildMenuTile(Icons.history, "Histórico de Corridas", () {}),
                   _buildMenuTile(
                     Icons.notifications_none,
@@ -189,9 +197,11 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildProfileHeader() {
-    // usamos o Consumer p/ ouvir as mudanças no UserProvider
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
+        final usuario =
+            userProvider.usuarioLogado; // Acesso facilitado aos dados
+
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.only(top: 60, bottom: 30),
@@ -204,7 +214,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Avatar com borda neon
+              // Avatar Dinâmico (Emoji selecionado)
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
@@ -213,17 +223,20 @@ class ProfileScreen extends StatelessWidget {
                     colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
                   ),
                 ),
-                child: const CircleAvatar(
+                child: CircleAvatar(
                   radius: 50,
-                  backgroundColor: Color(0xFF1A1A1A),
-                  child: Icon(Icons.person, size: 50, color: Colors.white24),
+                  backgroundColor: const Color(0xFF1A1A1A),
+                  child: Text(
+                    usuario?.avatar ?? "🧪",
+                    style: const TextStyle(fontSize: 50),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // NOME VINDO DO PROVIDER
+              // NOME DINÂMICO
               Text(
-                userProvider.nome.toUpperCase(),
+                (usuario?.nome ?? "ATLETA").toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
@@ -231,6 +244,24 @@ class ProfileScreen extends StatelessWidget {
                   letterSpacing: 1,
                 ),
               ),
+
+              // DESCRIÇÃO / BIO 
+              if (usuario?.bio != null && usuario!.bio.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    usuario.bio,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
 
               ValueListenableBuilder(
                 valueListenable: AppData.perfilAtleta,
@@ -246,7 +277,9 @@ class ProfileScreen extends StatelessWidget {
                           letterSpacing: 1.5,
                         ),
                       ),
-                      const SizedBox(height: 4),
+
+                      const SizedBox(height: 2),
+
                       Text(
                         "Baseado em ${perfil.totalCorridas} experimentos",
                         style: const TextStyle(
@@ -254,7 +287,8 @@ class ProfileScreen extends StatelessWidget {
                           fontSize: 10,
                         ),
                       ),
-                      const SizedBox(height: 4),
+
+                      const SizedBox(height: 30),
                       _buildQuickStatsGrid(),
                     ],
                   );
@@ -297,20 +331,36 @@ class ProfileScreen extends StatelessWidget {
       builder: (context, perfil, child) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 4,
-            crossAxisSpacing: 12,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildStatCard(Icons.map_outlined, "12", "Territórios"),
-              _buildStatCard(Icons.emoji_events_outlined, "28", "Conquistas"),
-              _buildStatCard(
-                Icons.local_fire_department_outlined,
-                "15",
-                "Streak",
+              Expanded(
+                child: _buildStatCard(Icons.map_outlined, "12", "Territórios"),
               ),
-              _buildStatCard(Icons.track_changes_outlined, "#3", "Ranking"),
+              const SizedBox(width: 8), 
+              Expanded(
+                child: _buildStatCard(
+                  Icons.emoji_events_outlined,
+                  "28",
+                  "Conquistas",
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildStatCard(
+                  Icons.local_fire_department_outlined,
+                  "15",
+                  "Streak",
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildStatCard(
+                  Icons.track_changes_outlined,
+                  "#3",
+                  "Ranking",
+                ),
+              ),
             ],
           ),
         );
@@ -416,7 +466,7 @@ class ProfileScreen extends StatelessWidget {
             itemCount: displayBadges.length,
             itemBuilder: (context, index) {
               return BadgeItem(badge: displayBadges[index], context: context);
-            }
+            },
           ),
         ],
       ),

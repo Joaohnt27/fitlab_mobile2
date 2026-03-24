@@ -10,13 +10,15 @@ class UserProvider with ChangeNotifier {
       email: "fraga@email.com",
       senha: "fraga",
       nivel: 42,
-      xp: 400, 
+      xp: 400,
       classe: "Elite Experimental",
+      avatar: "🧬",
     ),
     UserModel(
       nome: "Usuário Teste - UA",
       email: "teste@teste.com",
       senha: "123",
+      avatar: "🧪",
     ),
   ];
 
@@ -43,11 +45,11 @@ class UserProvider with ChangeNotifier {
       );
       _usuarioLogado = user;
 
-      // Lógica de Mock 
+      // Lógica de Mock
       if (user.email == "fraga@email.com") {
         AppData.userXP.value = user.xp;
-        AppData.configurarPerfilElite(); 
-        AppData.desbloquearConquistasDemo(); 
+        AppData.configurarPerfilElite();
+        AppData.desbloquearConquistasDemo();
       } else {
         AppData.userXP.value = 0;
         AppData.resetarPerfil();
@@ -63,5 +65,24 @@ class UserProvider with ChangeNotifier {
   void logout() {
     _usuarioLogado = null;
     notifyListeners();
+  }
+
+  void atualizarPerfil({required String novoNome, String? novoAvatar, String? novaBio}) {
+    if (_usuarioLogado != null) {
+      // Usa copyWith para criar o novo estado do usuário
+      _usuarioLogado = _usuarioLogado!.copyWith(
+        nome: novoNome,
+        avatar: novoAvatar, 
+        bio: novaBio,
+      );
+
+      // Atualiza também na lista de cadastrados (persistência em memória)
+      int index = _usuariosCadastrados.indexWhere(
+        (u) => u.email == _usuarioLogado!.email,
+      );
+      if (index != -1) _usuariosCadastrados[index] = _usuarioLogado!;
+
+      notifyListeners(); // ISSO FAZ O PERFIL E A TELA DE EDIÇÃO ATUALIZAREM!!!!!
+    }
   }
 }
