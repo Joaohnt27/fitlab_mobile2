@@ -54,16 +54,16 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 40),
 
-            // Card - Objetivo do App 
+            // Card - Objetivo do App
             _buildAboutCard(
               title: "OBJETIVO",
               content:
-                  "O FitLab é pipipóó",
+                  "O FitLab é um aplicativo de acompanhamento dinâmico para praticantes de corrida e caminhada, integrando em um sistema unificado, as necessidades do atleta e as diretrizes do treinador, utilizando inteligência artificial para personalização dos treinos e mecânicas de gamificação com a finalidade de aumentar a retenção e motivação dos usuários",
             ),
 
             const SizedBox(height: 20),
 
-            // Card de Equipe 
+            // Card de Equipe
             _buildAboutCard(
               title: "DESENVOLVIMENTO",
               content:
