@@ -1,30 +1,43 @@
 import 'package:flutter/material.dart';
+import '../models/user_model.dart';
 
-class UserProvider extends ChangeNotifier {
-  String _nome = "Usuário";
-  String _email = "";
-  String _telefone = "";
+class UserProvider with ChangeNotifier {
+  // Lista em memória 
+  final List<UserModel> _usuariosCadastrados = [
+    UserModel(nome: "João Gabriel", email: "joao@unarp.br", senha: "123"),
+  ];
 
-  // Getters para acessar os dados nas telas (Perfil, Home, etc)
-  String get nome => _nome;
-  String get email => _email;
-  String get telefone => _telefone;
+  UserModel? _usuarioLogado;
 
-  // Método que a SignupScreen chama para salvar os dados
-  void realizarCadastro(
-    String novoNome,
-    String novoEmail,
-    String novoTelefone,
-  ) {
-    _nome = novoNome;
-    _email = novoEmail;
-    _telefone = novoTelefone;
+  UserModel? get usuarioLogado => _usuarioLogado;
+  String get nome => _usuarioLogado?.nome ?? "Usuário";
 
+  // Método para Criar Conta
+  bool registrar(String nome, String email, String senha) {
+    // Verifica se o e-mail já existe
+    if (_usuariosCadastrados.any((u) => u.email == email)) return false;
+
+    _usuariosCadastrados.add(UserModel(nome: nome, email: email, senha: senha));
     notifyListeners();
+    return true;
   }
 
-  void realizarLogin(String emailInformado) {
-    _email = emailInformado;
+  // Método para Logar
+  bool login(String email, String senha) {
+    try {
+      final user = _usuariosCadastrados.firstWhere(
+        (u) => u.email == email && u.senha == senha,
+      );
+      _usuarioLogado = user;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      return false; 
+    }
+  }
+
+  void logout() {
+    _usuarioLogado = null;
     notifyListeners();
   }
 }

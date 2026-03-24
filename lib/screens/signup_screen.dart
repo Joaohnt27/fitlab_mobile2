@@ -58,23 +58,29 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     try {
-      Provider.of<UserProvider>(
-        context,
-        listen: false,
-      ).realizarCadastro(name, email, phone);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Bem-vindo ao time, $name!'),
-          backgroundColor: const Color(0xFF06B6D4),
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      bool sucesso = userProvider.registrar(name, email, password);
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainLayout()),
-      );
+      if (sucesso) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Bem-vindo ao time, $name!'),
+            backgroundColor: const Color(0xFF06B6D4),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        // Após registrar, login automático para preencher o usuário logado
+        userProvider.login(email, password);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainLayout()),
+        );
+      } else {
+        _showError('Este e-mail já está cadastrado!');
+      }
     } catch (e) {
       _showError('Erro ao realizar cadastro. Tente novamente.');
     }

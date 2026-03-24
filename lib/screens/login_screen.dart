@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 import 'forgot_password_screen.dart';
 import 'main_layout.dart';
 import 'signup_screen.dart';
@@ -15,13 +17,35 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   void _handleLogin() {
-    String email = _emailController.text;
+    String email = _emailController.text.trim();
     String password = _passwordController.text;
 
-    if (email.isNotEmpty && password.isNotEmpty) {
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Preencha todos os campos!")),
+      );
+      return;
+    }
+
+    // Acessa o UserProvider sem ouvir mudanças
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Chama o método de login criado no Provider
+    bool sucesso = userProvider.login(email, password);
+
+    if (sucesso) {
+      // Login bem-sucedido: vai para a Home
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const MainLayout()),
+      );
+    } else {
+      // Erro: mostra um alerta para o usuário
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.redAccent,
+          content: Text("E-mail ou senha incorretos!"),
+        ),
       );
     }
   }
@@ -189,11 +213,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           builder: (context) => const SignupScreen(),
                         ),
                       ),
-                      child: const Text(
-                        "CADASTRE-SE",
+                      child: Text(
+                        "CRIAR CONTA",
                         style: TextStyle(
-                          color: Color(0xFF06B6D4),
-                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF06B6D4).withOpacity(0.7),
+                          fontSize: 13,
                         ),
                       ),
                     ),

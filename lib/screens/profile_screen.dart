@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_data.dart';
+import '../models/badge_model.dart';
 import '../providers/user_provider.dart';
+import '../widgets/badge_item.dart';
 import '../widgets/profile_level_card.dart';
 import '../widgets/radar_chart_interactive.dart';
 import 'about_screen.dart';
@@ -76,6 +78,11 @@ class ProfileScreen extends StatelessWidget {
               child: ProfileLevelCard(),
             ),
 
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _buildBadgesGallery(),
+            ),
             const SizedBox(height: 32),
 
             Padding(
@@ -246,6 +253,8 @@ class ProfileScreen extends StatelessWidget {
                           fontSize: 10,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      _buildQuickStatsGrid(),
                     ],
                   );
                 },
@@ -278,6 +287,183 @@ class ProfileScreen extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right, color: Colors.white10),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  Widget _buildQuickStatsGrid() {
+    return ValueListenableBuilder(
+      valueListenable: AppData.perfilAtleta,
+      builder: (context, perfil, child) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 4,
+            crossAxisSpacing: 12,
+            children: [
+              _buildStatCard(Icons.map_outlined, "12", "Territórios"),
+              _buildStatCard(Icons.emoji_events_outlined, "28", "Conquistas"),
+              _buildStatCard(
+                Icons.local_fire_department_outlined,
+                "15",
+                "Streak",
+              ),
+              _buildStatCard(Icons.track_changes_outlined, "#3", "Ranking"),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard(IconData icon, String value, String label) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white70, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadgesGallery() {
+    final List<BadgeModel> badges = [
+      BadgeModel(
+        id: '1',
+        name: 'Mestre Jedi',
+        icon: '⚔️',
+        rarity: BadgeRarity.legendary,
+        isUnlocked: true,
+      ),
+      BadgeModel(
+        id: '2',
+        name: 'Vingador',
+        icon: '🦸',
+        rarity: BadgeRarity.epic,
+        isUnlocked: true,
+      ),
+      BadgeModel(
+        id: '3',
+        name: 'Maratonista',
+        icon: '🎖️',
+        rarity: BadgeRarity.rare,
+        isUnlocked: true,
+      ),
+      BadgeModel(
+        id: '4',
+        name: 'Velocista',
+        icon: '⚡',
+        rarity: BadgeRarity.common,
+        isUnlocked: true,
+      ),
+      BadgeModel(
+        id: '5',
+        name: 'Explorador',
+        icon: '🗺️',
+        rarity: BadgeRarity.rare,
+        isUnlocked: false,
+      ),
+      BadgeModel(
+        id: '6',
+        name: 'Mestre',
+        icon: '🪄',
+        rarity: BadgeRarity.legendary,
+        isUnlocked: false,
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho com Título e Botão Ver Mais
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    "CONQUISTAS",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "${badges.where((b) => b.isUnlocked).length}/${badges.length}",
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ],
+              ),
+              // Botão Ver Mais
+              TextButton(
+                onPressed: () {
+                  // Implementar navegação para tela de todas as conquistas
+                },
+                style: TextButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  "Ver mais",
+                  style: TextStyle(
+                    color: Color(0xFF06B6D4),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.75,
+            ),
+            itemCount: 4,
+            itemBuilder: (context, index) {
+              return BadgeItem(badge: badges[index]);
+            },
+          ),
+        ],
+      ),
     );
   }
 }
