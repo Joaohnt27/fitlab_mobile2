@@ -27,18 +27,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _currentAvatar = user?.avatar ?? "🧪"; // Inicializa com o avatar atual
   }
 
-  // Painel de seleção de avatar estilo Duolingo/CyberLab
+  // Painel de seleção de avatar 
   void _showAvatarSelector() {
     final unlockedIcons = AppData.allBadges
         .where((b) => b.isUnlocked)
         .map((b) => b.icon)
         .toList();
     final List<String> availableAvatars = [
-      "🧪",
-      "🧬",
-      "🏃‍♂️",
-      ...unlockedIcons
-    ];
+      "🏃‍♂️", // Ícone básico que não é badge
+      ...unlockedIcons,
+    ].toSet().toList();
 
     showModalBottomSheet(
       context: context,

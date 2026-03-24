@@ -82,87 +82,55 @@ class AppData {
   }
 
   // Lógica de Tradução de XP para nome da patente
-  static Map<String, dynamic> get nivelAtual {
-    int xp = userXP.value;
-    if (xp < 75)
-      return {
-        "lv": 1,
-        "nome": "Recruta do laboratório",
-        "icon": "🧪",
-        "min": 0,
-        "max": 75,
-      };
-    if (xp < 115)
-      return {
-        "lv": 2,
-        "nome": "Voluntário Ativo",
-        "icon": "🧬",
-        "min": 75,
-        "max": 115,
-      };
-    if (xp < 150)
-      return {
-        "lv": 3,
-        "nome": "Testador de Performance",
-        "icon": "📊",
-        "min": 115,
-        "max": 150,
-      };
-    if (xp < 200)
-      return {
-        "lv": 4,
-        "nome": "Atleta em análise",
-        "icon": "🏃",
-        "min": 150,
-        "max": 200,
-      };
-    if (xp < 260)
-      return {
-        "lv": 5,
-        "nome": "Protótipo atlético",
-        "icon": "🏋️",
-        "min": 200,
-        "max": 260,
-      };
-    if (xp < 320)
-      return {
-        "lv": 6,
-        "nome": "Modelo avançado",
-        "icon": "💪",
-        "min": 260,
-        "max": 320,
-      };
-    if (xp < 380)
-      return {
-        "lv": 7,
-        "nome": "Unidade de Alta Performance",
-        "icon": "⚡",
-        "min": 320,
-        "max": 380,
-      };
-    return {
+  static final List<Map<String, dynamic>> levels = [
+    {
+      "lv": 1,
+      "nome": "Recruta do laboratório",
+      "icon": "🧪",
+      "min": 0,
+      "max": 75,
+    },
+    {"lv": 2, "nome": "Voluntário Ativo", "icon": "🧬", "min": 76, "max": 115},
+    {
+      "lv": 3,
+      "nome": "Testador de Performance",
+      "icon": "📊",
+      "min": 116,
+      "max": 150,
+    },
+    {
+      "lv": 4,
+      "nome": "Atleta em análise",
+      "icon": "🏃",
+      "min": 151,
+      "max": 200,
+    },
+    {
+      "lv": 5,
+      "nome": "Protótipo atlético",
+      "icon": "🏋️",
+      "min": 201,
+      "max": 260,
+    },
+    {"lv": 6, "nome": "Modelo avançado", "icon": "💪", "min": 261, "max": 320},
+    {
+      "lv": 7,
+      "nome": "Unidade de Alta Performance",
+      "icon": "⚡",
+      "min": 321,
+      "max": 380,
+    },
+    {
       "lv": 8,
       "nome": "Elite Experimental",
       "icon": "🎖️",
-      "min": 380,
-      "max": 1000,
-    };
-  }
+      "min": 381,
+      "max": 10000,
+    },
+  ];
 
-  static void salvarExperimento(String volume, String frequencia) {
-    experimentoAtivo.value = {
-      'volume': volume,
-      'frequencia': frequencia,
-      'progresso': 0.3,
-      'diasRestantes': 7,
-    };
-    // Ganha 10 XP só por configurar um experimento
-    ganharXP(10);
-    int index = allBadges.indexWhere((b) => b.id == '1');
-    if (index != -1 && !allBadges[index].isUnlocked) {
-      allBadges[index] = allBadges[index].copyWith(isUnlocked: true);
-      // Aqui você pode disparar um SnackBar ou Alerta de "Novo Badge Ganho!"
-    }
+  static Map<String, dynamic> get nivelAtual {
+    return getNivelByXP(userXP.value);
   }
 
   static void desbloquearPrimeiroBadge() {
@@ -172,6 +140,13 @@ class AppData {
       allBadges[index] = allBadges[index].copyWith(isUnlocked: true);
       perfilAtleta.notifyListeners(); // Notifica para atualizar a galeria
     }
+  }
+
+  static Map<String, dynamic> getNivelByXP(int xp) {
+    return levels.firstWhere(
+      (lvl) => xp >= lvl['min'] && xp <= lvl['max'],
+      orElse: () => levels.last, // Retorna o último nível se o XP for altíssimo
+    );
   }
 
   static List<BadgeModel> allBadges = [

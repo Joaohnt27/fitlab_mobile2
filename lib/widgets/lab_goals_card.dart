@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 
 class LabGoalsCard extends StatefulWidget {
   // Alterado para receber os dados capturados
@@ -27,11 +29,10 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
   void _handlePress() async {
     if (_buttonState != 0) return;
 
-    // Captura os valores atuais dos campos
+    // 1. Captura e Validação
     String volume = _volumeController.text;
     String freq = _frequenciaController.text;
 
-    // Validação simples para não iniciar vazio
     if (volume.isEmpty || freq.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -42,17 +43,89 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
       return;
     }
 
+    // 2. Inicia animação de Loading
     setState(() => _buttonState = 1);
 
-    // Simula o tempo de "mistura" (2 segundos)
+    // Simula o tempo de "mistura" química (2 segundos)
     await Future.delayed(const Duration(seconds: 2));
 
+    if (!mounted) return;
+
+    // 3. Salva os dados no Provider (Lógica de Negócio)
+    Provider.of<UserProvider>(
+      context,
+      listen: false,
+    ).salvarExperimentoUsuario(context, volume, freq);
+
+    // 4. Muda para o estado de Sucesso (Check verde)
     setState(() => _buttonState = 2);
 
-    // Envia os dados para a WorkoutsScreen
-    widget.onIniciar(volume, freq);
+    // 5. Exibe o Card de confirmação "Fórmula Pronta"
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.science, color: Color(0xFF06B6D4), size: 60),
+                const SizedBox(height: 24),
+                const Text(
+                  "FÓRMULA PRONTA!",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "Seu experimento de $volume km em $freq dias foi configurado com sucesso e já está rodando no seu Feed.",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF06B6D4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      "VAMOS NESSA!",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
 
-    // Volta ao estado original após 3 segundos
+    // 6. Reseta o botão após um tempo para permitir novos experimentos no futuro
     await Future.delayed(const Duration(seconds: 3));
     if (mounted) {
       setState(() => _buttonState = 0);
@@ -103,7 +176,7 @@ class _LabGoalsCardState extends State<LabGoalsCard> {
           ),
           const SizedBox(height: 24),
 
-          // BOTÃO ANIMADO 
+          // BOTÃO ANIMADO
           SizedBox(
             width: double.infinity,
             height: 50,

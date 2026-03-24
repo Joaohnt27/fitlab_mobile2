@@ -1,12 +1,11 @@
 import 'package:fitlab_mobile2/widgets/feed_level_radial.dart';
 import 'package:flutter/material.dart';
-import '../widgets/experiment_progress_card.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 import '../widgets/feed_card.dart';
 import '../models/feed_item.dart';
 import '../widgets/suggest_user_card.dart';
 import '../widgets/trending_challenge_card.dart';
-import '../models/app_data.dart';
-import '../widgets/user_level_badge.dart';
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -90,38 +89,51 @@ class FeedScreen extends StatelessWidget {
               ),
             ),
             actions: [
-              // Medidor de sequência (Streak) com tooltip
               Padding(
                 padding: const EdgeInsets.only(right: 16.0),
                 child: Tooltip(
                   message: "Medidor de sequência",
                   triggerMode: TooltipTriggerMode.tap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(
-                          Icons.local_fire_department,
-                          color: Colors.orange,
-                          size: 20,
+                  child: Consumer<UserProvider>(
+                    builder: (context, userProvider, child) {
+                      final streak = userProvider.usuarioLogado?.streak ?? 0;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                        SizedBox(width: 4),
-                        Text(
-                          "7",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        decoration: BoxDecoration(
+                          // Se o streak for 0, fundo cinza, senão, laranja
+                          color: streak > 0
+                              ? Colors.orange.withOpacity(0.2)
+                              : Colors.white10,
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.local_fire_department,
+                              // Se o fogo estiver apagado (streak 0), mudamos a cor para cinza
+                              color: streak > 0
+                                  ? Colors.orange
+                                  : Colors.white38,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "$streak",
+                              style: TextStyle(
+                                color: streak > 0
+                                    ? Colors.white
+                                    : Colors.white38,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -149,34 +161,133 @@ class FeedScreen extends StatelessWidget {
             ),
           ),
 
-          ValueListenableBuilder(
-            valueListenable: AppData.experimentoAtivo,
-            builder: (context, experimento, child) {
-              if (experimento == null) {
-                return const SliverToBoxAdapter(child: SizedBox.shrink());
-              }
+          SliverToBoxAdapter(
+            child: Consumer<UserProvider>(
+              builder: (context, userProvider, child) {
+                final experimento = userProvider.usuarioLogado?.experimento;
 
-              final String volumeRaw = experimento['volume']
-                  .toString()
-                  .replaceAll(RegExp(r'[^0-9.]'), '');
-              final double meta = double.tryParse(volumeRaw) ?? 0.0;
-              final double progressoPercentual =
-                  experimento['progresso'] ?? 0.0;
+                if (experimento == null) {
+                  return Container(
+                    padding: const EdgeInsets.all(24),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      "Nenhum experimento ativo. Vá ao laboratório!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white24, fontSize: 12),
+                    ),
+                  );
+                }
 
-              return SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 20,
+                final String volumeMeta = experimento['volume'] ?? "0";
+                final String dias = experimento['frequencia'] ?? "0";
+                final double progressoReal = experimento['progresso'] ?? 0.0;
+
+                double kmMetaNumerico =
+                    double.tryParse(
+                      volumeMeta.replaceAll(RegExp(r'[^0-9.]'), ''),
+                    ) ??
+                    0.0;
+                double kmAtual = kmMetaNumerico * progressoReal;
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
                   ),
-                  child: ExperimentProgressCard(
-                    kmMeta: meta,
-                    kmAtual: meta * progressoPercentual,
-                    diasRestantes: experimento['diasRestantes'] ?? 7,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A1A),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: const Color(0xFF06B6D4).withOpacity(0.2),
+                    ),
                   ),
-                ),
-              );
-            },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "ANDAMENTO DO EXPERIMENTO",
+                            style: TextStyle(
+                              color: Color(0xFF06B6D4),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          Text(
+                            "$dias restantes",
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            "${kmAtual.toStringAsFixed(1)}km",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              "Meta: ${volumeMeta}km",
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Stack(
+                        children: [
+                          Container(
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: Colors.white10,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                          FractionallySizedBox(
+                            widthFactor:
+                                progressoReal, 
+                            child: Container(
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF06B6D4),
+                                borderRadius: BorderRadius.circular(3),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF06B6D4,
+                                    ).withOpacity(0.3),
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 30)),
@@ -311,8 +422,8 @@ class FeedScreen extends StatelessWidget {
     );
   }
 
-  // O seu widget de mapa (mesmo código anterior)
+  // widget de mapa 
   Widget _buildTerritoryMapCard() {
-    return Container(/* ... mesmo código do card anterior ... */);
+    return Container();
   }
 }

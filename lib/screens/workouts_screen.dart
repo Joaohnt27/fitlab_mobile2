@@ -1,5 +1,6 @@
+import 'package:fitlab_mobile2/providers/user_provider.dart';
 import 'package:flutter/material.dart';
-import '../models/app_data.dart';
+import 'package:provider/provider.dart';
 import '../widgets/pace_calculator_card.dart';
 import '../widgets/challenge_card.dart';
 import '../widgets/lab_goals_card.dart';
@@ -13,7 +14,6 @@ class WorkoutsScreen extends StatefulWidget {
 }
 
 class _WorkoutsScreenState extends State<WorkoutsScreen> {
-  // ... Seus dados de _allChallenges (mantidos iguais)
   final List<Map<String, dynamic>> _allChallenges = [
     {
       "icon": "⚔️",
@@ -53,7 +53,10 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 
   void _iniciarExperimento(String volume, String frequencia) {
     debugPrint("Iniciando experimento: $volume km, $frequencia vezes/semana");
-    AppData.salvarExperimento(volume, frequencia);
+    Provider.of<UserProvider>(
+      context,
+      listen: false,
+    ).salvarExperimentoUsuario(context, volume, frequencia);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -112,6 +115,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
+  // Função para calcular o pace
   void _calcularPace() {
     double? distancia = double.tryParse(_distanciaController.text);
     double? tempoMinutos = double.tryParse(_tempoController.text);
@@ -134,7 +138,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ... SliverAppBar (mantido igual)
           SliverAppBar(
             expandedHeight: 120.0,
             floating: false,
@@ -178,32 +181,44 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                 child: Tooltip(
                   message: "Medidor de sequência",
                   triggerMode: TooltipTriggerMode.tap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: const [
-                        Icon(
-                          Icons.local_fire_department,
-                          color: Colors.orange,
-                          size: 20,
+                  child: Consumer<UserProvider>(
+                    builder: (context, userProvider, child) {
+                      final streak = userProvider.usuarioLogado?.streak ?? 0;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
                         ),
-                        SizedBox(width: 4),
-                        Text(
-                          "7",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        decoration: BoxDecoration(
+                          color: streak > 0
+                              ? Colors.orange.withOpacity(0.2)
+                              : Colors.white10,
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.local_fire_department,
+                              color: streak > 0
+                                  ? Colors.orange
+                                  : Colors.white38,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "$streak",
+                              style: TextStyle(
+                                color: streak > 0
+                                    ? Colors.white
+                                    : Colors.white38,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Import necessário
 import '../models/app_data.dart';
+import '../providers/user_provider.dart'; // Import necessário
 import '../screens/levels_detail_screen.dart';
 
 class ProfileLevelCard extends StatelessWidget {
@@ -7,10 +9,16 @@ class ProfileLevelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: AppData.userXP,
-      builder: (context, xp, child) {
-        final nivel = AppData.nivelAtual;
+    // Trocamos o ValueListenableBuilder pelo Consumer
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        // Pegamos o XP real do usuário logado
+        final xp = userProvider.usuarioLogado?.xp ?? 0;
+
+        // Usamos a lógica do AppData para calcular o nível com base nesse XP
+        final nivel = AppData.getNivelByXP(xp);
+
+        // Cálculo do progresso da barra
         double progresso = (xp - nivel['min']) / (nivel['max'] - nivel['min']);
 
         return Container(
@@ -34,7 +42,7 @@ class ProfileLevelCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    "$xp XP",
+                    "$xp XP", // Agora esse valor é dinâmico!
                     style: const TextStyle(color: Colors.white38, fontSize: 10),
                   ),
                 ],
@@ -55,7 +63,6 @@ class ProfileLevelCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              // barra de progresso linear
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: LinearProgressIndicator(

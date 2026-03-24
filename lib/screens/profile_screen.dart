@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_data.dart';
+import '../models/user_model.dart'; // Certifique-se de importar o modelo
 import '../providers/user_provider.dart';
 import '../widgets/badge_item.dart';
 import '../widgets/profile_level_card.dart';
@@ -35,7 +36,6 @@ class ProfileScreen extends StatelessWidget {
             style: TextStyle(color: Colors.white70),
           ),
           actions: [
-            // Botão NÃO -> Apenas fecha o diálogo e continua no perfil
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text("NÃO", style: TextStyle(color: Colors.white38)),
@@ -66,128 +66,245 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Cabeçalho do perfil
-            _buildProfileHeader(),
+      body: Consumer<UserProvider>(
+        // Consumer no topo para reagir a XP, Streak, etc.
+        builder: (context, userProvider, child) {
+          final usuario = userProvider.usuarioLogado;
 
-            const SizedBox(height: 30),
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                _buildProfileHeader(usuario), // Passa o usuário para o header
 
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
-              child: ProfileLevelCard(),
-            ),
+                const SizedBox(height: 30),
 
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _buildBadgesGallery(context),
-            ),
-            const SizedBox(height: 32),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24),
+                  child:
+                      ProfileLevelCard(), // Verifique se há um Consumer dentro deste widget também
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "BIOMETRIA DE PERFORMANCE",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                        const Icon(
-                          Icons.psychology,
-                          color: Colors.white24,
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    // O Gráfico propriamente dito
-                    // Dentro do Column da ProfileScreen
-                    ValueListenableBuilder(
-                      valueListenable: AppData.perfilAtleta,
-                      builder: (context, perfil, child) {
-                        return Center(
-                          // Certifique-se de que está centralizado
-                          child: RadarChartInteractive(
-                            // Chame o widget direto, sem SizedBox restritivo
-                            data: perfil.normalizedData,
-                            color: const Color(0xFF06B6D4), // Ciano FitLab
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: _buildBadgesGallery(context),
+                ),
+
+                const SizedBox(height: 32),
+
+                _buildBiometriaCard(context),
+
+                const SizedBox(height: 32),
+
+                _buildMenuOptions(context),
+
+                const SizedBox(height: 40),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(UserModel? usuario) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 60, bottom: 30),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF1D4ED8), Color(0xFF0D0D0D)],
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
+              ),
+            ),
+            child: CircleAvatar(
+              radius: 50,
+              backgroundColor: const Color(0xFF1A1A1A),
+              child: Text(
+                usuario?.avatar ?? "🧪",
+                style: const TextStyle(fontSize: 50),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            (usuario?.nome ?? "ATLETA").toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
+          ),
+          if (usuario?.bio != null && usuario!.bio.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
+              child: Text(
+                usuario.bio,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
                 ),
               ),
             ),
-
-            const SizedBox(height: 32),
-
-            // menu de opções
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
+          const SizedBox(height: 10),
+          ValueListenableBuilder(
+            valueListenable: AppData.perfilAtleta,
+            builder: (context, perfil, child) {
+              return Column(
                 children: [
-                  _buildMenuTile(Icons.person_outline, "Editar Perfil", () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const EditProfileScreen(),
-                      ),
-                    );
-                  }),
-                  _buildMenuTile(Icons.history, "Histórico de Corridas", () {}),
-                  _buildMenuTile(
-                    Icons.notifications_none,
-                    "Notificações",
-                    () {},
+                  Text(
+                    perfil.classeIdentificada,
+                    style: const TextStyle(
+                      color: Color(0xFF06B6D4),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
                   ),
-                  _buildMenuTile(Icons.security, "Privacidade", () {}),
-
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Divider(color: Colors.white10),
+                  Text(
+                    "Baseado em ${perfil.totalCorridas} experimentos",
+                    style: const TextStyle(color: Colors.white38, fontSize: 10),
                   ),
-
-                  // BOTÃO SOBRE
-                  _buildMenuTile(Icons.info_outline, "Sobre o Projeto", () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AboutScreen(),
-                      ),
-                    );
-                  }, isHighlight: true),
-
-                  const SizedBox(height: 20),
-
-                  // Botão de sair
-                  _buildMenuTile(
-                    Icons.logout,
-                    "Sair",
-                    () =>
-                        _showLogoutDialog(context), // Chama a função do diálogo
-                    color: Colors.redAccent,
-                  ),
+                  const SizedBox(height: 30),
+                  _buildQuickStatsGrid(
+                    usuario,
+                  ), // Passa o usuário dinâmico aqui
                 ],
-              ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickStatsGrid(UserModel? usuario) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              Icons.map_outlined,
+              "${usuario?.territorios ?? 0}",
+              "Territórios",
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildStatCard(
+              Icons.emoji_events_outlined,
+              "${usuario?.conquistas ?? 0}",
+              "Conquistas",
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildStatCard(
+              Icons.local_fire_department_outlined,
+              "${usuario?.streak ?? 0}",
+              "Streak",
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildStatCard(
+              Icons.track_changes_outlined,
+              usuario?.ranking != null && usuario?.ranking != 0
+                  ? "#${usuario!.ranking}"
+                  : "#--",
+              "Ranking",
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(IconData icon, String value, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.white70, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 9),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBiometriaCard(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withOpacity(0.05)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "BIOMETRIA DE PERFORMANCE",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                Icon(Icons.psychology, color: Colors.white24, size: 20),
+              ],
+            ),
+            const SizedBox(height: 32),
+            ValueListenableBuilder(
+              valueListenable: AppData.perfilAtleta,
+              builder: (context, perfil, child) {
+                return Center(
+                  child: RadarChartInteractive(
+                    data: perfil.normalizedData,
+                    color: const Color(0xFF06B6D4),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -195,108 +312,38 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader() {
-    return Consumer<UserProvider>(
-      builder: (context, userProvider, child) {
-        final usuario =
-            userProvider.usuarioLogado; // Acesso facilitado aos dados
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.only(top: 60, bottom: 30),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF1D4ED8), Color(0xFF0D0D0D)],
-            ),
+  Widget _buildMenuOptions(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          _buildMenuTile(Icons.person_outline, "Editar Perfil", () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const EditProfileScreen(),
+              ),
+            );
+          }),
+          _buildMenuTile(Icons.history, "Histórico de Corridas", () {}),
+          _buildMenuTile(Icons.notifications_none, "Notificações", () {}),
+          _buildMenuTile(Icons.security, "Privacidade", () {}),
+          const Divider(color: Colors.white10, height: 32),
+          _buildMenuTile(Icons.info_outline, "Sobre o Projeto", () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AboutScreen()),
+            );
+          }, isHighlight: true),
+          const SizedBox(height: 10),
+          _buildMenuTile(
+            Icons.logout,
+            "Sair",
+            () => _showLogoutDialog(context),
+            color: Colors.redAccent,
           ),
-          child: Column(
-            children: [
-              // Avatar Dinâmico (Emoji selecionado)
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 50,
-                  backgroundColor: const Color(0xFF1A1A1A),
-                  child: Text(
-                    usuario?.avatar ?? "🧪",
-                    style: const TextStyle(fontSize: 50),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // NOME DINÂMICO
-              Text(
-                (usuario?.nome ?? "ATLETA").toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-
-              // DESCRIÇÃO / BIO
-              if (usuario?.bio != null && usuario!.bio.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 4,
-                  ),
-                  child: Text(
-                    usuario.bio,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-
-              ValueListenableBuilder(
-                valueListenable: AppData.perfilAtleta,
-                builder: (context, perfil, child) {
-                  return Column(
-                    children: [
-                      Text(
-                        perfil.classeIdentificada,
-                        style: const TextStyle(
-                          color: Color(0xFF06B6D4),
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-
-                      const SizedBox(height: 2),
-
-                      Text(
-                        "Baseado em ${perfil.totalCorridas} experimentos",
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                        ),
-                      ),
-
-                      const SizedBox(height: 30),
-                      _buildQuickStatsGrid(context),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -319,97 +366,13 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
       trailing: const Icon(Icons.chevron_right, color: Colors.white10),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    );
-  }
-
-  Widget _buildQuickStatsGrid(BuildContext context) {
-    // 1. Pegamos o provedor de usuário
-    final userProvider = Provider.of<UserProvider>(context);
-    final usuario = userProvider.usuarioLogado;
-
-    return ValueListenableBuilder(
-      valueListenable: AppData.perfilAtleta,
-      builder: (context, perfil, child) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Agora usamos os dados do objeto 'usuario'
-              // Se for nulo (usuário recém criado), o '?? 0' garante que mostre zero
-              Expanded(
-                child: _buildStatCard(
-                  Icons.map_outlined,
-                  "${usuario?.territorios ?? 0}", // Dinâmico!
-                  "Territórios",
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatCard(
-                  Icons.emoji_events_outlined,
-                  "${usuario?.conquistas ?? 0}", // Dinâmico!
-                  "Conquistas",
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatCard(
-                  Icons.local_fire_department_outlined,
-                  "${usuario?.streak ?? 0}", // Dinâmico!
-                  "Streak",
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatCard(
-                  Icons.track_changes_outlined,
-                  // No ranking, se for 0, podemos mostrar "N/A" ou "#--"
-                  usuario?.ranking != null ? "#${usuario!.ranking}" : "#--",
-                  "Ranking",
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatCard(IconData icon, String value, String label) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: Colors.white70, size: 20),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 9),
-          ),
-        ],
-      ),
     );
   }
 
   Widget _buildBadgesGallery(BuildContext context) {
     final displayBadges = AppData.allBadges.take(8).toList();
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -437,17 +400,11 @@ class ProfileScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => BadgesScreen(
-                        allBadges: AppData.allBadges,
-                      ), // Passa a lista completa
+                      builder: (context) =>
+                          BadgesScreen(allBadges: AppData.allBadges),
                     ),
                   );
                 },
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(50, 30),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
                 child: const Text(
                   "Ver mais",
                   style: TextStyle(color: Color(0xFF06B6D4), fontSize: 12),
@@ -455,14 +412,11 @@ class ProfileScreen extends StatelessWidget {
               ),
             ],
           ),
-
           const Text(
             "Veja as conquistas que você desbloqueou",
             style: TextStyle(color: Colors.white38, fontSize: 11),
           ),
-
           const SizedBox(height: 16),
-
           GridView.builder(
             padding: EdgeInsets.zero,
             shrinkWrap: true,

@@ -11,6 +11,8 @@ class UserModel {
   final int conquistas;
   final int streak;
   final int ranking;
+  final DateTime? ultimoLogin;
+  final Map<String, dynamic>? experimento;
 
   UserModel({
     required this.nome,
@@ -26,6 +28,8 @@ class UserModel {
     this.conquistas = 0,
     this.streak = 0,
     this.ranking = 0,
+    this.experimento,
+    this.ultimoLogin,
   });
 
   UserModel copyWith({
@@ -41,6 +45,8 @@ class UserModel {
     int? conquistas,
     int? streak,
     int? ranking,
+    Map<String, dynamic>? experimento,
+    DateTime? ultimoLogin,
   }) {
     return UserModel(
       nome: nome ?? this.nome,
@@ -55,6 +61,8 @@ class UserModel {
       conquistas: conquistas ?? this.conquistas,
       streak: streak ?? this.streak,
       ranking: ranking ?? this.ranking,
+      experimento: experimento ?? this.experimento,
+      ultimoLogin: ultimoLogin ?? this.ultimoLogin,
     );
   }
 }
