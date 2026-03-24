@@ -74,9 +74,10 @@ class _SignupScreenState extends State<SignupScreen> {
         // Após registrar, login automático para preencher o usuário logado
         userProvider.login(email, password);
 
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MainLayout()),
+          (route) => false, 
         );
       } else {
         _showError('Este e-mail já está cadastrado!');
