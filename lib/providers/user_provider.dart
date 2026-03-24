@@ -27,6 +27,16 @@ class UserProvider with ChangeNotifier {
     ),
   ];
 
+  Map<String, bool> _prefsNotificacoes = {
+    'reminders': true,
+    'achievements': true,
+    'ranking': false,
+    'marketing': false,
+  };
+
+  // 2. Crie um Getter para a UI ler os valores
+  Map<String, bool> get prefsNotificacoes => _prefsNotificacoes;
+
   UserModel? _usuarioLogado;
 
   UserModel? get usuarioLogado => _usuarioLogado;
@@ -163,7 +173,6 @@ class UserProvider with ChangeNotifier {
     String freq,
   ) {
     if (_usuarioLogado != null) {
-      // 1. Atualizamos o usuário com o experimento e ganhamos XP
       _usuarioLogado = _usuarioLogado!.copyWith(
         experimento: {
           'volume': volume,
@@ -173,7 +182,10 @@ class UserProvider with ChangeNotifier {
         },
       );
 
-      ganharXPeVerificarLevelUp(context, 50);
+      ganharXPeVerificarLevelUp(
+        context,
+        10,
+      ); // Quanto que ganha de xp a cada experimento criado
 
       //Lógica de Desbloqueio do Badge
       int index = AppData.allBadges.indexWhere((b) => b.id == '1');
@@ -340,5 +352,10 @@ class UserProvider with ChangeNotifier {
         ),
       ),
     );
+  }
+
+  void alternarNotificacao(String chave, bool valor) {
+    _prefsNotificacoes[chave] = valor;
+    notifyListeners(); // Isso faz os switches da tela mudarem de posição!
   }
 }

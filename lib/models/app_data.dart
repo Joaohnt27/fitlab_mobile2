@@ -136,6 +136,7 @@ class AppData {
       rarity: BadgeRarity.common,
       isUnlocked: false,
       theme: 'O laboratório',
+      requisito: 'Corra 3 dias na semana.',
     ),
     BadgeModel(
       id: '3',
@@ -144,6 +145,7 @@ class AppData {
       rarity: BadgeRarity.rare,
       isUnlocked: false,
       theme: 'O laboratório',
+      requisito: 'Corra por duas semanas seguidas.',
     ),
     BadgeModel(
       id: '4',
@@ -152,6 +154,7 @@ class AppData {
       rarity: BadgeRarity.rare,
       isUnlocked: false,
       theme: 'O laboratório',
+      requisito: 'Complete sua meta definida no experimento.',
     ),
     BadgeModel(
       id: '5',
@@ -160,6 +163,7 @@ class AppData {
       rarity: BadgeRarity.epic,
       isUnlocked: false,
       theme: 'O laboratório',
+      requisito: 'Corra um total de 50 km.',
     ),
     BadgeModel(
       id: '6',
@@ -168,6 +172,7 @@ class AppData {
       rarity: BadgeRarity.legendary,
       isUnlocked: false,
       theme: 'O laboratório',
+      requisito: 'Corra um total de 200 km.',
     ),
     BadgeModel(
       id: '7',
@@ -176,6 +181,7 @@ class AppData {
       rarity: BadgeRarity.rare,
       isUnlocked: false,
       theme: 'DC Comics',
+      requisito: 'Corra 100m em 20 segundos.',
     ),
     BadgeModel(
       id: '8',
@@ -184,6 +190,7 @@ class AppData {
       rarity: BadgeRarity.epic,
       isUnlocked: false,
       theme: 'DC Comics',
+      requisito: 'Corra por 7 dias seguidos.',
     ),
     BadgeModel(
       id: '9',
@@ -192,6 +199,7 @@ class AppData {
       rarity: BadgeRarity.epic,
       isUnlocked: false,
       theme: 'Marvel',
+      requisito: 'Melhore seu tempo 3 vezes.',
     ),
     BadgeModel(
       id: '10',
@@ -200,6 +208,7 @@ class AppData {
       rarity: BadgeRarity.common,
       isUnlocked: false,
       theme: 'DC Comics',
+      requisito: 'Corra à noite.',
     ),
     BadgeModel(
       id: '11',
@@ -208,6 +217,34 @@ class AppData {
       rarity: BadgeRarity.legendary,
       isUnlocked: false,
       theme: 'Marvel',
+      requisito: 'Corra 5 km em menos de 30 minutos.',
+    ),
+    BadgeModel(
+      id: '12',
+      name: 'Largada Perfeita',
+      icon: '🏁',
+      rarity: BadgeRarity.common,
+      isUnlocked: false,
+      theme: 'Fórmula 1',
+      requisito: 'Inicie sua primeira corrida.',
+    ),
+    BadgeModel(
+      id: '13',
+      name: 'Volta rápida',
+      icon: '🏎️',
+      rarity: BadgeRarity.rare,
+      isUnlocked: false,
+      theme: 'Fórmula 1',
+      requisito: 'Bata seu tempo recorde.',
+    ),
+    BadgeModel(
+      id: '14',
+      name: 'Pole Position',
+      icon: '🏆',
+      rarity: BadgeRarity.legendary,
+      isUnlocked: false,
+      theme: 'Fórmula 1',
+      requisito: 'Alcance o primeiro lugar no ranking.',
     ),
   ];
 }

@@ -79,7 +79,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
         children: [
           _filterChip(
             "Temas",
-            ['Todos', 'Marvel', 'Star Wars', 'Esporte'],
+            ['Todos', 'Marvel', 'DC Comics', 'Fórmula 1'],
             selectedTheme,
             (val) {
               setState(() => selectedTheme = val);

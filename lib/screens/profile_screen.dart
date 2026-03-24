@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_data.dart';
-import '../models/user_model.dart'; 
+import '../models/user_model.dart';
 import '../providers/user_provider.dart';
 import '../widgets/badge_item.dart';
 import '../widgets/profile_level_card.dart';
@@ -9,6 +9,7 @@ import '../widgets/radar_chart_interactive.dart';
 import 'about_screen.dart';
 import 'badges_screen.dart';
 import 'edit_profile_screen.dart';
+import 'notification_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -326,7 +327,14 @@ class ProfileScreen extends StatelessWidget {
             );
           }),
           _buildMenuTile(Icons.history, "Histórico de Corridas", () {}),
-          _buildMenuTile(Icons.notifications_none, "Notificações", () {}),
+          _buildMenuTile(Icons.notifications_none, "Notificações", () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const NotificationsScreen(),
+              ),
+            );
+          }),
           _buildMenuTile(Icons.security, "Privacidade", () {}),
           const Divider(color: Colors.white10, height: 32),
           _buildMenuTile(Icons.info_outline, "Sobre o Projeto", () {
