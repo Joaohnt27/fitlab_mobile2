@@ -289,7 +289,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  // ... Seus métodos auxiliares _buildSectionHeader e _buildTrainingPlanPlaceholder (mantidos iguais)
   Widget _buildSectionHeader(
     String title, {
     String? subtitle,

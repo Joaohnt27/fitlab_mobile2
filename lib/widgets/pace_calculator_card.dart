@@ -61,24 +61,25 @@ class PaceCalculatorCard extends StatelessWidget {
                   ),
                 ],
               ),
-              GestureDetector(
-                onTap: onCalcular,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: onCalcular,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF06B6D4),
+                    foregroundColor: Colors.black,
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
                   ),
                   child: const Text(
                     "CALCULAR",
                     style: TextStyle(
-                      color: Colors.white,
                       fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 1.1,
                     ),
                   ),
                 ),
