@@ -9,7 +9,7 @@ class BadgeModel {
   final BadgeRarity rarity;
   final bool isUnlocked;
   final String theme;
-  final String requisito; 
+  final String requisito;
 
   BadgeModel({
     required this.id,
@@ -20,6 +20,19 @@ class BadgeModel {
     this.theme = 'Geral',
     this.requisito = 'Requisito não definido',
   });
+
+  BadgeModel copyWith({bool? isUnlocked}) {
+    return BadgeModel(
+      id: id,
+      name: name,
+      icon: icon,
+      rarity: rarity,
+      theme: theme,
+      requisito: requisito,
+      isUnlocked:
+          isUnlocked ?? this.isUnlocked, // Se não passar nada, mantém o atual
+    );
+  }
 
   List<Color> get gradientColors {
     switch (rarity) {

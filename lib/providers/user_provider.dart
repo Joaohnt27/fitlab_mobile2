@@ -1,10 +1,23 @@
 import 'package:flutter/material.dart';
+import '../models/app_data.dart';
 import '../models/user_model.dart';
 
 class UserProvider with ChangeNotifier {
-  // Lista em memória 
+  // Lista em memória
   final List<UserModel> _usuariosCadastrados = [
-    UserModel(nome: "Usuário Teste - UA", email: "teste@teste.com", senha: "123"),
+    UserModel(
+      nome: "João Frag",
+      email: "fraga@email.com",
+      senha: "fraga",
+      nivel: 42,
+      xp: 400, 
+      classe: "Elite Experimental",
+    ),
+    UserModel(
+      nome: "Usuário Teste - UA",
+      email: "teste@teste.com",
+      senha: "123",
+    ),
   ];
 
   UserModel? _usuarioLogado;
@@ -29,10 +42,21 @@ class UserProvider with ChangeNotifier {
         (u) => u.email == email && u.senha == senha,
       );
       _usuarioLogado = user;
+
+      // Lógica de Mock 
+      if (user.email == "fraga@email.com") {
+        AppData.userXP.value = user.xp;
+        AppData.configurarPerfilElite(); 
+        AppData.desbloquearConquistasDemo(); 
+      } else {
+        AppData.userXP.value = 0;
+        AppData.resetarPerfil();
+      }
+
       notifyListeners();
       return true;
     } catch (e) {
-      return false; 
+      return false;
     }
   }
 
