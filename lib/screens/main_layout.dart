@@ -1,3 +1,4 @@
+import 'package:fitlab_mobile2/screens/community_screen.dart';
 import 'package:fitlab_mobile2/screens/feed_screen.dart';
 import 'package:fitlab_mobile2/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
@@ -21,9 +22,7 @@ class _MainLayoutState extends State<MainLayout> {
     const Center(
       child: Text('Corrida (Play)', style: TextStyle(color: Colors.white)),
     ),
-    const Center(
-      child: Text('Comunidade', style: TextStyle(color: Colors.white)),
-    ),
+    const CommunityScreen(),
     const ProfileScreen(),
   ];
 
