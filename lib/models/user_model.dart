@@ -11,6 +11,8 @@ class UserModel {
   final int conquistas;
   final int streak;
   final int ranking;
+  final String role; // NOVO: 'Atleta' ou 'Treinador'
+  final String plano; // NOVO: 'Free', 'Pro' ou 'Elite'
   final DateTime? ultimoLogin;
   final Map<String, dynamic>? experimento;
 
@@ -18,16 +20,18 @@ class UserModel {
     required this.nome,
     required this.email,
     required this.senha,
-    this.nivel = 1, // Padrão: nível 1
-    this.xp = 0, // Padrão: 0 XP
-    this.classe = "Recruta", // Padrão: Recruta
-    this.avatar = "🧪", // Avatar padrão
+    this.nivel = 1,
+    this.xp = 0,
+    this.classe = "Recruta",
+    this.avatar = "🧪",
     this.bio =
-        "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino. Vamos juntos nessa jornada de evolução física!",
+        "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino.",
     this.territorios = 0,
     this.conquistas = 0,
     this.streak = 0,
     this.ranking = 0,
+    this.role = "Atleta", // Padrão
+    this.plano = "Free", // Padrão: resolve o erro da WorkoutsScreen
     this.experimento,
     this.ultimoLogin,
   });
@@ -45,6 +49,8 @@ class UserModel {
     int? conquistas,
     int? streak,
     int? ranking,
+    String? role,
+    String? plano,
     Map<String, dynamic>? experimento,
     DateTime? ultimoLogin,
   }) {
@@ -61,6 +67,8 @@ class UserModel {
       conquistas: conquistas ?? this.conquistas,
       streak: streak ?? this.streak,
       ranking: ranking ?? this.ranking,
+      role: role ?? this.role,
+      plano: plano ?? this.plano,
       experimento: experimento ?? this.experimento,
       ultimoLogin: ultimoLogin ?? this.ultimoLogin,
     );

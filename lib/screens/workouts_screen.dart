@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:fitlab_mobile2/providers/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,7 @@ import '../widgets/pace_calculator_card.dart';
 import '../widgets/challenge_card.dart';
 import '../widgets/lab_goals_card.dart';
 import '../widgets/fitlab_ai_card.dart';
+import '../widgets/ai_training_result_card.dart';
 import 'all_challenges_screen.dart';
 import '../data/challenges_data.dart';
 
@@ -20,6 +22,10 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   final _tempoController = TextEditingController();
   String _resultadoPace = "0:00";
 
+  // Estado para controlar se o treino já foi gerado
+  bool _hasGeneratedAIWorkout = false;
+  Map<String, dynamic> aiRequestData = {"goal": "", "timeframe": ""};
+
   void _iniciarExperimento(String volume, String frequencia) {
     Provider.of<UserProvider>(
       context,
@@ -27,11 +33,16 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     ).salvarExperimentoUsuario(context, volume, frequencia);
     _showCustomDialog(
       "FÓRMULA PRONTA!",
-      "Seu experimento de $volume configurado com sucesso.",
+      "Seu experimento de $volume configurado.",
     );
   }
 
-  void _gerarTreinoIA_Final(Map<String, dynamic> data) {
+  void _aoGerarTreinoIA(Map<String, dynamic> data) {
+    setState(() {
+      aiRequestData = data;
+      _hasGeneratedAIWorkout = true;
+    });
+
     _showCustomDialog(
       "PROCESSANDO DADOS...",
       "A IA está sintetizando seu treino para '${data['goal']}'. Este treino ficará disponível no Lab por apenas 24 horas.",
@@ -41,6 +52,11 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final bool isPremium =
+        userProvider.usuarioLogado?.plano == 'Pro' ||
+        userProvider.usuarioLogado?.plano == 'Elite';
+
     final activeChallenges = ChallengesData.allChallenges
         .where((c) => c["isActive"] == true)
         .toList();
@@ -63,9 +79,17 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                     subtitle: "Inteligência Artificial",
                   ),
                   const SizedBox(height: 16),
-                  FitLabAICard(
-                    onGenerate: (data) => _gerarTreinoIA_Final(data),
-                  ),
+
+                  // Lógica de troca de cards da IA
+                  _hasGeneratedAIWorkout
+                      ? AITrainingResultCard(
+                          data: aiRequestData,
+                          onStart: () => debugPrint("Iniciando GPS..."),
+                        )
+                      : FitLabAICard(
+                          onGenerate: (data) => _aoGerarTreinoIA(data),
+                        ),
+
                   const SizedBox(height: 32),
                   const _SectionHeader(title: "Calculadora de Pace"),
                   const SizedBox(height: 16),
@@ -101,16 +125,80 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                         ),
                       ),
                   const SizedBox(height: 32),
-                  const _SectionHeader(
-                    title: "Plano Semanal",
-                    subtitle: "Coach Ricardo Silva",
-                  ),
+                  const _SectionHeader(title: "Plano Semanal"),
                   const SizedBox(height: 16),
-                  const _TrainingPlanPlaceholder(),
+
+                  // Plano Semanal com controle de acesso
+                  _buildWeeklyPlanWithAccessControl(isPremium),
+
                   const SizedBox(height: 100),
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyPlanWithAccessControl(bool isPremium) {
+    if (isPremium) return const _TrainingPlanPlaceholder();
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Opacity(
+            opacity: 0.1,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: const _TrainingPlanPlaceholder(),
+            ),
+          ),
+          Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF06B6D4).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF06B6D4).withOpacity(0.5),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.lock_outline,
+                  color: Color(0xFF06B6D4),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "ACESSO RESTRITO",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 1,
+                ),
+              ),
+              const Text(
+                "Disponível apenas para membros Pro e Elite",
+                style: TextStyle(color: Colors.white38, fontSize: 11),
+              ),
+              TextButton(
+                onPressed: () {},
+                child: const Text(
+                  "FAZER UPGRADE",
+                  style: TextStyle(
+                    color: Color(0xFF06B6D4),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -141,13 +229,12 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
               colors: [Color(0xFF1D4ED8), Color(0xFF0D0D0D)],
             ),
           ),
-          // CENTRALIZADO AQUI:
           child: const Center(
             child: Opacity(
               opacity: 0.1,
               child: Icon(
                 Icons.science_outlined,
-                size: 120, // Tamanho original
+                size: 120,
                 color: Colors.white,
               ),
             ),

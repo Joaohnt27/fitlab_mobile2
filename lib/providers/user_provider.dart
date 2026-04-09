@@ -3,7 +3,7 @@ import '../models/app_data.dart';
 import '../models/user_model.dart';
 
 class UserProvider with ChangeNotifier {
-  // Lista em memória
+  // Lista em memória com os novos campos inicializados
   final List<UserModel> _usuariosCadastrados = [
     UserModel(
       nome: "João Frag",
@@ -17,6 +17,8 @@ class UserProvider with ChangeNotifier {
       conquistas: 7,
       streak: 15,
       ranking: 1,
+      role: "Atleta", // Adicionado
+      plano: "Elite", // Adicionado para teste do cadeado
       ultimoLogin: DateTime.now().subtract(const Duration(hours: 12)),
     ),
     UserModel(
@@ -24,6 +26,8 @@ class UserProvider with ChangeNotifier {
       email: "teste@teste.com",
       senha: "123",
       avatar: "🧪",
+      role: "Atleta",
+      plano: "Free", // Usuário comum começa aqui
     ),
   ];
 
@@ -34,7 +38,6 @@ class UserProvider with ChangeNotifier {
     'marketing': false,
   };
 
-  // 2. Crie um Getter para a UI ler os valores
   Map<String, bool> get prefsNotificacoes => _prefsNotificacoes;
 
   UserModel? _usuarioLogado;
@@ -42,17 +45,28 @@ class UserProvider with ChangeNotifier {
   UserModel? get usuarioLogado => _usuarioLogado;
   String get nome => _usuarioLogado?.nome ?? "Usuário";
 
-  // Método para Criar Conta
-  bool registrar(String nome, String email, String senha) {
-    // Verifica se o e-mail já existe
+  // MÉTODO ATUALIZADO: Recebe o role selecionado na tela de cadastro
+  bool registrar(
+    String nome,
+    String email,
+    String senha, {
+    String role = 'Atleta',
+  }) {
     if (_usuariosCadastrados.any((u) => u.email == email)) return false;
 
-    _usuariosCadastrados.add(UserModel(nome: nome, email: email, senha: senha));
+    final novoUsuario = UserModel(
+      nome: nome,
+      email: email,
+      senha: senha,
+      role: role, // Salva o papel escolhido
+      plano: "Free", // Todo novo usuário começa como Free
+    );
+
+    _usuariosCadastrados.add(novoUsuario);
     notifyListeners();
     return true;
   }
 
-  // Método para Logar
   bool login(String email, String senha) {
     try {
       final user = _usuariosCadastrados.firstWhere(
@@ -85,22 +99,22 @@ class UserProvider with ChangeNotifier {
     String? novaBio,
   }) {
     if (_usuarioLogado != null) {
-      // Usa copyWith para criar o novo estado do usuário
       _usuarioLogado = _usuarioLogado!.copyWith(
         nome: novoNome,
         avatar: novoAvatar,
         bio: novaBio,
       );
 
-      // Atualiza também na lista de cadastrados (persistência em memória)
       int index = _usuariosCadastrados.indexWhere(
         (u) => u.email == _usuarioLogado!.email,
       );
       if (index != -1) _usuariosCadastrados[index] = _usuarioLogado!;
 
-      notifyListeners(); // ISSO FAZ O PERFIL E A TELA DE EDIÇÃO ATUALIZAREM!!!!!
+      notifyListeners();
     }
   }
+
+  // Restante dos métodos mantidos...
 
   void mostrarAlertaBadge(BuildContext context, String nome, String icon) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -182,24 +196,18 @@ class UserProvider with ChangeNotifier {
         },
       );
 
-      ganharXPeVerificarLevelUp(
-        context,
-        10,
-      ); // Quanto que ganha de xp a cada experimento criado
+      ganharXPeVerificarLevelUp(context, 10);
 
-      //Lógica de Desbloqueio do Badge
       int index = AppData.allBadges.indexWhere((b) => b.id == '1');
       if (index != -1 && !AppData.allBadges[index].isUnlocked) {
         AppData.allBadges[index] = AppData.allBadges[index].copyWith(
           isUnlocked: true,
         );
 
-        // Incrementa o contador de conquistas no perfil do usuário
         _usuarioLogado = _usuarioLogado!.copyWith(
           conquistas: _usuarioLogado!.conquistas + 1,
         );
 
-        // Dispara o Alerta de Badge
         mostrarAlertaBadge(
           context,
           AppData.allBadges[index].name,
@@ -207,7 +215,6 @@ class UserProvider with ChangeNotifier {
         );
       }
 
-      // Sincroniza na lista de memória
       int userIndex = _usuariosCadastrados.indexWhere(
         (u) => u.email == _usuarioLogado!.email,
       );
@@ -217,23 +224,6 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  void atualizarStreak(UserModel user) {
-    if (user.ultimoLogin == null) return;
-
-    final agora = DateTime.now();
-    final diferenca = agora.difference(user.ultimoLogin!);
-
-    if (diferenca.inHours > 48) {
-      // Perdeu o fogo! Passou de 2 dias sem logar
-      atualizarEstatisticas(novoStreak: 0);
-    } else if (diferenca.inHours > 24) {
-      // Logou no dia seguinte, sobe a sequência
-      atualizarEstatisticas(novoStreak: user.streak + 1);
-    }
-    // Atualiza a data de acesso para a próxima verificação
-    _usuarioLogado = _usuarioLogado!.copyWith(ultimoLogin: agora);
-  }
-
   void verificarEAtualizarStreak() {
     if (_usuarioLogado == null) return;
 
@@ -241,30 +231,22 @@ class UserProvider with ChangeNotifier {
     final ultimoLogin = _usuarioLogado!.ultimoLogin;
 
     if (ultimoLogin == null) {
-      // USUÁRIO NOVO: Primeiro login da vida dele
-      _usuarioLogado = _usuarioLogado!.copyWith(
-        streak: 1, // Começa com 1 porque ele está logado agora
-        ultimoLogin: agora,
-      );
+      _usuarioLogado = _usuarioLogado!.copyWith(streak: 1, ultimoLogin: agora);
     } else {
       final diferenca = agora.difference(ultimoLogin).inHours;
 
       if (diferenca > 48) {
-        // PERDEU A SEQUÊNCIA: Passou mais de um dia sem logar (tolerância de 48h)
         _usuarioLogado = _usuarioLogado!.copyWith(
           streak: 0,
           ultimoLogin: agora,
         );
       } else if (diferenca >= 24) {
-        // SUBIU A SEQUÊNCIA: Logou no dia seguinte
         _usuarioLogado = _usuarioLogado!.copyWith(
           streak: _usuarioLogado!.streak + 1,
           ultimoLogin: agora,
         );
       }
-      // Se a diferença for < 24h, ele apenas logou no mesmo dia, então mantém o streak
     }
-
     notifyListeners();
   }
 
@@ -272,21 +254,17 @@ class UserProvider with ChangeNotifier {
     if (_usuarioLogado == null) return;
 
     final nivelAntes = AppData.getNivelByXP(_usuarioLogado!.xp);
-
     _usuarioLogado = _usuarioLogado!.copyWith(
       xp: _usuarioLogado!.xp + quantidade,
     );
-
     final nivelDepois = AppData.getNivelByXP(_usuarioLogado!.xp);
 
     if (nivelDepois['lv'] > nivelAntes['lv']) {
       _mostrarDialogoLevelUp(context, nivelDepois);
     }
-
     notifyListeners();
   }
 
-  // Widget de Level Up
   void _mostrarDialogoLevelUp(
     BuildContext context,
     Map<String, dynamic> novoNivel,
@@ -356,6 +334,6 @@ class UserProvider with ChangeNotifier {
 
   void alternarNotificacao(String chave, bool valor) {
     _prefsNotificacoes[chave] = valor;
-    notifyListeners(); // Isso faz os switches da tela mudarem de posição!
+    notifyListeners();
   }
 }
