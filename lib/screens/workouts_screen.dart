@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:fitlab_mobile2/providers/user_provider.dart';
-import 'package:fitlab_mobile2/widgets/plan_card.dart';
+import 'package:fitlab_mobile2/screens/subscription_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../widgets/challenge_card.dart';
@@ -18,11 +18,6 @@ class WorkoutsScreen extends StatefulWidget {
 }
 
 class _WorkoutsScreenState extends State<WorkoutsScreen> {
-  final _distanciaController = TextEditingController();
-  final _tempoController = TextEditingController();
-  String _resultadoPace = "0:00";
-
-  // Estado para controlar se o treino já foi gerado
   bool _hasGeneratedAIWorkout = false;
   Map<String, dynamic> aiRequestData = {"goal": "", "timeframe": ""};
 
@@ -50,190 +45,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  void _processarAssinaturaSimulada(BuildContext context, String nomePlano) {
-    // 1. Mostramos o diálogo e guardamos a referência dele
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (loadingContext) {
-        // contexto específico do diálogo
-        // Simulamos o fechamento após 2 segundos USANDO o loadingContext
-        Future.delayed(const Duration(seconds: 2), () {
-          // Verifica se o diálogo ainda está aberto antes de fechar
-          if (loadingContext.mounted) {
-            Navigator.of(loadingContext).pop();
-          }
-
-          // 2. Só então atualizamos o Provider
-          final provider = Provider.of<UserProvider>(context, listen: false);
-          if (provider.usuarioLogado != null) {
-            provider.atualizarPerfilCompleto(
-              provider.usuarioLogado!.copyWith(plano: nomePlano),
-            );
-
-            // 3. Feedback final
-            _showCustomDialog(
-              "PATENTE ATUALIZADA!",
-              "Seu laboratório agora opera no nível $nomePlano.",
-            );
-          }
-        });
-
-        return Dialog(
-          backgroundColor: const Color(0xFF1A1A1A),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(color: Color(0xFF06B6D4)),
-                const SizedBox(height: 24),
-                const Text(
-                  "SINTETIZANDO ACESSO...",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Configurando seu nível $nomePlano",
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showUpgradeSheet(BuildContext context) {
-    final user = Provider.of<UserProvider>(
-      context,
-      listen: false,
-    ).usuarioLogado;
-    final bool isTreinador = user?.role == 'Treinador';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF0D0D0D),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.8,
-        maxChildSize: 0.9,
-        minChildSize: 0.5,
-        expand: false,
-        builder: (context, scrollController) => SingleChildScrollView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white12,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                isTreinador
-                    ? "EXPANDA SEU LABORATÓRIO"
-                    : "EVOLUA SUA BIOMETRIA",
-                style: const TextStyle(
-                  color: Color(0xFF06B6D4),
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              if (isTreinador) ...[
-                PlanCard(
-                  title: "Coach Pro",
-                  price: "R\$ 99,90",
-                  accentColor: const Color(0xFF06B6D4),
-                  isRecommended: true,
-                  features: [
-                    "Até 60 cobaias (alunos)",
-                    "IA de Prescrição",
-                    "Estatísticas Avançadas",
-                  ],
-                  onTap: () {
-                    Navigator.pop(context);
-                    _processarAssinaturaSimulada(context, "Coach Pro");
-                  },
-                ),
-                PlanCard(
-                  title: "Coach Elite",
-                  price: "R\$ 179,90",
-                  accentColor: const Color(0xFF1D4ED8),
-                  features: [
-                    "Alunos Ilimitados",
-                    "Gestão de Equipes",
-                    "Análise Biomecânica",
-                  ],
-                  onTap: () {
-                    Navigator.pop(context);
-                    _processarAssinaturaSimulada(context, "Coach Elite");
-                  },
-                ),
-              ] else ...[
-                PlanCard(
-                  title: "Atleta Pro",
-                  price: "R\$ 29,90",
-                  accentColor: const Color(0xFF06B6D4),
-                  isRecommended: true,
-                  features: [
-                    "IA para geração de treinos personalizados",
-                    "Medalhas e desafios exclusivos",
-                    "Sem Propagandas",
-                    "Ranking competitivo",
-                    "Métricas semanais e mensais",
-                    "Recomendações automáticas de evolução",
-                  ],
-                  onTap: () {
-                    Navigator.pop(context);
-                    _processarAssinaturaSimulada(context, "Atleta Pro");
-                  },
-                ),
-                PlanCard(
-                  title: "Atleta Elite",
-                  price: "R\$ 79,90",
-                  accentColor: const Color(0xFF06B6D4),
-                  isRecommended: false,
-                  features: [
-                    "Tudo do plano Atleta Pro",
-                    "Treinos IA Ilimitados",
-                    "Análise de Pace Realtime",
-                    "Sem Propagandas",
-                    "Escolha de 1 treinador por mês",
-                    "Chat direto com o treinador",
-                    "Gráficos avançados de performance",
-                    "Acesso antecipado a novos recursos",
-                  ],
-                  onTap: () {
-                    Navigator.pop(context);
-                    _processarAssinaturaSimulada(context, "Atleta Elite");
-                  },
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
@@ -253,7 +64,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
         slivers: [
           _buildSliverAppBar(),
           const SliverToBoxAdapter(child: _PageIntroText()),
-          // ... dentro do seu CustomScrollView ...
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -263,7 +73,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                   // --- LÓGICA DE ALTERNÂNCIA DE PAINEL ---
                   if (isTreinador) ...[
                     const _SectionHeader(
-                      title: "Central do Cientista",
+                      title: "Central do Treinador",
                       subtitle: "Monitoramento de performance",
                     ),
                     const SizedBox(height: 16),
@@ -373,7 +183,14 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                 style: TextStyle(color: Colors.white38, fontSize: 11),
               ),
               TextButton(
-                onPressed: () => _showUpgradeSheet(context),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SubscriptionScreen(),
+                    ),
+                  );
+                },
                 child: const Text(
                   "FAZER UPGRADE",
                   style: TextStyle(

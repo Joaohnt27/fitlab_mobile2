@@ -10,6 +10,7 @@ import 'about_screen.dart';
 import 'badges_screen.dart';
 import 'edit_profile_screen.dart';
 import 'notification_screen.dart';
+import 'subscription_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -326,6 +327,14 @@ class ProfileScreen extends StatelessWidget {
               ),
             );
           }),
+          _buildMenuTile(Icons.credit_card, "Assinatura e Planos", () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SubscriptionScreen(),
+              ),
+            );
+          }),
           _buildMenuTile(Icons.history, "Histórico de Corridas", () {}),
           _buildMenuTile(Icons.notifications_none, "Notificações", () {
             Navigator.push(
@@ -431,9 +440,9 @@ class ProfileScreen extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 4,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.8,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 0.65,
             ),
             itemCount: displayBadges.length,
             itemBuilder: (context, index) {

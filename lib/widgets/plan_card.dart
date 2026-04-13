@@ -6,6 +6,7 @@ class PlanCard extends StatelessWidget {
   final List<String> features;
   final Color accentColor;
   final bool isRecommended;
+  final bool isCurrentPlan;
   final VoidCallback onTap;
 
   const PlanCard({
@@ -16,6 +17,7 @@ class PlanCard extends StatelessWidget {
     required this.accentColor,
     required this.onTap,
     this.isRecommended = false,
+    this.isCurrentPlan = false,
   });
 
   @override
@@ -27,13 +29,15 @@ class PlanCard extends StatelessWidget {
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: isRecommended ? accentColor : Colors.white.withOpacity(0.05),
+          color: isCurrentPlan
+              ? accentColor.withOpacity(0.5)
+              : (isRecommended ? accentColor : Colors.white.withOpacity(0.05)),
           width: 2,
         ),
-        boxShadow: isRecommended
+        boxShadow: (isRecommended || isCurrentPlan)
             ? [
                 BoxShadow(
-                  color: accentColor.withOpacity(0.1),
+                  color: accentColor.withOpacity(0.05),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -43,9 +47,7 @@ class PlanCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(26),
         child: InkWell(
-          onTap: onTap,
-          highlightColor: accentColor.withOpacity(0.05),
-          splashColor: accentColor.withOpacity(0.1),
+          onTap: isCurrentPlan ? null : onTap,
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -73,13 +75,30 @@ class PlanCard extends StatelessWidget {
         Text(
           title.toUpperCase(),
           style: TextStyle(
-            color: accentColor,
+            color: isCurrentPlan ? Colors.white : accentColor,
             fontWeight: FontWeight.w900,
             fontSize: 13,
             letterSpacing: 1.5,
           ),
         ),
-        if (isRecommended)
+        if (isCurrentPlan)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: const Text(
+              "PLANO ATUAL",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+        else if (isRecommended)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -100,29 +119,27 @@ class PlanCard extends StatelessWidget {
   }
 
   Widget _buildPrice() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          textBaseline: TextBaseline.alphabetic,
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          children: [
-            Text(
-              price,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-              ),
+    return Opacity(
+      opacity: isCurrentPlan ? 0.5 : 1.0,
+      child: Row(
+        textBaseline: TextBaseline.alphabetic,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        children: [
+          Text(
+            price,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
             ),
-            const SizedBox(width: 4),
-            const Text(
-              "/mês",
-              style: TextStyle(color: Colors.white38, fontSize: 14),
-            ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            "/mês",
+            style: TextStyle(color: Colors.white38, fontSize: 14),
+          ),
+        ],
+      ),
     );
   }
 
@@ -131,13 +148,17 @@ class PlanCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Icon(Icons.check_circle_outline, color: accentColor, size: 18),
+          Icon(
+            Icons.check_circle_outline,
+            color: isCurrentPlan ? Colors.white24 : accentColor,
+            size: 18,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               feature,
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: isCurrentPlan ? Colors.white38 : Colors.white70,
                 fontSize: 14,
                 letterSpacing: 0.2,
               ),
@@ -149,23 +170,31 @@ class PlanCard extends StatelessWidget {
   }
 
   Widget _buildActionButton() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       height: 54,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: isRecommended
-            ? LinearGradient(
-                colors: [accentColor.withOpacity(0.8), accentColor],
-              )
-            : null,
-        color: isRecommended ? null : Colors.white.withOpacity(0.05),
-      ),
-      child: Center(
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isCurrentPlan
+              ? Colors.transparent
+              : (isRecommended ? accentColor : Colors.white.withOpacity(0.05)),
+          foregroundColor: isCurrentPlan
+              ? Colors.redAccent
+              : (isRecommended ? Colors.black : Colors.white),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: isCurrentPlan
+                ? const BorderSide(color: Colors.redAccent, width: 1.5)
+                : BorderSide.none,
+          ),
+        ),
         child: Text(
-          isRecommended ? "SINTETIZAR AGORA" : "EXPERIMENTAR",
-          style: TextStyle(
-            color: isRecommended ? Colors.black : Colors.white,
+          isCurrentPlan
+              ? "CANCELAR ASSINATURA"
+              : (isRecommended ? "SINTETIZAR AGORA" : "EXPERIMENTAR"),
+          style: const TextStyle(
             fontWeight: FontWeight.w800,
             fontSize: 14,
             letterSpacing: 1,
