@@ -580,7 +580,11 @@ class _PageIntroText extends StatelessWidget {
       padding: EdgeInsets.only(top: 20, left: 24, right: 24),
       child: Text(
         "Seu centro de treinamento e desafios",
-        style: TextStyle(color: Colors.white38, fontSize: 13),
+        style: TextStyle(
+          color: Colors.white70,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
       ),
     );
   }

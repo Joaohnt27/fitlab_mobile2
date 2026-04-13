@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart'; 
 import 'animated_radar_chart.dart';
 
 class RadarChartInteractive extends StatelessWidget {
@@ -14,54 +15,52 @@ class RadarChartInteractive extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 280, 
-      height: 280,
+      width: 300, 
+      height: 300,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // gráfico no fundo
           AnimatedRadarChart(data: data, color: color),
 
-          // Ícones posicionados nas extremidades
-          // TOPO - VELOCIDADE
+          // VELOCIDADE
           Positioned(
             top: 0,
             child: _buildAttributeIcon(
               context,
-              '⚡',
+              'assets/icons/bolt.svg', 
               'VELOCIDADE',
               'Meteora de Pace: Indica sua capacidade explosiva e eficiência cardiovascular.',
             ),
           ),
 
-          // BAIXO - CONSISTÊNCIA
+          // CONSISTÊNCIA
           Positioned(
             bottom: 0,
             child: _buildAttributeIcon(
               context,
-              '🔁',
+              'assets/icons/repeat.svg',
               'CONSISTÊNCIA',
               'Disciplina Absurda: Avalia a frequência semanal e dias seguidos.',
             ),
           ),
 
-          // DIREITA - RESISTÊNCIA
+          // RESISTÊNCIA
           Positioned(
             right: 0,
             child: _buildAttributeIcon(
               context,
-              '🛡️',
+              'assets/icons/shield.svg',
               'RESISTÊNCIA',
               'Vontade de Ferro: Baseado na distância média e tempo contínuo correndo.',
             ),
           ),
 
-          // ESQUERDA - EXPLORAÇÃO
+          // EXPLORAÇÃO
           Positioned(
             left: 0,
             child: _buildAttributeIcon(
               context,
-              '🌍',
+              'assets/icons/globe.svg',
               'EXPLORAÇÃO',
               'Cartógrafo das Ruas: Mede a variedade de rotas e novos locais.',
             ),
@@ -73,7 +72,7 @@ class RadarChartInteractive extends StatelessWidget {
 
   Widget _buildAttributeIcon(
     BuildContext context,
-    String icon,
+    String svgPath, 
     String title,
     String desc,
   ) {
@@ -82,7 +81,7 @@ class RadarChartInteractive extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.symmetric(horizontal: 24),
       showDuration: const Duration(seconds: 3),
-      triggerMode: TooltipTriggerMode.tap, 
+      triggerMode: TooltipTriggerMode.tap,
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(12),
@@ -93,31 +92,41 @@ class RadarChartInteractive extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1A),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white10),
+              border: Border.all(
+                color: color.withOpacity(0.2),
+              ), 
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity(0.1),
-                  blurRadius: 8,
+                  color: color.withOpacity(0.15),
+                  blurRadius: 10,
                   spreadRadius: 1,
                 ),
               ],
             ),
             alignment: Alignment.center,
-            child: Text(icon, style: const TextStyle(fontSize: 18)),
+            child: SvgPicture.asset(
+              svgPath,
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(
+                color,
+                BlendMode.srcIn,
+              ), 
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             title,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withOpacity(0.5),
               fontSize: 8,
               fontWeight: FontWeight.bold,
-              letterSpacing: 1.1,
+              letterSpacing: 1.2,
             ),
           ),
         ],
