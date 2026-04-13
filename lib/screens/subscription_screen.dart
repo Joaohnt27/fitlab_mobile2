@@ -9,7 +9,6 @@ class SubscriptionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Escutando o provider para reagir a mudanças de plano em tempo real
     final userProvider = Provider.of<UserProvider>(context);
     final usuario = userProvider.usuarioLogado;
     final bool isTreinador = usuario?.role == 'Treinador';

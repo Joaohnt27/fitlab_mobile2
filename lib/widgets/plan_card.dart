@@ -193,7 +193,7 @@ class PlanCard extends StatelessWidget {
         child: Text(
           isCurrentPlan
               ? "CANCELAR ASSINATURA"
-              : (isRecommended ? "SINTETIZAR AGORA" : "EXPERIMENTAR"),
+              : (isRecommended ? "ASSINAR AGORA" : "ASSINAR"),
           style: const TextStyle(
             fontWeight: FontWeight.w800,
             fontSize: 14,
