@@ -238,11 +238,10 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
                 ],
               ),
               child: Column(
-                mainAxisSize: MainAxisSize
-                    .min, 
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   isRunning ? _buildRunningHUD() : _buildSetupUI(),
-                  const SizedBox(height: 10), 
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
@@ -340,7 +339,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             ],
           ),
         ),
-        const SizedBox(height: 30), 
+        const SizedBox(height: 30),
         Row(
           children: [
             _buildSmallActionBtn(
@@ -396,7 +395,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
           children: [
             SizedBox(
               width: 150,
-              height: 150, 
+              height: 150,
               child: CircularProgressIndicator(
                 value: selectedGoalType == "Sem Metas"
                     ? null
@@ -421,7 +420,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
                 Text(
                   selectedGoalType == "Sem Metas"
                       ? "Livre"
-                      : "${(progress * 100).toInt()}%",
+                      : "${(progress * 100).toInt().clamp(0, 100)}%", 
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 36,

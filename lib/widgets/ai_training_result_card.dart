@@ -1,6 +1,8 @@
+import 'dart:async';
+import 'package:fitlab_mobile2/screens/ai_workout_detail_screen.dart';
 import 'package:flutter/material.dart';
 
-class AITrainingResultCard extends StatelessWidget {
+class AITrainingResultCard extends StatefulWidget {
   final Map<String, dynamic> data;
   final VoidCallback onStart;
 
@@ -11,6 +13,51 @@ class AITrainingResultCard extends StatelessWidget {
   });
 
   @override
+  State<AITrainingResultCard> createState() => _AITrainingResultCardState();
+}
+
+class _AITrainingResultCardState extends State<AITrainingResultCard> {
+  late Timer _timer;
+  late Duration _timeLeft;
+  bool _isExpired = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timeLeft = const Duration(hours: 0, minutes: 1, seconds: 0); // 23 59 59
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_timeLeft.inSeconds > 0) {
+        setState(() {
+          _timeLeft = _timeLeft - const Duration(seconds: 1);
+        });
+      } else {
+        setState(() {
+          _isExpired = true;
+          _timer.cancel();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String hours = twoDigits(duration.inHours);
+    String minutes = twoDigits(duration.inMinutes.remainder(60));
+    String seconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$hours:$minutes:$seconds";
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -19,114 +66,42 @@ class AITrainingResultCard extends StatelessWidget {
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: const Color(0xFF06B6D4).withOpacity(0.4),
+          color: _isExpired
+              ? Colors.white10
+              : const Color(0xFF06B6D4).withOpacity(0.4),
           width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF06B6D4).withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header do Card: Status e Badge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.auto_awesome,
-                    color: Color(0xFF06B6D4),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "FÓRMULA SINTETIZADA",
-                    style: TextStyle(
-                      color: const Color(0xFF06B6D4).withOpacity(0.8),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 11,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ],
+              Text(
+                "FÓRMULA SINTETIZADA",
+                style: TextStyle(
+                  color: const Color(0xFF06B6D4).withOpacity(0.8),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
+                  letterSpacing: 1.5,
+                ),
               ),
               _buildExpiryBadge(),
             ],
           ),
           const SizedBox(height: 20),
-
-          // Título dinâmico baseado na meta escolhida
           Text(
-            _generateTitle(data['goal']),
-            style: const TextStyle(
-              color: Colors.white,
+            _isExpired ? "SESSÃO EXPIRADA" : "Resistência de Elite",
+            style: TextStyle(
+              color: _isExpired ? Colors.white24 : Colors.white,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            "Plano otimizado para ${data['timeframe'] == '1_month' ? 'curto prazo' : 'evolução constante'}.",
-            style: const TextStyle(color: Colors.white38, fontSize: 13),
-          ),
-
           const SizedBox(height: 24),
 
-          // Grid de Detalhes Técnicos
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildMetric(Icons.timer_outlined, "45 min", "Duração"),
-              _buildMetric(Icons.bolt, "Alta", "Intensidade"),
-              _buildMetric(Icons.trending_up, "5.2 km", "Meta Vol."),
-            ],
-          ),
-
-          const SizedBox(height: 28),
-
-          // Botão de Ação Principal
-          Container(
-            width: double.infinity,
-            height: 52,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF06B6D4).withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: ElevatedButton(
-              onPressed: onStart,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              child: const Text(
-                "INICIAR EXPERIMENTO",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  letterSpacing: 1,
-                ),
-              ),
-            ),
-          ),
+          if (_isExpired) _buildExpiredView() else _buildActiveView(),
         ],
       ),
     );
@@ -136,20 +111,29 @@ class AITrainingResultCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.redAccent.withOpacity(0.1),
+        color: _isExpired ? Colors.black : Colors.redAccent.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+        border: Border.all(
+          color: _isExpired
+              ? Colors.white10
+              : Colors.redAccent.withOpacity(0.2),
+        ),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.history_toggle_off, color: Colors.redAccent, size: 12),
-          SizedBox(width: 4),
+          Icon(
+            Icons.history_toggle_off,
+            color: _isExpired ? Colors.white24 : Colors.redAccent,
+            size: 12,
+          ),
+          const SizedBox(width: 4),
           Text(
-            "23:59h",
+            _formatDuration(_timeLeft),
             style: TextStyle(
-              color: Colors.redAccent,
+              color: _isExpired ? Colors.white24 : Colors.redAccent,
               fontSize: 10,
               fontWeight: FontWeight.bold,
+              fontFamily: 'Courier',
             ),
           ),
         ],
@@ -157,47 +141,48 @@ class AITrainingResultCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMetric(IconData icon, String value, String label) {
+  Widget _buildActiveView() {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AIWorkoutDetailScreen(data: widget.data),
+          ),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF06B6D4),
+        foregroundColor: Colors.black,
+        minimumSize: const Size(double.infinity, 52),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: const Text(
+        "ACESSAR TREINO",
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildExpiredView() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(icon, color: const Color(0xFF06B6D4), size: 14),
-            const SizedBox(width: 6),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ],
+        const Text(
+          "Esta fórmula química perdeu a estabilidade após 24h.",
+          style: TextStyle(color: Colors.white38, fontSize: 12),
+          textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white24,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: () {
+            // Lógica para gerar dnv ou ir para o Pro
+          },
+          child: const Text(
+            "SINTETIZAR NOVA FÓRMULA",
+            style: TextStyle(color: Color(0xFF06B6D4)),
           ),
         ),
       ],
     );
-  }
-
-  String _generateTitle(String? goal) {
-    switch (goal) {
-      case 'marathon':
-        return "Resistência de Elite";
-      case 'performance':
-        return "Explosão Metabólica";
-      case 'hobby':
-        return "Manutenção Vital";
-      default:
-        return "Protocolo Alpha";
-    }
   }
 }

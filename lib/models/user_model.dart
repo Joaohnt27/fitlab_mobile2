@@ -11,8 +11,8 @@ class UserModel {
   final int conquistas;
   final int streak;
   final int ranking;
-  final String role; // NOVO: 'Atleta' ou 'Treinador'
-  final String plano; // NOVO: 'Free', 'Pro' ou 'Elite'
+  final String role; 
+  final String plano; 
   final DateTime? ultimoLogin;
   final Map<String, dynamic>? experimento;
 
@@ -30,8 +30,8 @@ class UserModel {
     this.conquistas = 0,
     this.streak = 0,
     this.ranking = 0,
-    this.role = "Atleta", // Padrão
-    this.plano = "Free", // Padrão: resolve o erro da WorkoutsScreen
+    this.role = "Atleta", 
+    this.plano = "Free", 
     this.experimento,
     this.ultimoLogin,
   });

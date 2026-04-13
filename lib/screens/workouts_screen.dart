@@ -1,8 +1,8 @@
 import 'dart:ui';
 import 'package:fitlab_mobile2/providers/user_provider.dart';
+import 'package:fitlab_mobile2/widgets/plan_card.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../widgets/pace_calculator_card.dart';
 import '../widgets/challenge_card.dart';
 import '../widgets/lab_goals_card.dart';
 import '../widgets/fitlab_ai_card.dart';
@@ -50,9 +50,194 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
+  void _processarAssinaturaSimulada(BuildContext context, String nomePlano) {
+    // 1. Mostramos o diálogo e guardamos a referência dele
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (loadingContext) {
+        // contexto específico do diálogo
+        // Simulamos o fechamento após 2 segundos USANDO o loadingContext
+        Future.delayed(const Duration(seconds: 2), () {
+          // Verifica se o diálogo ainda está aberto antes de fechar
+          if (loadingContext.mounted) {
+            Navigator.of(loadingContext).pop();
+          }
+
+          // 2. Só então atualizamos o Provider
+          final provider = Provider.of<UserProvider>(context, listen: false);
+          if (provider.usuarioLogado != null) {
+            provider.atualizarPerfilCompleto(
+              provider.usuarioLogado!.copyWith(plano: nomePlano),
+            );
+
+            // 3. Feedback final
+            _showCustomDialog(
+              "PATENTE ATUALIZADA!",
+              "Seu laboratório agora opera no nível $nomePlano.",
+            );
+          }
+        });
+
+        return Dialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                const SizedBox(height: 24),
+                const Text(
+                  "SINTETIZANDO ACESSO...",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "Configurando seu nível $nomePlano",
+                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showUpgradeSheet(BuildContext context) {
+    final user = Provider.of<UserProvider>(
+      context,
+      listen: false,
+    ).usuarioLogado;
+    final bool isTreinador = user?.role == 'Treinador';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0D0D0D),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        maxChildSize: 0.9,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                isTreinador
+                    ? "EXPANDA SEU LABORATÓRIO"
+                    : "EVOLUA SUA BIOMETRIA",
+                style: const TextStyle(
+                  color: Color(0xFF06B6D4),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              if (isTreinador) ...[
+                PlanCard(
+                  title: "Coach Pro",
+                  price: "R\$ 99,90",
+                  accentColor: const Color(0xFF06B6D4),
+                  isRecommended: true,
+                  features: [
+                    "Até 60 cobaias (alunos)",
+                    "IA de Prescrição",
+                    "Estatísticas Avançadas",
+                  ],
+                  onTap: () {
+                    Navigator.pop(context);
+                    _processarAssinaturaSimulada(context, "Coach Pro");
+                  },
+                ),
+                PlanCard(
+                  title: "Coach Elite",
+                  price: "R\$ 179,90",
+                  accentColor: const Color(0xFF1D4ED8),
+                  features: [
+                    "Alunos Ilimitados",
+                    "Gestão de Equipes",
+                    "Análise Biomecânica",
+                  ],
+                  onTap: () {
+                    Navigator.pop(context);
+                    _processarAssinaturaSimulada(context, "Coach Elite");
+                  },
+                ),
+              ] else ...[
+                PlanCard(
+                  title: "Atleta Pro",
+                  price: "R\$ 29,90",
+                  accentColor: const Color(0xFF06B6D4),
+                  isRecommended: true,
+                  features: [
+                    "IA para geração de treinos personalizados",
+                    "Medalhas e desafios exclusivos",
+                    "Sem Propagandas",
+                    "Ranking competitivo",
+                    "Métricas semanais e mensais",
+                    "Recomendações automáticas de evolução",
+                  ],
+                  onTap: () {
+                    Navigator.pop(context);
+                    _processarAssinaturaSimulada(context, "Atleta Pro");
+                  },
+                ),
+                PlanCard(
+                  title: "Atleta Elite",
+                  price: "R\$ 79,90",
+                  accentColor: const Color(0xFF06B6D4),
+                  isRecommended: false,
+                  features: [
+                    "Tudo do plano Atleta Pro",
+                    "Treinos IA Ilimitados",
+                    "Análise de Pace Realtime",
+                    "Sem Propagandas",
+                    "Escolha de 1 treinador por mês",
+                    "Chat direto com o treinador",
+                    "Gráficos avançados de performance",
+                    "Acesso antecipado a novos recursos",
+                  ],
+                  onTap: () {
+                    Navigator.pop(context);
+                    _processarAssinaturaSimulada(context, "Atleta Elite");
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
+    final bool isTreinador = userProvider.usuarioLogado?.role == 'Treinador';
     final bool isPremium =
         userProvider.usuarioLogado?.plano == 'Pro' ||
         userProvider.usuarioLogado?.plano == 'Elite';
@@ -68,41 +253,44 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
         slivers: [
           _buildSliverAppBar(),
           const SliverToBoxAdapter(child: _PageIntroText()),
+          // ... dentro do seu CustomScrollView ...
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _SectionHeader(
-                    title: "Cérebro FitLab",
-                    subtitle: "Inteligência Artificial",
-                  ),
-                  const SizedBox(height: 16),
+                  // --- LÓGICA DE ALTERNÂNCIA DE PAINEL ---
+                  if (isTreinador) ...[
+                    const _SectionHeader(
+                      title: "Central do Cientista",
+                      subtitle: "Monitoramento de performance",
+                    ),
+                    const SizedBox(height: 16),
+                    _buildCoachDashboard(), // Chama o painel novo
+                  ] else ...[
+                    // --- CONTEÚDO ORIGINAL DO ATLETA ---
+                    const _SectionHeader(
+                      title: "Cérebro FitLab",
+                      subtitle: "Inteligência Artificial",
+                    ),
+                    const SizedBox(height: 16),
+                    _hasGeneratedAIWorkout
+                        ? AITrainingResultCard(
+                            data: aiRequestData,
+                            onStart: () => debugPrint("Iniciando GPS..."),
+                          )
+                        : FitLabAICard(
+                            onGenerate: (data) => _aoGerarTreinoIA(data),
+                          ),
+                    const SizedBox(height: 32),
+                    const SizedBox(height: 32),
+                    const _SectionHeader(title: "Configurar Experimento"),
+                    const SizedBox(height: 16),
+                    LabGoalsCard(onIniciar: _iniciarExperimento),
+                  ],
 
-                  // Lógica de troca de cards da IA
-                  _hasGeneratedAIWorkout
-                      ? AITrainingResultCard(
-                          data: aiRequestData,
-                          onStart: () => debugPrint("Iniciando GPS..."),
-                        )
-                      : FitLabAICard(
-                          onGenerate: (data) => _aoGerarTreinoIA(data),
-                        ),
-
-                  const SizedBox(height: 32),
-                  const _SectionHeader(title: "Calculadora de Pace"),
-                  const SizedBox(height: 16),
-                  PaceCalculatorCard(
-                    distController: _distanciaController,
-                    tempoController: _tempoController,
-                    resultado: _resultadoPace,
-                    onCalcular: _calcularPace,
-                  ),
-                  const SizedBox(height: 32),
-                  const _SectionHeader(title: "Configurar Experimento"),
-                  const SizedBox(height: 16),
-                  LabGoalsCard(onIniciar: _iniciarExperimento),
+                  // Desafios e Plano Semanal (Comuns a ambos ou filtrados)
                   const SizedBox(height: 32),
                   _SectionHeader(
                     title: "Desafios Ativos",
@@ -127,10 +315,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                   const SizedBox(height: 32),
                   const _SectionHeader(title: "Plano Semanal"),
                   const SizedBox(height: 16),
-
-                  // Plano Semanal com controle de acesso
                   _buildWeeklyPlanWithAccessControl(isPremium),
-
                   const SizedBox(height: 100),
                 ],
               ),
@@ -188,7 +373,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                 style: TextStyle(color: Colors.white38, fontSize: 11),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: () => _showUpgradeSheet(context),
                 child: const Text(
                   "FAZER UPGRADE",
                   style: TextStyle(
@@ -243,17 +428,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
       ),
       actions: [const _StreakIndicator()],
     );
-  }
-
-  void _calcularPace() {
-    double? d = double.tryParse(_distanciaController.text);
-    double? t = double.tryParse(_tempoController.text);
-    if (d != null && t != null && d > 0) {
-      double p = t / d;
-      int m = p.toInt();
-      int s = ((p - m) * 60).round();
-      setState(() => _resultadoPace = "$m:${s.toString().padLeft(2, '0')}");
-    }
   }
 
   void _showCustomDialog(String title, String content, {bool isAI = false}) {
@@ -432,4 +606,116 @@ class _TrainingPlanPlaceholder extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _buildCoachDashboard() {
+  return Column(
+    children: [
+      Row(
+        children: [
+          _buildStatMiniCard("ALUNOS ATIVOS", "12", Colors.green),
+          const SizedBox(width: 12),
+          _buildStatMiniCard("ALERTAS HOJE", "3", Colors.orange),
+        ],
+      ),
+      const SizedBox(height: 32),
+      const _SectionHeader(
+        title: "Gestão de Cobaias",
+        subtitle: "Progresso dos seus alunos",
+      ),
+      const SizedBox(height: 16),
+      // Aqui você usaria o CoachStudentCard que criamos antes
+      _tempStudentTile("Arthur Vital", "Treino Pendente", 5),
+      _tempStudentTile("Maria Silva", "Concluído", 15),
+      const SizedBox(height: 24),
+      _buildActionBtn(Icons.add_chart, "LANÇAR NOVO EXPERIMENTO"),
+    ],
+  );
+}
+
+Widget _buildStatMiniCard(String label, String value, Color color) {
+  return Expanded(
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _tempStudentTile(String name, String status, int streak) {
+  return Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.03),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      children: [
+        CircleAvatar(
+          radius: 15,
+          backgroundColor: const Color(0xFF06B6D4).withOpacity(0.2),
+          child: Text(
+            name[0],
+            style: const TextStyle(color: Color(0xFF06B6D4), fontSize: 12),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Text(
+          status,
+          style: TextStyle(
+            color: status == "Concluído" ? Colors.green : Colors.orange,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildActionBtn(IconData icon, String label) {
+  return ElevatedButton.icon(
+    onPressed: () {},
+    icon: Icon(icon, size: 18),
+    label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF06B6D4),
+      foregroundColor: Colors.black,
+      minimumSize: const Size(double.infinity, 50),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  );
 }

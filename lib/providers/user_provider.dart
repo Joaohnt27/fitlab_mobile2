@@ -3,7 +3,6 @@ import '../models/app_data.dart';
 import '../models/user_model.dart';
 
 class UserProvider with ChangeNotifier {
-  // Lista em memória com os novos campos inicializados
   final List<UserModel> _usuariosCadastrados = [
     UserModel(
       nome: "João Frag",
@@ -17,9 +16,18 @@ class UserProvider with ChangeNotifier {
       conquistas: 7,
       streak: 15,
       ranking: 1,
-      role: "Atleta", // Adicionado
-      plano: "Elite", // Adicionado para teste do cadeado
+      role: "Atleta",
+      plano: "Elite",
       ultimoLogin: DateTime.now().subtract(const Duration(hours: 12)),
+    ),
+    UserModel(
+      nome: "Prof. Teste",
+      email: "coach@teste.com",
+      senha: "123",
+      avatar: "👨‍🔬",
+      role: "Treinador",
+      plano: "Elite",
+      classe: "Cientista Chefe",
     ),
     UserModel(
       nome: "Usuário Teste - UA",
@@ -27,7 +35,7 @@ class UserProvider with ChangeNotifier {
       senha: "123",
       avatar: "🧪",
       role: "Atleta",
-      plano: "Free", // Usuário comum começa aqui
+      plano: "Free",
     ),
   ];
 
@@ -45,7 +53,6 @@ class UserProvider with ChangeNotifier {
   UserModel? get usuarioLogado => _usuarioLogado;
   String get nome => _usuarioLogado?.nome ?? "Usuário";
 
-  // MÉTODO ATUALIZADO: Recebe o role selecionado na tela de cadastro
   bool registrar(
     String nome,
     String email,
@@ -58,8 +65,8 @@ class UserProvider with ChangeNotifier {
       nome: nome,
       email: email,
       senha: senha,
-      role: role, // Salva o papel escolhido
-      plano: "Free", // Todo novo usuário começa como Free
+      role: role,
+      plano: "Free",
     );
 
     _usuariosCadastrados.add(novoUsuario);
@@ -114,7 +121,18 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // Restante dos métodos mantidos...
+  void atualizarPerfilCompleto(UserModel usuarioAtualizado) {
+    _usuarioLogado = usuarioAtualizado;
+
+    int index = _usuariosCadastrados.indexWhere(
+      (u) => u.email == _usuarioLogado!.email,
+    );
+    if (index != -1) {
+      _usuariosCadastrados[index] = _usuarioLogado!;
+    }
+
+    notifyListeners();
+  }
 
   void mostrarAlertaBadge(BuildContext context, String nome, String icon) {
     ScaffoldMessenger.of(context).showSnackBar(
