@@ -11,6 +11,8 @@ import 'badges_screen.dart';
 import 'edit_profile_screen.dart';
 import 'notification_screen.dart';
 import 'subscription_screen.dart';
+import 'run_history_screen.dart';
+import 'privacy_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -335,7 +337,12 @@ class ProfileScreen extends StatelessWidget {
               ),
             );
           }),
-          _buildMenuTile(Icons.history, "Histórico de Corridas", () {}),
+          _buildMenuTile(Icons.history, "Histórico de Corridas", () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const RunHistoryScreen()),
+            );
+          }),
           _buildMenuTile(Icons.notifications_none, "Notificações", () {
             Navigator.push(
               context,
@@ -344,7 +351,12 @@ class ProfileScreen extends StatelessWidget {
               ),
             );
           }),
-          _buildMenuTile(Icons.security, "Privacidade", () {}),
+          _buildMenuTile(Icons.security, "Privacidade", () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const PrivacyScreen()),
+            );
+          }),
           const Divider(color: Colors.white10, height: 32),
           _buildMenuTile(Icons.info_outline, "Sobre o Projeto", () {
             Navigator.push(

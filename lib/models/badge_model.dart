@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'dart:ui';
 
 enum BadgeRarity { common, rare, epic, legendary }
 
@@ -37,13 +37,13 @@ class BadgeModel {
   List<Color> get gradientColors {
     switch (rarity) {
       case BadgeRarity.legendary:
-        return [Colors.yellow.shade600, Colors.orange.shade700];
+        return const [Color(0xFFE6B800), Color(0xFFC65D00)];
       case BadgeRarity.epic:
-        return [Colors.purple.shade600, Colors.pink.shade600];
+        return const [Color(0xFF8E24AA), Color(0xFFC2185B)];
       case BadgeRarity.rare:
-        return [Colors.blue.shade600, Colors.cyan.shade600];
+        return const [Color(0xFF1E88E5), Color(0xFF00ACC1)];
       case BadgeRarity.common:
-        return [Colors.grey.shade600, Colors.grey.shade800];
+        return const [Color(0xFF757575), Color(0xFF424242)];
     }
   }
 }

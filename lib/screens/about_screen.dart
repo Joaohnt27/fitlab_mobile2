@@ -67,7 +67,7 @@ class AboutScreen extends StatelessWidget {
             _buildAboutCard(
               title: "DESENVOLVIMENTO",
               content:
-                  "Arthur Vital Fontana - 839832\nJoão Henrique Nazar Tavares - 839463\n\nInstituição: UNAERP\nDisciplina: Mobile II\nProfessor: Rodrigo de Oliveira Plotze\nTrabalho para composição da nota de avaliação parcial",
+                  "Arthur Vital Fontana - 839832\nJoão Henrique Nazar Tavares - 839463\n\nInstituição: Universidade de Ribeirão Preto - UNAERP\nDisciplina: Projeto de Conclusão de Curso I e II\nOrientador: Prof. Dr. Rodrigo de Oliveira Plotze",
             ),
 
             const SizedBox(height: 40),
