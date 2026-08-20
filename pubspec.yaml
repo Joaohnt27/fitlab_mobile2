@@ -27,4 +27,5 @@ flutter:
 
   assets:
     - assets/images/logo.png
+    - assets/images/joao.jpeg
     - assets/icons/
