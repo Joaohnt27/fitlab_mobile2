@@ -1,123 +1,30 @@
-# 📱 FITLAB
+# FitLab App 🏃‍♂️📱
 
-Aplicativo mobile desenvolvido em Flutter com foco em acompanhamento de desempenho para corredores e praticantes de caminhada, utilizando gamificação, controle de progresso e personalização de treinos.
+> 🎓 **Capstone Project:** This repository contains the mobile front-end application for FitLab, developed as the final graduation project (TCC) for the Software Engineering program at Universidade de Ribeirão Preto (UNAERP).
 
----
+A gamified mobile platform designed for monitoring and enhancing runner performance. FitLab connects athletes and trainers, providing data-driven insights and AI-powered feedback to improve training routines.
 
-## 🎓 Informações Acadêmicas
+## ✨ Key Features
+* **Runner Monitoring:** Real-time tracking and performance analytics.
+* **Gamification System:** Experience points (XP) and leveling system to keep athletes motivated.
+* **Smart Insights:** Integration with the Gemini API to provide intelligent, personalized feedback.
+* **Trainer Dashboard:** Dedicated interfaces for trainers to manage and evaluate athletes.
 
-**Disciplina:** Desenvolvimento Mobile II  
-**Professor:** Rodrigo de Oliveira Plotze  
-**Instituição:** UNAERP  
+## 🛠️ Tech Stack
+* **Framework:** Flutter
+* **Language:** Dart
+* **Authentication:** Firebase
+* **AI Integration:** Gemini API
+* **State Management:** (Add your chosen state management here, e.g., Provider, Riverpod, or BLoC)
 
-**Alunos:**
-- Arthur Vital Fontana — 839832  
-- João Henrique Nazar Tavares — 839463  
+## ⚙️ Local Setup
+1. Clone this repository to your local machine.
+2. Ensure you have the [Flutter SDK](https://docs.flutter.dev/get-started/install) installed.
+3. Run `flutter pub get` to install all dependencies.
+4. Add your Firebase configuration files (`google-services.json` for Android / `GoogleService-Info.plist` for iOS).
+5. Set up your environment variables (e.g., API URL pointing to the deployed Render backend and your Gemini API key).
+6. Run the app using `flutter run` on your preferred emulator or physical device.
 
----
-
-## 🎥 Demonstração
-
-📺 Vídeo do projeto:  
-https://youtu.be/UzpL10I9Ch0   
-
----
-
-## 🚀 Funcionalidades
-
-### 🔐 Autenticação
-- Login de usuário com validação de dados  
-- Cadastro de usuário com verificação de e-mail e senha  
-- Recuperação de senha (simulada)  
-- Dados armazenados em memória  
-
----
-
-### 📊 Gerenciamento de Perfil
-- Visualização de perfil do usuário  
-- Edição de nome, avatar e biografia  
-- Estatísticas do usuário (ranking, streak, conquistas, territórios)  
-
----
-
-### 🧠 Sistema de Progressão
-- Sistema de XP (experiência)  
-- Evolução de níveis baseada em desempenho  
-- Feedback visual ao subir de nível  
-
----
-
-### 🏆 Conquistas (Badges)
-- Sistema de desbloqueio de conquistas  
-- Exibição em formato de grade (GridView)  
-- Alerta visual ao conquistar novos badges  
-
----
-
-### 🏃 Funcionalidades do App
-
-- 📐 **Calculadora de Pace**  
-  Cálculo automático do ritmo com base em distância e tempo  
-
-- 🎯 **Definição de Experimentos**  
-  Criação de desafios personalizados (ex: correr X km em Y dias)  
-
-- 📈 **Gráfico de Classe de Corrida**  
-  Visualização da performance do usuário (velocidade, resistência, consistência, etc.)  
-
----
-
-### 📋 Exibição de Dados
-- Listagem de níveis com `ListView`  
-- Exibição de conquistas com `GridView`  
-- Interface dinâmica baseada no estado do usuário  
-
----
-
-## ⚙️ Tecnologias Utilizadas
-
-- Flutter SDK  
-- Dart  
-- Provider (ChangeNotifier)  
-- Material Design  
-
----
-
-## 🔄 Navegação
-
-O aplicativo possui navegação entre:
-- Login  
-- Cadastro  
-- Recuperação de senha  
-- Tela principal  
-- Perfil  
-- Conquistas  
-- Níveis  
-- Sobre  
-
----
-
-## 🎯 Objetivo do Projeto
-
-Desenvolver um aplicativo funcional que integre:
-- Interface gráfica completa  
-- Navegação entre telas  
-- Gerenciamento de estado  
-- Funcionalidades reais de uso  
-
-Aplicando conceitos de desenvolvimento mobile com Flutter.
-
----
-
-## 📌 Observações
-
-- O projeto utiliza dados em memória para simulação  
-- Backend e persistência não foram implementados nesta etapa  
-- Algumas funcionalidades estão em desenvolvimento  
-
----
-
-## 🧪 Status
-
-🚧 Em desenvolvimento  
-
+## 👨‍💻 Authors
+* João Henrique Nazar Tavares
+* Arthur Vital Fontana
