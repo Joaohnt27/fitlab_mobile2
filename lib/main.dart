@@ -11,7 +11,7 @@ import 'package:flutter/gestures.dart';
 void main() {
   runApp(
     DevicePreview(
-      enabled: !kReleaseMode,
+      enabled: kIsWeb,
       builder: (context) => MultiProvider(
         providers: [ChangeNotifierProvider(create: (_) => UserProvider())],
         child: const MyApp(),
