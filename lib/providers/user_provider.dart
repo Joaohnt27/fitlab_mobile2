@@ -1,43 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/app_data.dart';
 import '../models/user_model.dart';
+import '../services/auth_service.dart'; // IMPORTANTE: Adicionei a importação do seu serviço
 
 class UserProvider with ChangeNotifier {
-  final List<UserModel> _usuariosCadastrados = [
-    UserModel(
-      nome: "João Frag",
-      email: "fraga@email.com",
-      senha: "fraga",
-      nivel: 42,
-      xp: 400,
-      classe: "Elite Experimental",
-      avatar: "🧬",
-      territorios: 6,
-      conquistas: 7,
-      streak: 15,
-      ranking: 1,
-      role: "Atleta",
-      plano: "Elite",
-      ultimoLogin: DateTime.now().subtract(const Duration(hours: 12)),
-    ),
-    UserModel(
-      nome: "Prof. Teste",
-      email: "coach@teste.com",
-      senha: "123",
-      avatar: "👨‍🔬",
-      role: "Treinador",
-      plano: "Elite",
-      classe: "Cientista Chefe",
-    ),
-    UserModel(
-      nome: "Usuário Teste - UA",
-      email: "teste@teste.com",
-      senha: "123",
-      avatar: "🧪",
-      role: "Atleta",
-      plano: "Free",
-    ),
-  ];
+  // Instância do serviço que se comunica com o Spring Boot
+  final AuthService _authService = AuthService();
+
+  // A lista _usuariosCadastrados foi removida, pois agora o banco de dados PostgreSQL é quem manda!
 
   Map<String, bool> _prefsNotificacoes = {
     'reminders': true,
@@ -53,44 +23,32 @@ class UserProvider with ChangeNotifier {
   UserModel? get usuarioLogado => _usuarioLogado;
   String get nome => _usuarioLogado?.nome ?? "Usuário";
 
-  bool registrar(
-    String nome,
-    String email,
-    String senha, {
-    String role = 'Atleta',
-  }) {
-    if (_usuariosCadastrados.any((u) => u.email == email)) return false;
-
-    final novoUsuario = UserModel(
-      nome: nome,
-      email: email,
-      senha: senha,
-      role: role,
-      plano: "Free",
-    );
-
-    _usuariosCadastrados.add(novoUsuario);
-    notifyListeners();
-    return true;
-  }
-
-  bool login(String email, String senha) {
+  // ==========================================
+  // 1. NOVO LOGIN ASSÍNCRONO CONECTADO À API
+  // ==========================================
+  Future<bool> login(String email, String senha) async {
     try {
-      final user = _usuariosCadastrados.firstWhere(
-        (u) => u.email == email && u.senha == senha,
-      );
-      _usuarioLogado = user;
+      // Chama a API Java
+      UserModel? user = await _authService.fazerLogin(email, senha);
 
-      if (user.email == "fraga@email.com") {
-        AppData.configurarPerfilElite();
-        AppData.desbloquearConquistasDemo();
-      } else {
-        AppData.resetarPerfil();
+      if (user != null) {
+        _usuarioLogado = user;
+
+        // Mantive a sua lógica de gamificação para o usuário Elite!
+        if (user.email == "fraga@email.com") {
+          AppData.configurarPerfilElite();
+          AppData.desbloquearConquistasDemo();
+        } else {
+          AppData.resetarPerfil();
+        }
+
+        notifyListeners();
+        return true; // Login deu certo!
       }
 
-      notifyListeners();
-      return true;
+      return false; // Retornou null (senha errada ou email não existe)
     } catch (e) {
+      print("Erro no provedor durante o login: $e");
       return false;
     }
   }
@@ -100,6 +58,9 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // ==========================================
+  // 2. LÓGICAS DE PERFIL (Ajustadas para não depender da lista antiga)
+  // ==========================================
   void atualizarPerfil({
     required String novoNome,
     String? novoAvatar,
@@ -111,29 +72,19 @@ class UserProvider with ChangeNotifier {
         avatar: novoAvatar,
         bio: novaBio,
       );
-
-      int index = _usuariosCadastrados.indexWhere(
-        (u) => u.email == _usuarioLogado!.email,
-      );
-      if (index != -1) _usuariosCadastrados[index] = _usuarioLogado!;
-
+      // TODO futuro: Enviar um HTTP PUT para o Java atualizar no banco de dados
       notifyListeners();
     }
   }
 
   void atualizarPerfilCompleto(UserModel usuarioAtualizado) {
     _usuarioLogado = usuarioAtualizado;
-
-    int index = _usuariosCadastrados.indexWhere(
-      (u) => u.email == _usuarioLogado!.email,
-    );
-    if (index != -1) {
-      _usuariosCadastrados[index] = _usuarioLogado!;
-    }
-
     notifyListeners();
   }
 
+  // ==========================================
+  // 3. GAMIFICAÇÃO, STREAKS E ALERTAS (Mantidos Intactos!)
+  // ==========================================
   void mostrarAlertaBadge(BuildContext context, String nome, String icon) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -232,12 +183,6 @@ class UserProvider with ChangeNotifier {
           AppData.allBadges[index].icon,
         );
       }
-
-      int userIndex = _usuariosCadastrados.indexWhere(
-        (u) => u.email == _usuarioLogado!.email,
-      );
-      if (userIndex != -1) _usuariosCadastrados[userIndex] = _usuarioLogado!;
-
       notifyListeners();
     }
   }

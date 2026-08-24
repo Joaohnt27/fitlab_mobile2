@@ -13,10 +13,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  bool _isLoading = false;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     String email = _emailController.text.trim();
     String password = _passwordController.text;
 
@@ -27,20 +28,25 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Acessa o UserProvider sem ouvir mudanças
+    // 1. Ativa o loading
+    setState(() => _isLoading = true);
+
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // Chama o método de login criado no Provider
-    bool sucesso = userProvider.login(email, password);
+    // 2. Agora usamos o 'await' porque o provider vai bater lá no Java
+    bool sucesso = await userProvider.login(email, password);
+
+    // 3. Desativa o loading
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
 
     if (sucesso) {
-      // Login bem-sucedido: vai para a Home
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const MainLayout()),
       );
     } else {
-      // Erro: mostra um alerta para o usuário
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: Colors.redAccent,
@@ -163,7 +169,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: double.infinity,
                         height: 55,
                         child: ElevatedButton(
-                          onPressed: _handleLogin,
+                          // Desativa o clique se estiver carregando
+                          onPressed: _isLoading ? null : _handleLogin,
                           style: ElevatedButton.styleFrom(
                             padding: EdgeInsets.zero,
                             shape: RoundedRectangleBorder(
@@ -179,15 +186,25 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: Container(
                               alignment: Alignment.center,
-                              child: const Text(
-                                'ENTRAR',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.5,
-                                ),
-                              ),
+                              // Troca o texto pela bolinha se estiver carregando
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'ENTRAR',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.5,
+                                      ),
+                                    ),
                             ),
                           ),
                         ),
