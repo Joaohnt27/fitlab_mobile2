@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../models/user_model.dart';
+import '../services/auth_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -17,6 +19,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _birthDateController = TextEditingController();
+  bool _isLoading = false;
 
   // Controle de Visibilidade de Senha
   bool _isObscurePass = true;
@@ -51,7 +54,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _fetchEstados();
   }
 
-  // Integração com API do IBGE 
+  // Integração com API do IBGE
   Future<void> _fetchEstados() async {
     final url = Uri.parse(
       'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome',
@@ -127,7 +130,7 @@ class _SignupScreenState extends State<SignupScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               children: [
-                SizedBox(height: screenHeight * 0.12), 
+                SizedBox(height: screenHeight * 0.12),
                 ShaderMask(
                   shaderCallback: (bounds) => const LinearGradient(
                     colors: [Colors.white, Color(0xFF06B6D4)],
@@ -238,8 +241,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   child: Text(
                                     gen,
                                     style: const TextStyle(fontSize: 13),
-                                    overflow: TextOverflow
-                                        .ellipsis,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 );
                               }).toList(),
@@ -343,9 +345,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ],
                 ),
-                SizedBox(
-                  height: screenHeight * 0.05,
-                ), 
+                SizedBox(height: screenHeight * 0.05),
               ],
             ),
           ),
@@ -382,7 +382,7 @@ class _SignupScreenState extends State<SignupScreen> {
             color: Color(0xFF06B6D4),
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            letterSpacing: 0.5, 
+            letterSpacing: 0.5,
           ),
           floatingLabelBehavior: FloatingLabelBehavior.always,
           prefixIcon: icon != null
@@ -424,7 +424,7 @@ class _SignupScreenState extends State<SignupScreen> {
             color: Color(0xFF06B6D4),
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            letterSpacing: 0.5, 
+            letterSpacing: 0.5,
           ),
           floatingLabelBehavior: FloatingLabelBehavior.always,
           prefixIcon: Icon(icon, color: Colors.white38, size: 18),
@@ -443,10 +443,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _buildSlimRoleSelector() {
     return Container(
-      height: 50, 
-      padding: const EdgeInsets.all(
-        4,
-      ), 
+      height: 50,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Colors.black26,
         borderRadius: BorderRadius.circular(12),
@@ -516,7 +514,7 @@ class _SignupScreenState extends State<SignupScreen> {
           return Align(
             alignment: Alignment.topLeft,
             child: Material(
-              color: const Color(0xFF2C2C2C), 
+              color: const Color(0xFF2C2C2C),
               elevation: 8.0,
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
@@ -566,7 +564,7 @@ class _SignupScreenState extends State<SignupScreen> {
             children: [
               Icon(
                 icon,
-                size: 16, 
+                size: 16,
                 color: selected ? Colors.white : Colors.white24,
               ),
               const SizedBox(width: 8),
@@ -576,7 +574,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   color: selected ? Colors.white : Colors.white24,
                   fontSize: 12, // Fonte maior
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1, 
+                  letterSpacing: 1,
                 ),
               ),
             ],
@@ -604,9 +602,75 @@ class _SignupScreenState extends State<SignupScreen> {
         ],
       ),
       child: ElevatedButton(
-        onPressed: () {
-          // !!!!!!!!! Lógica de cadastro será implementada aqui !!!!!!!!!!!!
-        },
+        onPressed: _isLoading
+            ? null
+            : () async {
+                // 1. Validação básica
+                if (_nameController.text.isEmpty ||
+                    _emailController.text.isEmpty ||
+                    _passwordController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Preencha todos os campos!')),
+                  );
+                  return;
+                }
+
+                if (_passwordController.text !=
+                    _confirmPasswordController.text) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('As senhas não coincidem!')),
+                  );
+                  return;
+                }
+
+                // 2. Ativa o Loading
+                setState(() {
+                  _isLoading = true;
+                });
+
+                // 3. Monta o Objeto UserModel com os dados da tela
+                UserModel novoUsuario = UserModel(
+                  nome: _nameController.text,
+                  email: _emailController.text,
+                  senha: _passwordController.text,
+                  role:
+                      selectedRole, // Pega se é Atleta ou Treinador do seu botão
+                  // O peso e altura não estão na tela de registro,
+                  // então eles vão como null e podem ser preenchidos no perfil depois!
+                );
+
+                // 4. Chama o Serviço HTTP
+                AuthService authService = AuthService();
+                UserModel? resultado = await authService.cadastrarAtleta(
+                  novoUsuario,
+                );
+
+                // 5. Desativa o Loading
+                setState(() {
+                  _isLoading = false;
+                });
+
+                // 6. Analisa o Retorno
+                if (resultado != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Conta criada com sucesso! Bem-vindo ao FitLab!',
+                      ),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  // Volta para a tela de Login (ou vai direto para a Home)
+                  Navigator.pop(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Erro ao criar conta. Tente novamente.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -614,15 +678,25 @@ class _SignupScreenState extends State<SignupScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        child: const Text(
-          'CRIAR MINHA CONTA',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.2,
-            fontSize: 13,
-          ),
-        ),
+        // Se estiver carregando, mostra o CircularProgressIndicator. Senão, mostra o Texto.
+        child: _isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Text(
+                'CRIAR MINHA CONTA',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  fontSize: 13,
+                ),
+              ),
       ),
     );
   }
