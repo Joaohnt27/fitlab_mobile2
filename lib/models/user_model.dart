@@ -2,6 +2,10 @@ class UserModel {
   final String nome;
   final String email;
   final String senha;
+  final String? estado;
+  final String? cidade;
+  final String? dtNascimento;
+  final String? genero;
   final double? peso;
   final double? altura;
   final int nivel;
@@ -14,7 +18,8 @@ class UserModel {
   final int streak;
   final int ranking;
   final String role;
-  final String plano;
+  final Map<String, dynamic>? plano; 
+  final String? cref; 
   final DateTime? ultimoLogin;
   final Map<String, dynamic>? experimento;
 
@@ -22,6 +27,10 @@ class UserModel {
     required this.nome,
     required this.email,
     required this.senha,
+    this.estado,
+    this.cidade,
+    this.dtNascimento,
+    this.genero,
     this.peso,
     this.altura,
     this.nivel = 1,
@@ -35,7 +44,8 @@ class UserModel {
     this.streak = 0,
     this.ranking = 0,
     this.role = "Atleta",
-    this.plano = "Free",
+    this.plano, 
+    this.cref, 
     this.experimento,
     this.ultimoLogin,
   });
@@ -44,6 +54,10 @@ class UserModel {
     String? nome,
     String? email,
     String? senha,
+    String? estado,
+    String? cidade,
+    String? dtNascimento,
+    String? genero,
     int? nivel,
     int? xp,
     String? classe,
@@ -54,7 +68,8 @@ class UserModel {
     int? streak,
     int? ranking,
     String? role,
-    String? plano,
+    Map<String, dynamic>? plano, 
+    String? cref, 
     Map<String, dynamic>? experimento,
     DateTime? ultimoLogin,
   }) {
@@ -62,6 +77,10 @@ class UserModel {
       nome: nome ?? this.nome,
       email: email ?? this.email,
       senha: senha ?? this.senha,
+      estado: estado ?? this.estado,
+      cidade: cidade ?? this.cidade,
+      dtNascimento: dtNascimento ?? this.dtNascimento,
+      genero: genero ?? this.genero,
       nivel: nivel ?? this.nivel,
       xp: xp ?? this.xp,
       classe: classe ?? this.classe,
@@ -72,7 +91,8 @@ class UserModel {
       streak: streak ?? this.streak,
       ranking: ranking ?? this.ranking,
       role: role ?? this.role,
-      plano: plano ?? this.plano,
+      plano: plano ?? this.plano, 
+      cref: cref ?? this.cref, 
       experimento: experimento ?? this.experimento,
       ultimoLogin: ultimoLogin ?? this.ultimoLogin,
     );
@@ -86,6 +106,13 @@ class UserModel {
       "senha": senha,
       "peso": peso,
       "altura": altura,
+      "estado": estado,
+      "cidade": cidade,
+      "dtNascimento": dtNascimento,
+      "genero": genero,
+      "role": role,
+      "plano": plano, 
+      "cref": cref, 
     };
   }
 
@@ -94,13 +121,10 @@ class UserModel {
     return UserModel(
       nome: json['nome'] ?? '',
       email: json['email'] ?? '',
-      senha:
-          json['senha'] ??
-          '', 
-      xp:
-          json['xpAcumulado'] ??
-          0, 
+      senha: json['senha'] ?? '',
+      xp: json['xpAcumulado'] ?? 0,
       role: json['role'] ?? 'Atleta',
+      plano: json['plano'] as Map<String, dynamic>?,
     );
   }
 }

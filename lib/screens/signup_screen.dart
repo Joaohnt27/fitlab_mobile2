@@ -19,13 +19,20 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _birthDateController = TextEditingController();
-  bool _isLoading = false;
+  final _crefController = TextEditingController();
+  final _bioController = TextEditingController();
 
-  // Controle de Visibilidade de Senha
+  var dateMaskFormatter = MaskTextInputFormatter(
+    mask: '##/##/####',
+    filter: {"#": RegExp(r'[0-9]')},
+  );
+
+  bool _isLoading = false;
   bool _isObscurePass = true;
   bool _isObscureConfirmPass = true;
+  String selectedRole = 'Atleta';
+  bool _atuoSemCref = false;
 
-  // Variáveis para Dropdowns
   String? _selectedGenero;
   final List<String> _generos = [
     'Masculino',
@@ -34,27 +41,25 @@ class _SignupScreenState extends State<SignupScreen> {
     'Prefiro não dizer',
   ];
 
-  // Variáveis do IBGE
+  // IBGE (Estados e Cidades)
   List<dynamic> _estados = [];
   List<dynamic> _cidades = [];
-  String? _selectedEstadoSigla; // Enviado para a API
-  int? _selectedEstadoId; // Usado para buscar as cidades
-  String? _selectedCidadeNome; // Enviado para a API
+  String? _selectedEstadoSigla;
+  int? _selectedEstadoId;
+  String? _selectedCidadeNome;
+  String? _selectedCrefEstadoSigla;
 
-  String selectedRole = 'Atleta';
-
-  var dateMaskFormatter = MaskTextInputFormatter(
-    mask: '##/##/####',
-    filter: {"#": RegExp(r'[0-9]')},
-  );
+  // Planos (Vindos do Back-end)
+  List<dynamic> _planosDb = [];
+  String? _selectedPlanoId; 
 
   @override
   void initState() {
     super.initState();
     _fetchEstados();
+    _fetchPlanos();
   }
 
-  // Integração com API do IBGE
   Future<void> _fetchEstados() async {
     final url = Uri.parse(
       'https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome',
@@ -62,9 +67,7 @@ class _SignupScreenState extends State<SignupScreen> {
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        setState(() {
-          _estados = json.decode(response.body);
-        });
+        setState(() => _estados = json.decode(response.body));
       }
     } catch (e) {
       debugPrint("Erro ao buscar estados: $e");
@@ -78,12 +81,24 @@ class _SignupScreenState extends State<SignupScreen> {
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        setState(() {
-          _cidades = json.decode(response.body);
-        });
+        setState(() => _cidades = json.decode(response.body));
       }
     } catch (e) {
       debugPrint("Erro ao buscar cidades: $e");
+    }
+  }
+
+  Future<void> _fetchPlanos() async {
+    final url = Uri.parse('http://127.0.0.1:8080/api/planos');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        setState(
+          () => _planosDb = json.decode(utf8.decode(response.bodyBytes)),
+        );
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar planos: $e");
     }
   }
 
@@ -131,6 +146,8 @@ class _SignupScreenState extends State<SignupScreen> {
             child: Column(
               children: [
                 SizedBox(height: screenHeight * 0.12),
+
+                // Cabeçalho
                 ShaderMask(
                   shaderCallback: (bounds) => const LinearGradient(
                     colors: [Colors.white, Color(0xFF06B6D4)],
@@ -154,6 +171,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 SizedBox(height: screenHeight * 0.03),
 
+                // Card Principal
                 Container(
                   width: double.infinity,
                   constraints: const BoxConstraints(maxWidth: 400),
@@ -167,7 +185,25 @@ class _SignupScreenState extends State<SignupScreen> {
                     border: Border.all(color: Colors.white.withOpacity(0.05)),
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Tipo de Conta
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4, bottom: 6),
+                        child: Text(
+                          "TIPO DE CONTA",
+                          style: TextStyle(
+                            color: Color(0xFF06B6D4),
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                      _buildSlimRoleSelector(),
+                      const SizedBox(height: 20),
+
+                      // Campos Genéricos
                       _buildCompactField(
                         controller: _nameController,
                         label: 'NOME COMPLETO',
@@ -245,11 +281,9 @@ class _SignupScreenState extends State<SignupScreen> {
                                   ),
                                 );
                               }).toList(),
-                              onChanged: (val) {
-                                setState(() {
-                                  _selectedGenero = val as String?;
-                                });
-                              },
+                              onChanged: (val) => setState(
+                                () => _selectedGenero = val as String?,
+                              ),
                             ),
                           ),
                         ],
@@ -269,11 +303,8 @@ class _SignupScreenState extends State<SignupScreen> {
                             color: Colors.white38,
                             size: 18,
                           ),
-                          onPressed: () {
-                            setState(() {
-                              _isObscurePass = !_isObscurePass;
-                            });
-                          },
+                          onPressed: () =>
+                              setState(() => _isObscurePass = !_isObscurePass),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -290,41 +321,166 @@ class _SignupScreenState extends State<SignupScreen> {
                             color: Colors.white38,
                             size: 18,
                           ),
-                          onPressed: () {
+                          onPressed: () => setState(
+                            () =>
+                                _isObscureConfirmPass = !_isObscureConfirmPass,
+                          ),
+                        ),
+                      ),
+
+                      // Campos Exclusivos Treinador
+                      if (selectedRole == 'Treinador') ...[
+                        const SizedBox(height: 20),
+                        const Divider(color: Colors.white10, thickness: 1),
+                        const SizedBox(height: 12),
+                        const Text(
+                          "DADOS PROFISSIONAIS",
+                          style: TextStyle(
+                            color: Color(0xFF06B6D4),
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // CREF E ESTADO DO CREF
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: _buildCompactField(
+                                controller: _crefController,
+                                label: 'NÚMERO CREF',
+                                icon: Icons.badge_outlined,
+                                enabled: !_atuoSemCref,
+                                onTap: () {
+                                  if (!_atuoSemCref) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Ao inserir o número do seu CREF, ocorrerá uma verificação manual que será realizada por um membro da nossa equipe. Em até 48h retornamos se você será um profissional/assessoria verificado ou não.',
+                                        ),
+                                        duration: Duration(seconds: 5),
+                                        backgroundColor: Color(0xFF06B6D4),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 4,
+                              child: _buildDropdownField(
+                                label: 'UF CREF',
+                                icon: null,
+                                value: _selectedCrefEstadoSigla,
+                                onChanged: _atuoSemCref
+                                    ? null
+                                    : (val) {
+                                        setState(
+                                          () => _selectedCrefEstadoSigla =
+                                              val as String?,
+                                        );
+                                      },
+                                items: _estados.map((estado) {
+                                  return DropdownMenuItem<String>(
+                                    value: estado['sigla'],
+                                    child: Text(
+                                      estado['sigla'],
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Checkbox "Atuo sem CREF"
+                        Row(
+                          children: [
+                            SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: Checkbox(
+                                value: _atuoSemCref,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _atuoSemCref = val ?? false;
+                                    if (_atuoSemCref) {
+                                      _crefController.clear();
+                                      _selectedCrefEstadoSigla = null;
+                                      FocusManager.instance.primaryFocus
+                                          ?.unfocus();
+                                    }
+                                  });
+                                },
+                                activeColor: const Color(0xFF06B6D4),
+                                checkColor: Colors.black,
+                                side: BorderSide(
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              "Atuo sem um CREF (Conta não verificada)",
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        _buildCompactField(
+                          controller: _bioController,
+                          label: 'BIOGRAFIA / ASSESSORIA',
+                          icon: Icons.description_outlined,
+                        ),
+                        const SizedBox(height: 12),
+
+                        _buildDropdownField(
+                          label: 'PLANO DE ASSINATURA',
+                          icon: Icons.star_outline,
+                          value: _selectedPlanoId,
+                          items: _planosDb
+                              .where(
+                                (plano) =>
+                                    plano['nome'].toString().contains('Coach'),
+                              )
+                              .map((plano) {
+                                return DropdownMenuItem<String>(
+                                  value: plano['id'].toString(),
+                                  child: Text(
+                                    "${plano['nome']} - R\$ ${plano['valor']}",
+                                    style: const TextStyle(fontSize: 13),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              })
+                              .toList(),
+                          onChanged: (val) {
                             setState(() {
-                              _isObscureConfirmPass = !_isObscureConfirmPass;
+                              _selectedPlanoId = val as String?;
                             });
                           },
                         ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(left: 4, bottom: 6),
-                            child: Text(
-                              "TIPO DE CONTA",
-                              style: TextStyle(
-                                color: Color(0xFF06B6D4),
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ),
-                          _buildSlimRoleSelector(),
-                        ],
-                      ),
+                      ],
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 24),
                 _buildSubmitButton(),
-
                 const SizedBox(height: 12),
+
+                // Rodapé
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -398,6 +554,9 @@ class _SignupScreenState extends State<SignupScreen> {
           focusedBorder: const UnderlineInputBorder(
             borderSide: BorderSide(color: Color(0xFF06B6D4)),
           ),
+          disabledBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.02)),
+          ),
         ),
       ),
     );
@@ -408,16 +567,23 @@ class _SignupScreenState extends State<SignupScreen> {
     required String label,
     required IconData icon,
     bool isPass = false,
+    bool enabled = true,
     List<TextInputFormatter>? formatters,
     Widget? suffixIcon,
+    VoidCallback? onTap,
   }) {
     return SizedBox(
       height: 50,
       child: TextField(
         controller: controller,
         obscureText: isPass,
+        enabled: enabled,
         inputFormatters: formatters,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        onTap: onTap,
+        style: TextStyle(
+          color: enabled ? Colors.white : Colors.white38,
+          fontSize: 14,
+        ),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(
@@ -435,6 +601,9 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
           focusedBorder: const UnderlineInputBorder(
             borderSide: BorderSide(color: Color(0xFF06B6D4)),
+          ),
+          disabledBorder: UnderlineInputBorder(
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.02)),
           ),
         ),
       ),
@@ -459,7 +628,53 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  // Cidade pesquisável
+  Widget _roleBtn(String role, IconData icon) {
+    bool selected = selectedRole == role;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            selectedRole = role;
+            if (role == 'Atleta') {
+              _crefController.clear();
+              _bioController.clear();
+              _selectedPlanoId = null; 
+              _atuoSemCref = false;
+              _selectedCrefEstadoSigla = null;
+            }
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF06B6D4) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? Colors.white : Colors.white24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                role.toUpperCase(),
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.white24,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSearchableCityField() {
     return SizedBox(
       height: 50,
@@ -478,7 +693,7 @@ class _SignupScreenState extends State<SignupScreen> {
         },
         onSelected: (String selection) {
           setState(() => _selectedCidadeNome = selection);
-          FocusManager.instance.primaryFocus?.unfocus(); // Esconde o teclado
+          FocusManager.instance.primaryFocus?.unfocus();
         },
         fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
           return TextField(
@@ -548,42 +763,6 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Widget _roleBtn(String role, IconData icon) {
-    bool selected = selectedRole == role;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => selectedRole = role),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFF06B6D4) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: selected ? Colors.white : Colors.white24,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                role.toUpperCase(),
-                style: TextStyle(
-                  color: selected ? Colors.white : Colors.white24,
-                  fontSize: 12, // Fonte maior
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildSubmitButton() {
     return Container(
       width: double.infinity,
@@ -605,12 +784,14 @@ class _SignupScreenState extends State<SignupScreen> {
         onPressed: _isLoading
             ? null
             : () async {
-                // 1. Validação básica
+                // Validação Base
                 if (_nameController.text.isEmpty ||
                     _emailController.text.isEmpty ||
                     _passwordController.text.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Preencha todos os campos!')),
+                    const SnackBar(
+                      content: Text('Preencha todos os campos obrigatórios!'),
+                    ),
                   );
                   return;
                 }
@@ -623,34 +804,62 @@ class _SignupScreenState extends State<SignupScreen> {
                   return;
                 }
 
-                // 2. Ativa o Loading
-                setState(() {
-                  _isLoading = true;
-                });
+                // Validação Extra Treinador
+                if (selectedRole == 'Treinador') {
+                  if (!_atuoSemCref &&
+                      (_crefController.text.isEmpty ||
+                          _selectedCrefEstadoSigla == null)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Preencha o número do CREF e a UF, ou marque que atua sem!',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  if (_selectedPlanoId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Selecione um Plano de Assinatura!'),
+                      ),
+                    );
+                    return;
+                  }
+                }
 
-                // 3. Monta o Objeto UserModel com os dados da tela
+                setState(() => _isLoading = true);
+
+                // Montagem do Objeto
                 UserModel novoUsuario = UserModel(
                   nome: _nameController.text,
                   email: _emailController.text,
                   senha: _passwordController.text,
-                  role:
-                      selectedRole, // Pega se é Atleta ou Treinador do seu botão
-                  // O peso e altura não estão na tela de registro,
-                  // então eles vão como null e podem ser preenchidos no perfil depois!
+                  role: selectedRole,
+                  estado: _selectedEstadoSigla,
+                  cidade: _selectedCidadeNome,
+                  dtNascimento: _birthDateController.text,
+                  genero: _selectedGenero,
+                  cref: selectedRole == 'Treinador'
+                      ? (_atuoSemCref
+                            ? null
+                            : '${_crefController.text}/$_selectedCrefEstadoSigla')
+                      : null,
+                  bio: selectedRole == 'Treinador'
+                      ? _bioController.text
+                      : "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino.",
+                  plano: selectedRole == 'Treinador' && _selectedPlanoId != null
+                      ? {"id": int.parse(_selectedPlanoId!)}
+                      : null,
                 );
 
-                // 4. Chama o Serviço HTTP
                 AuthService authService = AuthService();
-                UserModel? resultado = await authService.cadastrarAtleta(
+                UserModel? resultado = await authService.cadastrarUsuario(
                   novoUsuario,
                 );
 
-                // 5. Desativa o Loading
-                setState(() {
-                  _isLoading = false;
-                });
+                setState(() => _isLoading = false);
 
-                // 6. Analisa o Retorno
                 if (resultado != null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -660,7 +869,6 @@ class _SignupScreenState extends State<SignupScreen> {
                       backgroundColor: Colors.green,
                     ),
                   );
-                  // Volta para a tela de Login (ou vai direto para a Home)
                   Navigator.pop(context);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -678,7 +886,6 @@ class _SignupScreenState extends State<SignupScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        // Se estiver carregando, mostra o CircularProgressIndicator. Senão, mostra o Texto.
         child: _isLoading
             ? const SizedBox(
                 height: 20,

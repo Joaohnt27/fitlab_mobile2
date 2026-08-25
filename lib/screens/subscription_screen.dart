@@ -73,6 +73,8 @@ class SubscriptionScreen extends StatelessWidget {
   }
 
   Widget _buildCurrentPlanHeader(UserModel? usuario) {
+    final String nomePlanoAtual = usuario?.plano?['nome'] ?? "FREE";
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -92,7 +94,7 @@ class SubscriptionScreen extends StatelessWidget {
                 style: TextStyle(color: Colors.white38, fontSize: 10),
               ),
               Text(
-                usuario?.plano?.toUpperCase() ?? "FREE",
+                nomePlanoAtual.toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -107,65 +109,69 @@ class SubscriptionScreen extends StatelessWidget {
   }
 
   List<Widget> _buildCoachPlans(BuildContext context, UserModel? usuario) {
+    final String nomePlanoAtual = usuario?.plano?['nome'] ?? "Free";
+
     return [
       PlanCard(
         title: "Coach Start",
         price: "R\$ 49,90",
         accentColor: Colors.white70,
-        isCurrentPlan: usuario?.plano == "Coach Start",
+        isCurrentPlan: nomePlanoAtual == "Coach Start",
         features: ["Até 20 alunos", "Criar treinos", "Ranking interno"],
-        onTap: () => _handlePlanAction(context, usuario, "Coach Start"),
+        onTap: () => _handlePlanAction(context, nomePlanoAtual, "Coach Start"),
       ),
       PlanCard(
         title: "Coach Pro",
         price: "R\$ 99,90",
         accentColor: const Color(0xFF06B6D4),
         isRecommended: true,
-        isCurrentPlan: usuario?.plano == "Coach Pro",
+        isCurrentPlan: nomePlanoAtual == "Coach Pro",
         features: [
           "Até 60 alunos",
           "Estatísticas avançadas",
           "IA para treinos",
         ],
-        onTap: () => _handlePlanAction(context, usuario, "Coach Pro"),
+        onTap: () => _handlePlanAction(context, nomePlanoAtual, "Coach Pro"),
       ),
       PlanCard(
         title: "Coach Elite",
         price: "R\$ 179,90",
         accentColor: const Color(0xFF1D4ED8),
-        isCurrentPlan: usuario?.plano == "Coach Elite",
+        isCurrentPlan: nomePlanoAtual == "Coach Elite",
         features: ["Alunos ilimitados", "Gestão de equipe", "Automação total"],
-        onTap: () => _handlePlanAction(context, usuario, "Coach Elite"),
+        onTap: () => _handlePlanAction(context, nomePlanoAtual, "Coach Elite"),
       ),
     ];
   }
 
   List<Widget> _buildAthletePlans(BuildContext context, UserModel? usuario) {
+    final String nomePlanoAtual = usuario?.plano?['nome'] ?? "Free";
+
     return [
       PlanCard(
         title: "Atleta Pro",
         price: "R\$ 29,90",
         accentColor: const Color(0xFF06B6D4),
         isRecommended: true,
-        isCurrentPlan: usuario?.plano == "Atleta Pro",
+        isCurrentPlan: nomePlanoAtual == "Atleta Pro",
         features: [
           "Treinos IA ilimitados",
           "Análise biomecânica",
           "Sem anúncios",
         ],
-        onTap: () => _handlePlanAction(context, usuario, "Atleta Pro"),
+        onTap: () => _handlePlanAction(context, nomePlanoAtual, "Atleta Pro"),
       ),
       PlanCard(
         title: "Atleta Elite",
         price: "R\$ 49,90",
         accentColor: const Color(0xFF1D4ED8),
-        isCurrentPlan: usuario?.plano == "Atleta Elite",
+        isCurrentPlan: nomePlanoAtual == "Atleta Elite",
         features: [
           "Acesso a Coaches",
           "Consultoria personalizada",
           "Ranking global",
         ],
-        onTap: () => _handlePlanAction(context, usuario, "Atleta Elite"),
+        onTap: () => _handlePlanAction(context, nomePlanoAtual, "Atleta Elite"),
       ),
     ];
   }
@@ -173,10 +179,10 @@ class SubscriptionScreen extends StatelessWidget {
   // Gerencia se deve abrir compra ou cancelamento
   void _handlePlanAction(
     BuildContext context,
-    UserModel? usuario,
+    String planoAtual,
     String planoAlvo,
   ) {
-    if (usuario?.plano == planoAlvo) {
+    if (planoAtual == planoAlvo) {
       _confirmarCancelamento(context);
     } else {
       _simularCompra(context, planoAlvo);
@@ -261,21 +267,21 @@ class SubscriptionScreen extends StatelessWidget {
     );
 
     Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pop(context); // Fecha loading
+      Navigator.pop(context); 
       _processarUpgradeOuCancelamento(context, novoPlano);
     });
   }
 
-  void _processarUpgradeOuCancelamento(BuildContext context, String plano) {
+  void _processarUpgradeOuCancelamento(BuildContext context, String planoNome) {
     final provider = Provider.of<UserProvider>(context, listen: false);
     if (provider.usuarioLogado != null) {
       provider.atualizarPerfilCompleto(
-        provider.usuarioLogado!.copyWith(plano: plano),
+        provider.usuarioLogado!.copyWith(plano: {"nome": planoNome}),
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Plano atualizado para: $plano"),
+          content: Text("Plano atualizado para: $planoNome"),
           backgroundColor: const Color(0xFF06B6D4),
         ),
       );

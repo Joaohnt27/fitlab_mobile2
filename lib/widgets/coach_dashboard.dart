@@ -15,12 +15,14 @@ class CoachDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
-    final plano = userProvider.usuarioLogado?.plano ?? "Coach Start";
-    final bool canUseIA = plano == 'Coach Pro' || plano == 'Coach Elite';
-    final bool isElite = plano == 'Coach Elite';
-    final String limiteAlunos = plano == 'Coach Start'
+    final planoObj = userProvider.usuarioLogado?.plano;
+    final String nomePlanoAtual = planoObj?['nome'] ?? "Coach Start";
+    final bool canUseIA =
+        nomePlanoAtual == 'Coach Pro' || nomePlanoAtual == 'Coach Elite';
+    final bool isElite = nomePlanoAtual == 'Coach Elite';
+    final String limiteAlunos = nomePlanoAtual == 'Coach Start'
         ? "20"
-        : (plano == 'Coach Pro' ? "60" : "∞");
+        : (nomePlanoAtual == 'Coach Pro' ? "60" : "∞");
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -29,14 +31,15 @@ class CoachDashboard extends StatelessWidget {
           children: [
             _StatMiniCard(
               label: "ALUNOS ATIVOS",
-              value: "12/$limiteAlunos",
+              // Mock apenas para layout. Futuramente: "${alunosList.length}/$limiteAlunos"
+              value: "0/$limiteAlunos",
               color: Colors.greenAccent,
               icon: Icons.people_alt_rounded,
             ),
             const SizedBox(width: 12),
             const _StatMiniCard(
               label: "MÉDIA EVOLUÇÃO",
-              value: "+12%",
+              value: "0%",
               color: Color(0xFF06B6D4),
               icon: Icons.trending_up_rounded,
             ),
@@ -44,7 +47,7 @@ class CoachDashboard extends StatelessWidget {
         ),
 
         const SizedBox(height: 16),
-        _buildCoachPlanBadge(plano.toUpperCase()),
+        _buildCoachPlanBadge(nomePlanoAtual.toUpperCase()),
 
         const SizedBox(height: 24),
 
@@ -77,41 +80,31 @@ class CoachDashboard extends StatelessWidget {
 
         const SizedBox(height: 12),
 
-        _buildRankingStudentTile(
-          position: 1,
-          name: "Arthur Vital",
-          km: 154.2,
-          totalWorkouts: 22,
-          accentColor: Colors.greenAccent,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.02)),
+          ),
+          child: const Column(
+            children: [
+              Icon(
+                Icons.emoji_events_outlined,
+                color: Colors.white24,
+                size: 48,
+              ),
+              SizedBox(height: 16),
+              Text(
+                "Nenhum aluno cadastrado para ranquear",
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
         ),
-        _buildRankingStudentTile(
-          position: 2,
-          name: "Maria Silva",
-          km: 120.5,
-          totalWorkouts: 18,
-          accentColor: const Color(0xFF06B6D4),
-        ),
-        _buildRankingStudentTile(
-          position: 3,
-          name: "João Henrique",
-          km: 98.0,
-          totalWorkouts: 15,
-          accentColor: Colors.orangeAccent,
-        ),
-        _buildRankingStudentTile(
-          position: 4,
-          name: "Lucas Rocha",
-          km: 85.4,
-          totalWorkouts: 12,
-          accentColor: Colors.purpleAccent,
-        ),
-        _buildRankingStudentTile(
-          position: 5,
-          name: "Beatriz Lima",
-          km: 77.2,
-          totalWorkouts: 10,
-          accentColor: Colors.pinkAccent,
-        ),
+
+        const SizedBox(height: 12),
 
         Center(
           child: TextButton(
@@ -143,13 +136,24 @@ class CoachDashboard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        _buildCoachChallengeCard(
-          context,
-          title: "Maratona de Outono",
-          participants: 28,
-          timeLeft: "4 dias",
-          onEnd: () =>
-              _confirmarEncerramentoDesafio(context, "Maratona de Outono"),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.02)),
+          ),
+          child: const Column(
+            children: [
+              Icon(Icons.flag_outlined, color: Colors.white24, size: 32),
+              SizedBox(height: 12),
+              Text(
+                "Nenhum desafio ativo no momento",
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
         ),
 
         const SizedBox(height: 20),
@@ -245,7 +249,7 @@ class CoachDashboard extends StatelessWidget {
                     ),
                   );
                 }
-              : null, // Se não puder usar, o botão fica nulo (desabilitado)
+              : null,
           isLocked: !canUseIA,
         ),
         // Gestão de Equipe (Requisito Coach Elite)
@@ -313,6 +317,7 @@ class CoachDashboard extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   Widget _buildRankingStudentTile({
     required int position,
     required String name,
@@ -423,6 +428,7 @@ class CoachDashboard extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   Widget _buildCoachChallengeCard(
     BuildContext context, {
     required String title,
@@ -503,6 +509,7 @@ class CoachDashboard extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   void _confirmarEncerramentoDesafio(BuildContext context, String nome) {
     showDialog(
       context: context,

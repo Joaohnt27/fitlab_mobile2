@@ -3,10 +3,10 @@ import 'package:http/http.dart' as http;
 import '../models/user_model.dart'; 
 
 class AuthService {
-  static const String baseUrl = 'http://localhost:8080/api/atletas';
+  static const String baseUrl = 'http://localhost:8080/api/usuarios';
 
-  // Cadastra um novo atleta no back-end
-  Future<UserModel?> cadastrarAtleta(UserModel usuario) async {
+  // Cadastra um novo usuário no back-end
+  Future<UserModel?> cadastrarUsuario(UserModel usuario) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/cadastro'),
