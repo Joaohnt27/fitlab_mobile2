@@ -1,4 +1,5 @@
 class UserModel {
+  final int? id;
   final String nome;
   final String email;
   final String senha;
@@ -24,6 +25,7 @@ class UserModel {
   final Map<String, dynamic>? experimento;
 
   UserModel({
+    this.id,
     required this.nome,
     required this.email,
     required this.senha,
@@ -51,6 +53,7 @@ class UserModel {
   });
 
   UserModel copyWith({
+    int? id,
     String? nome,
     String? email,
     String? senha,
@@ -74,6 +77,7 @@ class UserModel {
     DateTime? ultimoLogin,
   }) {
     return UserModel(
+      id: id ?? this.id,
       nome: nome ?? this.nome,
       email: email ?? this.email,
       senha: senha ?? this.senha,
@@ -101,6 +105,7 @@ class UserModel {
   // Converte o objeto Dart para um mapa JSON (vai ser enviado para a API)
   Map<String, dynamic> toJson() {
     return {
+      "id": id,
       "nome": nome,
       "email": email,
       "senha": senha,
@@ -119,6 +124,7 @@ class UserModel {
   // Cria um objeto Dart a partir de um JSON (Quando a API devolver os dados)
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
+      id: json['id'] ?? 0,
       nome: json['nome'] ?? '',
       email: json['email'] ?? '',
       senha: json['senha'] ?? '',

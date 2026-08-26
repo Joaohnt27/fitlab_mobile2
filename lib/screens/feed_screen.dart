@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:fitlab_mobile2/widgets/feed_level_radial.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,19 +9,53 @@ import '../models/feed_item.dart';
 import '../widgets/suggest_user_card.dart';
 import '../widgets/trending_challenge_card.dart';
 
-class FeedScreen extends StatelessWidget {
+class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
   @override
+  State<FeedScreen> createState() => _FeedScreenState();
+}
+
+class _FeedScreenState extends State<FeedScreen> {
+  // Variáveis de Estado para o "Quem Seguir"
+  List<dynamic> _sugestoesDb = [];
+  bool _isLoadingSugestoes = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // chama a função de busca logo que a tela abre
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchSugestoes();
+    });
+  }
+
+  Future<void> _fetchSugestoes() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    final userId = userProvider.usuarioLogado?.id ?? 1;
+
+    final url = Uri.parse('http://127.0.0.1:8080/api/feed/sugestoes/$userId');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        setState(() {
+          _sugestoesDb = json.decode(utf8.decode(response.bodyBytes));
+          _isLoadingSugestoes = false;
+        });
+      } else {
+        setState(() => _isLoadingSugestoes = false);
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar sugestões: $e");
+      setState(() => _isLoadingSugestoes = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<String> sugestoes = [
-      "Rodrigo Silva",
-      "Mariana Luz",
-      "Marcos Treino",
-      "Julia Running",
-      "Enzo Fit",
-    ];
-    // dados mockados para o feed (será substituído por dados reais da API no futuro)
+    // Dados mockados para o feed social (SUBSTITUIR COM DADOS REAIS DA API DEPOIS)
     final List<FeedItem> mockFeed = [
       FeedItem(
         id: 1,
@@ -104,7 +140,6 @@ class FeedScreen extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          // Se o streak for 0, fundo cinza, senão, laranja
                           color: streak > 0
                               ? Colors.orange.withOpacity(0.2)
                               : Colors.white10,
@@ -114,7 +149,6 @@ class FeedScreen extends StatelessWidget {
                           children: [
                             Icon(
                               Icons.local_fire_department,
-                              // Se o fogo estiver apagado (streak 0), mudamos a cor para cinza
                               color: streak > 0
                                   ? Colors.orange
                                   : Colors.white38,
@@ -262,8 +296,7 @@ class FeedScreen extends StatelessWidget {
                             ),
                           ),
                           FractionallySizedBox(
-                            widthFactor:
-                                progressoReal, 
+                            widthFactor: progressoReal,
                             child: Container(
                               height: 6,
                               decoration: BoxDecoration(
@@ -292,7 +325,7 @@ class FeedScreen extends StatelessWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: 30)),
 
-          //Seção QUEM SEGUIR
+          // Seção QUEM SEGUIR DINÂMICA
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,15 +345,30 @@ class FeedScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 SizedBox(
                   height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: sugestoes.length,
-                    itemBuilder: (context, index) {
-                      return SuggestUserCard(nome: sugestoes[index]);
-                    },
-                  ),
+                  child: _isLoadingSugestoes
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF06B6D4),
+                          ),
+                        )
+                      : _sugestoesDb.isEmpty
+                      ? const Center(
+                          child: Text(
+                            "Nenhuma sugestão no momento.",
+                            style: TextStyle(color: Colors.white38),
+                          ),
+                        )
+                      : ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: _sugestoesDb.length,
+                          itemBuilder: (context, index) {
+                            final usuarioApi = _sugestoesDb[index];
+                            // Passamos o nome dinâmico para o card
+                            return SuggestUserCard(nome: usuarioApi['nome']);
+                          },
+                        ),
                 ),
               ],
             ),
@@ -377,10 +425,8 @@ class FeedScreen extends StatelessWidget {
             ),
           ),
 
-          // Espaçamento para o conteúdo não colar na barra
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
-          // Card de Mapa (Dominação Territorial)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -405,7 +451,6 @@ class FeedScreen extends StatelessWidget {
             ),
           ),
 
-          // Listagem do Feed
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             sliver: SliverList(
@@ -422,7 +467,6 @@ class FeedScreen extends StatelessWidget {
     );
   }
 
-  // widget de mapa 
   Widget _buildTerritoryMapCard() {
     return Container();
   }
