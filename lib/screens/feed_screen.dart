@@ -366,7 +366,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           itemBuilder: (context, index) {
                             final usuarioApi = _sugestoesDb[index];
                             // Passamos o nome dinâmico para o card
-                            return SuggestUserCard(nome: usuarioApi['nome']);
+                            return SuggestUserCard(usuario: usuarioApi);
                           },
                         ),
                 ),
