@@ -1,116 +1,94 @@
 import 'package:flutter/material.dart';
+import '../screens/challenge_details_screen.dart';
 
 class TrendingChallengeCard extends StatelessWidget {
-  final String title;
-  final String category;
-  final String xp;
-  final IconData icon;
+  final Map<String, dynamic> desafio;
 
-  const TrendingChallengeCard({
-    super.key,
-    required this.title,
-    required this.category,
-    required this.xp,
-    required this.icon,
-  });
+  const TrendingChallengeCard({super.key, required this.desafio});
+
+  IconData _getIcon(String iconName) {
+    switch (iconName) {
+      case 'bolt':
+        return Icons.bolt;
+      case 'nightlight_round':
+        return Icons.nightlight_round;
+      case 'map':
+        return Icons.map;
+      default:
+        return Icons.flag;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 280, // Card mais largo para destaque
-      margin: const EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1E1E1E), // Dark Grey
-            Color(0xFF111111), // Quase preto
-          ],
-        ),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Stack(
-        children: [
-          // Efeito de brilho no fundo
-          Positioned(
-            right: -20,
-            top: -20,
-            child: Icon(
-              icon,
-              size: 100,
-              color: const Color(0xFF06B6D4).withOpacity(0.03),
-            ),
+    final title = desafio['titulo'] ?? 'Desafio';
+    final xp = desafio['recompensaXp']?.toString() ?? '0';
+    final iconStr = desafio['imagem'] ?? 'flag';
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChallengeDetailsScreen(desafio: desafio),
           ),
-          Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        );
+      },
+      child: Container(
+        width: 140,
+        margin: const EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.05)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF06B6D4).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                _getIcon(iconStr),
+                color: const Color(0xFF06B6D4),
+                size: 20,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              "Desafio Global",
+              style: TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+            const SizedBox(height: 8),
+            Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF06B6D4).withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        icon,
-                        color: const Color(0xFF06B6D4),
-                        size: 20,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        "+$xp XP",
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category.toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 9,
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                const Icon(Icons.star, color: Colors.amber, size: 12),
+                const SizedBox(width: 4),
+                Text(
+                  "$xp XP",
+                  style: const TextStyle(
+                    color: Colors.amber,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

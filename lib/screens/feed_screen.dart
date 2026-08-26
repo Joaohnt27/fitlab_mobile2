@@ -21,12 +21,17 @@ class _FeedScreenState extends State<FeedScreen> {
   List<dynamic> _sugestoesDb = [];
   bool _isLoadingSugestoes = true;
 
+  // Variáveis para os Desafios
+  List<dynamic> _desafiosDb = [];
+  bool _isLoadingDesafios = true;
+
   @override
   void initState() {
     super.initState();
     // chama a função de busca logo que a tela abre
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchSugestoes();
+      _fetchDesafios();
     });
   }
 
@@ -50,6 +55,24 @@ class _FeedScreenState extends State<FeedScreen> {
     } catch (e) {
       debugPrint("Erro ao buscar sugestões: $e");
       setState(() => _isLoadingSugestoes = false);
+    }
+  }
+
+  Future<void> _fetchDesafios() async {
+    final url = Uri.parse('http://127.0.0.1:8080/api/feed/desafios-em-alta');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        setState(() {
+          _desafiosDb = json.decode(utf8.decode(response.bodyBytes));
+          _isLoadingDesafios = false;
+        });
+      } else {
+        setState(() => _isLoadingDesafios = false);
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar desafios: $e");
+      setState(() => _isLoadingDesafios = false);
     }
   }
 
@@ -395,31 +418,29 @@ class _FeedScreenState extends State<FeedScreen> {
                 const SizedBox(height: 16),
                 SizedBox(
                   height: 160,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    children: const [
-                      TrendingChallengeCard(
-                        title: "Maratona Jedi",
-                        category: "Resistência",
-                        xp: "500",
-                        icon: Icons.bolt,
-                      ),
-                      TrendingChallengeCard(
-                        title: "Sprint Noturno",
-                        category: "Velocidade",
-                        xp: "350",
-                        icon: Icons.nightlight_round,
-                      ),
-                      TrendingChallengeCard(
-                        title: "Conquistador",
-                        category: "Território",
-                        xp: "800",
-                        icon: Icons.map,
-                      ),
-                    ],
-                  ),
+                  child: _isLoadingDesafios
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF06B6D4),
+                          ),
+                        )
+                      : _desafiosDb.isEmpty
+                      ? const Center(
+                          child: Text(
+                            "Nenhum desafio no momento.",
+                            style: TextStyle(color: Colors.white38),
+                          ),
+                        )
+                      : ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          itemCount: _desafiosDb.length,
+                          itemBuilder: (context, index) {
+                            final desafio = _desafiosDb[index];
+                            return TrendingChallengeCard(desafio: desafio);
+                          },
+                        ),
                 ),
               ],
             ),
