@@ -8,6 +8,7 @@ import '../widgets/feed_card.dart';
 import '../models/feed_item.dart';
 import '../widgets/suggest_user_card.dart';
 import '../widgets/trending_challenge_card.dart';
+import '../widgets/streak_meter.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -82,7 +83,13 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _fetchFeed() async {
-    final url = Uri.parse('http://127.0.0.1:8080/api/feed/social');
+    // Pega o ID de quem está usando o app
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.usuarioLogado?.id ?? 1;
+
+    // Passa o ID na URL
+    final url = Uri.parse('http://127.0.0.1:8080/api/feed/social/$userId');
+
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -142,52 +149,10 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
               ),
             ),
-            actions: [
+            actions: const [
               Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: Tooltip(
-                  message: "Medidor de sequência",
-                  triggerMode: TooltipTriggerMode.tap,
-                  child: Consumer<UserProvider>(
-                    builder: (context, userProvider, child) {
-                      final streak = userProvider.usuarioLogado?.streak ?? 0;
-
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: streak > 0
-                              ? Colors.orange.withOpacity(0.2)
-                              : Colors.white10,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.local_fire_department,
-                              color: streak > 0
-                                  ? Colors.orange
-                                  : Colors.white38,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              "$streak",
-                              style: TextStyle(
-                                color: streak > 0
-                                    ? Colors.white
-                                    : Colors.white38,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                padding: EdgeInsets.only(right: 16.0),
+                child: StreakMeter(),
               ),
             ],
           ),

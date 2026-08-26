@@ -1,28 +1,116 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import 'dart:convert'; 
+import '../providers/user_provider.dart';
+import '../widgets/comments_sheet.dart';
 
-class FeedCard extends StatelessWidget {
-  // Agora recebe o JSON dinâmico da API
+class FeedCard extends StatefulWidget {
   final Map<String, dynamic> post;
 
   const FeedCard({super.key, required this.post});
 
   @override
-  Widget build(BuildContext context) {
-    // Extrai os dados do mapa com valores padrão de segurança
-    final nome = post['nomeUsuario'] ?? 'Atleta FitLab';
-    // Pega a primeira letra do nome para o Avatar, caso não tenha imagem
-    final avatar = post['avatarUsuario'] ?? (nome.isNotEmpty ? nome[0] : 'F');
-    final tipo = post['tipoPost'] ?? 'TEXTO';
-    final titulo = post['titulo'] ?? '';
-    final texto = post['texto'];
-    final likes = post['likes']?.toString() ?? '0';
-    final comentarios = post['comentarios']?.toString() ?? '0';
+  State<FeedCard> createState() => _FeedCardState();
+}
 
-    // Formatação simples da data ISO que vem do Java
+class _FeedCardState extends State<FeedCard> {
+  bool _isLiked = false;
+  late int _likesCount;
+  bool _isLoadingLike = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Inicializa a contagem de likes baseada no que veio do banco
+    _likesCount = widget.post['likes'] ?? 0;
+
+    _isLiked = widget.post['curtidoPorMim'] ?? false;
+  }
+
+  Future<void> _toggleLike() async {
+    if (_isLoadingLike) return; // Evita duplo clique rápido
+
+    setState(() => _isLoadingLike = true);
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idUsuario = userProvider.usuarioLogado?.id ?? 1;
+    final idPost = widget.post['id'];
+
+    final url = Uri.parse(
+      'http://127.0.0.1:8080/api/feed/postagens/$idPost/curtir/$idUsuario',
+    );
+
+    try {
+      final response = await http.post(url);
+
+      if (response.statusCode == 200) {
+        setState(() {
+          // A API devolve essas strings exatas no FeedController
+          if (response.body == "Postagem curtida") {
+            _isLiked = true;
+            _likesCount++;
+          } else {
+            _isLiked = false;
+            _likesCount--;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao curtir post: $e");
+    } finally {
+      setState(() => _isLoadingLike = false);
+    }
+  }
+
+  // --- NOVA FUNÇÃO: Abre o modal inferior de comentários ---
+  void _abrirModalComentarios() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(
+            context,
+          ).viewInsets.bottom, // Evita que o teclado cubra o input
+        ),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.6, // Ocupa 60% da tela
+          child: CommentsSheet(
+            idPost: widget.post['id'] ?? 0,
+            onComentarioAdicionado: () {
+              // Atualiza o contador de comentários na tela instantaneamente
+              setState(() {
+                widget.post['comentarios'] =
+                    (int.parse(widget.post['comentarios']?.toString() ?? '0') +
+                            1)
+                        .toString();
+              });
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nome = widget.post['nomeUsuario'] ?? 'Atleta FitLab';
+    final avatar =
+        widget.post['avatarUsuario'] ?? (nome.isNotEmpty ? nome[0] : 'F');
+    final tipo = widget.post['tipoPost'] ?? 'TEXTO';
+    final titulo = widget.post['titulo'] ?? '';
+    final texto = widget.post['texto'];
+    final comentarios = widget.post['comentarios']?.toString() ?? '0';
+
     String dataFormatada = 'Recentemente';
-    if (post['dataHora'] != null) {
+    if (widget.post['dataHora'] != null) {
       try {
-        final dt = DateTime.parse(post['dataHora']);
+        final dt = DateTime.parse(widget.post['dataHora']);
         dataFormatada =
             "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} às ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
       } catch (_) {}
@@ -108,7 +196,6 @@ class FeedCard extends StatelessWidget {
             ),
           ),
 
-          // Exibe um card bônus baseado no TIPO de postagem
           if (tipo == 'CONQUISTA') _buildBadgeAward(titulo),
           if (tipo == 'TERRITORIO') _buildStatsRow(),
 
@@ -118,9 +205,21 @@ class FeedCard extends StatelessWidget {
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
             child: Row(
               children: [
-                _buildActionButton(Icons.thumb_up_off_alt, likes),
+                // Botão de Curtir Interativo
+                _buildInteractiveActionButton(
+                  icon: _isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt,
+                  count: _likesCount.toString(),
+                  isActive: _isLiked,
+                  onTap: _toggleLike,
+                ),
                 const SizedBox(width: 24),
-                _buildActionButton(Icons.chat_bubble_outline, comentarios),
+                // Botão de Comentário Chamando o Modal
+                _buildInteractiveActionButton(
+                  icon: Icons.chat_bubble_outline,
+                  count: comentarios,
+                  isActive: false,
+                  onTap: _abrirModalComentarios, // Conectado!
+                ),
               ],
             ),
           ),
@@ -129,16 +228,15 @@ class FeedCard extends StatelessWidget {
     );
   }
 
-  // --- MÉTODOS AUXILIARES ADAPTADOS PARA STRINGS DO BANCO ---
-
   Widget _buildTypeBadge(String type) {
     Color color;
-    if (type == 'TERRITORIO')
+    if (type == 'TERRITORIO') {
       color = Colors.cyan;
-    else if (type == 'CONQUISTA')
+    } else if (type == 'CONQUISTA') {
       color = Colors.orange;
-    else
-      color = Colors.green; // TEXTO/TREINO normal
+    } else {
+      color = Colors.green;
+    }
 
     return Container(
       padding: const EdgeInsets.all(6),
@@ -161,7 +259,6 @@ class FeedCard extends StatelessWidget {
     }
   }
 
-  // Estatísticas mockadas para o TCC baseadas no evento "TERRITÓRIO"
   Widget _buildStatsRow() {
     final Map<String, String> stats = {"Territórios": "+3", "Bônus XP": "300"};
     return Padding(
@@ -194,7 +291,6 @@ class FeedCard extends StatelessWidget {
     );
   }
 
-  // Badge especial baseada no título da Conquista
   Widget _buildBadgeAward(String titulo) {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -238,16 +334,34 @@ class FeedCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton(IconData icon, String count) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.white38, size: 20),
-        const SizedBox(width: 6),
-        Text(
-          count,
-          style: const TextStyle(color: Colors.white38, fontSize: 12),
+  Widget _buildInteractiveActionButton({
+    required IconData icon,
+    required String count,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    final color = isActive ? const Color(0xFF06B6D4) : Colors.white38;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 6),
+            Text(
+              count,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
