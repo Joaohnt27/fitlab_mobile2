@@ -1,13 +1,33 @@
 import 'package:flutter/material.dart';
-import '../models/feed_item.dart';
 
 class FeedCard extends StatelessWidget {
-  final FeedItem item;
+  // Agora recebe o JSON dinâmico da API
+  final Map<String, dynamic> post;
 
-  const FeedCard({super.key, required this.item});
+  const FeedCard({super.key, required this.post});
 
   @override
   Widget build(BuildContext context) {
+    // Extrai os dados do mapa com valores padrão de segurança
+    final nome = post['nomeUsuario'] ?? 'Atleta FitLab';
+    // Pega a primeira letra do nome para o Avatar, caso não tenha imagem
+    final avatar = post['avatarUsuario'] ?? (nome.isNotEmpty ? nome[0] : 'F');
+    final tipo = post['tipoPost'] ?? 'TEXTO';
+    final titulo = post['titulo'] ?? '';
+    final texto = post['texto'];
+    final likes = post['likes']?.toString() ?? '0';
+    final comentarios = post['comentarios']?.toString() ?? '0';
+
+    // Formatação simples da data ISO que vem do Java
+    String dataFormatada = 'Recentemente';
+    if (post['dataHora'] != null) {
+      try {
+        final dt = DateTime.parse(post['dataHora']);
+        dataFormatada =
+            "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} às ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+      } catch (_) {}
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -26,7 +46,9 @@ class FeedCard extends StatelessWidget {
                 CircleAvatar(
                   backgroundColor: const Color(0xFF06B6D4),
                   child: Text(
-                    item.userAvatar,
+                    avatar.length > 2
+                        ? avatar.substring(0, 2).toUpperCase()
+                        : avatar.toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -39,14 +61,14 @@ class FeedCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.userName,
+                        nome,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        item.timestamp,
+                        dataFormatada,
                         style: const TextStyle(
                           color: Colors.white38,
                           fontSize: 10,
@@ -55,7 +77,7 @@ class FeedCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                _buildTypeBadge(item.type),
+                _buildTypeBadge(tipo),
               ],
             ),
           ),
@@ -66,18 +88,19 @@ class FeedCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                if (titulo.isNotEmpty)
+                  Text(
+                    titulo,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                if (item.description != null) ...[
+                if (texto != null && texto.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
-                    item.description!,
+                    texto,
                     style: const TextStyle(color: Colors.white70, fontSize: 13),
                   ),
                 ],
@@ -85,11 +108,9 @@ class FeedCard extends StatelessWidget {
             ),
           ),
 
-          // Stats (Se houver)
-          if (item.stats != null) _buildStatsRow(item.stats!),
-
-          // Badge de Conquista (Se houver)
-          if (item.badge != null) _buildBadgeAward(item.badge!),
+          // Exibe um card bônus baseado no TIPO de postagem
+          if (tipo == 'CONQUISTA') _buildBadgeAward(titulo),
+          if (tipo == 'TERRITORIO') _buildStatsRow(),
 
           // Actions: Like e Comentário
           const Divider(color: Colors.white10, height: 32),
@@ -97,15 +118,9 @@ class FeedCard extends StatelessWidget {
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
             child: Row(
               children: [
-                _buildActionButton(
-                  Icons.thumb_up_off_alt,
-                  item.likes.toString(),
-                ),
+                _buildActionButton(Icons.thumb_up_off_alt, likes),
                 const SizedBox(width: 24),
-                _buildActionButton(
-                  Icons.chat_bubble_outline,
-                  item.comments.toString(),
-                ),
+                _buildActionButton(Icons.chat_bubble_outline, comentarios),
               ],
             ),
           ),
@@ -114,8 +129,17 @@ class FeedCard extends StatelessWidget {
     );
   }
 
-  Widget _buildTypeBadge(FeedType type) {
-    Color color = type == FeedType.territory ? Colors.cyan : Colors.orange;
+  // --- MÉTODOS AUXILIARES ADAPTADOS PARA STRINGS DO BANCO ---
+
+  Widget _buildTypeBadge(String type) {
+    Color color;
+    if (type == 'TERRITORIO')
+      color = Colors.cyan;
+    else if (type == 'CONQUISTA')
+      color = Colors.orange;
+    else
+      color = Colors.green; // TEXTO/TREINO normal
+
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
@@ -126,20 +150,20 @@ class FeedCard extends StatelessWidget {
     );
   }
 
-  IconData _getIcon(FeedType type) {
+  IconData _getIcon(String type) {
     switch (type) {
-      case FeedType.territory:
+      case 'TERRITORIO':
         return Icons.map_outlined;
-      case FeedType.achievement:
+      case 'CONQUISTA':
         return Icons.emoji_events_outlined;
-      case FeedType.milestone:
-        return Icons.workspace_premium_outlined;
       default:
         return Icons.directions_run;
     }
   }
 
-  Widget _buildStatsRow(Map<String, String> stats) {
+  // Estatísticas mockadas para o TCC baseadas no evento "TERRITÓRIO"
+  Widget _buildStatsRow() {
+    final Map<String, String> stats = {"Territórios": "+3", "Bônus XP": "300"};
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Wrap(
@@ -170,7 +194,8 @@ class FeedCard extends StatelessWidget {
     );
   }
 
-  Widget _buildBadgeAward(Map<String, String> badge) {
+  // Badge especial baseada no título da Conquista
+  Widget _buildBadgeAward(String titulo) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(12),
@@ -183,28 +208,30 @@ class FeedCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(badge['icon'] ?? "🏅", style: const TextStyle(fontSize: 24)),
+          const Text("🏅", style: TextStyle(fontSize: 24)),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "CONQUISTA ESPECIAL",
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "CONQUISTA DESBLOQUEADA",
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
                 ),
-              ),
-              Text(
-                badge['name'] ?? "",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                Text(
+                  titulo,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

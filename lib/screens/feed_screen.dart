@@ -25,6 +25,10 @@ class _FeedScreenState extends State<FeedScreen> {
   List<dynamic> _desafiosDb = [];
   bool _isLoadingDesafios = true;
 
+  // Variáveis para o Feed Social
+  List<dynamic> _feedDb = [];
+  bool _isLoadingFeed = true;
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +36,7 @@ class _FeedScreenState extends State<FeedScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchSugestoes();
       _fetchDesafios();
+      _fetchFeed();
     });
   }
 
@@ -76,36 +81,26 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
+  Future<void> _fetchFeed() async {
+    final url = Uri.parse('http://127.0.0.1:8080/api/feed/social');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        setState(() {
+          _feedDb = json.decode(utf8.decode(response.bodyBytes));
+          _isLoadingFeed = false;
+        });
+      } else {
+        setState(() => _isLoadingFeed = false);
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar feed: $e");
+      setState(() => _isLoadingFeed = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Dados mockados para o feed social (SUBSTITUIR COM DADOS REAIS DA API DEPOIS)
-    final List<FeedItem> mockFeed = [
-      FeedItem(
-        id: 1,
-        type: FeedType.territory,
-        userName: "Carlos Alves",
-        userAvatar: "CA",
-        timestamp: "10min atrás",
-        title: "Dominou 3 novos territórios!",
-        description: "Parque Ibirapuera, Vila Madalena e Pinheiros",
-        stats: {"Territórios": "3", "Distância": "8.5 km"},
-        likes: 6,
-        comments: 7,
-      ),
-      FeedItem(
-        id: 2,
-        type: FeedType.achievement,
-        userName: "Bruna Pires",
-        userAvatar: "BP",
-        timestamp: "4h atrás",
-        title: "Mestre Jedi Desbloqueado!",
-        description: "Completou a Missão: O Caminho do Jedi",
-        badge: {"name": "Mestre Jedi", "icon": "🏅"},
-        likes: 67,
-        comments: 12,
-      ),
-    ];
-
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       body: CustomScrollView(
@@ -472,15 +467,40 @@ class _FeedScreenState extends State<FeedScreen> {
             ),
           ),
 
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => FeedCard(item: mockFeed[index]),
-                childCount: mockFeed.length,
-              ),
-            ),
-          ),
+          // Feed Social Dinâmico
+          _isLoadingFeed
+              ? const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(40.0),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF06B6D4),
+                      ),
+                    ),
+                  ),
+                )
+              : _feedDb.isEmpty
+              ? const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(40.0),
+                    child: Center(
+                      child: Text(
+                        "Nenhuma atividade recente. Seja o primeiro!",
+                        style: TextStyle(color: Colors.white38),
+                      ),
+                    ),
+                  ),
+                )
+              : SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final postagem = _feedDb[index];
+                      // O FeedCard agora vai receber o Mapa inteiro!
+                      return FeedCard(post: postagem);
+                    }, childCount: _feedDb.length),
+                  ),
+                ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
