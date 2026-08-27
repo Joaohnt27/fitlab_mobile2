@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../models/app_data.dart';
 import '../models/user_model.dart';
@@ -14,8 +16,26 @@ import 'subscription_screen.dart';
 import 'run_history_screen.dart';
 import 'privacy_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  // Chamada HTTP para buscar o pacote completo do Perfil
+  Future<Map<String, dynamic>> _carregarDadosPerfil(int idUsuario) async {
+    final response = await http.get(
+      Uri.parse('http://127.0.0.1:8080/api/usuarios/$idUsuario/perfil'),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(utf8.decode(response.bodyBytes));
+    } else {
+      throw Exception('Falha ao carregar o perfil da API');
+    }
+  }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
@@ -71,48 +91,74 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       body: Consumer<UserProvider>(
-        // Consumer no topo para reagir a XP, Streak, etc.
         builder: (context, userProvider, child) {
           final usuario = userProvider.usuarioLogado;
+          final idBusca = usuario?.id ?? 1;
 
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: [
-                _buildProfileHeader(usuario), 
+          return FutureBuilder<Map<String, dynamic>>(
+            future: _carregarDadosPerfil(idBusca),
+            builder: (context, snapshot) {
+              // Tela de Carregamento enquanto o Spring Boot responde
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                );
+              }
+              // Tratamento de Erro
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    "Erro ao carregar perfil",
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                );
+              }
 
-                const SizedBox(height: 30),
+              // Dados Reais da API!
+              final perfilAPI = snapshot.data!;
+              final nivelData = perfilAPI['nivel'];
 
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24),
-                  child:
-                      ProfileLevelCard(), 
+              return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    _buildProfileHeader(usuario, perfilAPI),
+
+                    const SizedBox(height: 30),
+
+                    // O ProfileLevelCard agora precisa receber os dados do nível para atualizar a barra de XP
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: ProfileLevelCard(nivelData: nivelData),
+                    ),
+
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: _buildBadgesGallery(context),
+                    ),
+
+                    const SizedBox(height: 32),
+                    _buildBiometriaCard(context),
+
+                    const SizedBox(height: 32),
+                    _buildMenuOptions(context),
+
+                    const SizedBox(height: 90),
+                  ],
                 ),
-
-                const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: _buildBadgesGallery(context),
-                ),
-
-                const SizedBox(height: 32),
-
-                _buildBiometriaCard(context),
-
-                const SizedBox(height: 32),
-
-                _buildMenuOptions(context),
-
-                const SizedBox(height: 90),
-              ],
-            ),
+              );
+            },
           );
         },
       ),
     );
   }
 
-  Widget _buildProfileHeader(UserModel? usuario) {
+  Widget _buildProfileHeader(
+    UserModel? usuario,
+    Map<String, dynamic> perfilAPI,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(top: 60, bottom: 30),
@@ -137,14 +183,14 @@ class ProfileScreen extends StatelessWidget {
               radius: 50,
               backgroundColor: const Color(0xFF1A1A1A),
               child: Text(
-                usuario?.avatar ?? "🧪",
+                perfilAPI['avatar'] ?? "🧪", // Vem direto do Banco de Dados
                 style: const TextStyle(fontSize: 50),
               ),
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            (usuario?.nome ?? "ATLETA").toUpperCase(),
+            (perfilAPI['nome'] ?? "ATLETA").toUpperCase(),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 22,
@@ -166,38 +212,33 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 10),
-          ValueListenableBuilder(
-            valueListenable: AppData.perfilAtleta,
-            builder: (context, perfil, child) {
-              return Column(
-                children: [
-                  Text(
-                    perfil.classeIdentificada,
-                    style: const TextStyle(
-                      color: Color(0xFF06B6D4),
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  Text(
-                    "Baseado em ${perfil.totalCorridas} experimentos",
-                    style: const TextStyle(color: Colors.white38, fontSize: 10),
-                  ),
-                  const SizedBox(height: 30),
-                  _buildQuickStatsGrid(
-                    usuario,
-                  ), 
-                ],
-              );
-            },
+
+          // Removendo o AppData falso e usando os dados diretos da API
+          Column(
+            children: [
+              Text(
+                perfilAPI['nivel']['nomePatente'], // Ex: "Recruta do laboratório"
+                style: const TextStyle(
+                  color: Color(0xFF06B6D4),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              Text(
+                "Baseado em ${perfilAPI['historico'].length} experimentos",
+                style: const TextStyle(color: Colors.white38, fontSize: 10),
+              ),
+              const SizedBox(height: 30),
+              _buildQuickStatsGrid(perfilAPI),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildQuickStatsGrid(UserModel? usuario) {
+  Widget _buildQuickStatsGrid(Map<String, dynamic> perfilAPI) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
@@ -206,23 +247,23 @@ class ProfileScreen extends StatelessWidget {
           Expanded(
             child: _buildStatCard(
               Icons.map_outlined,
-              "${usuario?.territorios ?? 0}",
+              "${perfilAPI['territorios']}",
               "Territórios",
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _buildStatCard(
-              Icons.emoji_events_outlined,
-              "${usuario?.conquistas ?? 0}",
-              "Conquistas",
+              Icons.star_border,
+              "${perfilAPI['fitpoints']}",
+              "FitPoints",
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _buildStatCard(
               Icons.local_fire_department_outlined,
-              "${usuario?.streak ?? 0}",
+              "${perfilAPI['streak']}",
               "Streak",
             ),
           ),
@@ -230,9 +271,7 @@ class ProfileScreen extends StatelessWidget {
           Expanded(
             child: _buildStatCard(
               Icons.track_changes_outlined,
-              usuario?.ranking != null && usuario?.ranking != 0
-                  ? "#${usuario!.ranking}"
-                  : "#--",
+              "#1", // Ranking provisório até criarmos o sistema de liga
               "Ranking",
             ),
           ),
