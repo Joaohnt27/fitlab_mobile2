@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../widgets/summary_sheets.dart';
 import '../widgets/countdown_overlay.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class RunScreen extends StatefulWidget {
   const RunScreen({super.key});
@@ -33,6 +35,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
   LatLng currentPosition = const LatLng(-21.1767, -47.8208);
   List<LatLng> route = [];
+  List<Map<String, dynamic>> routeData = [];
   final MapController _mapController = MapController();
   Timer? _timer;
 
@@ -107,25 +110,60 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     setState(() {
       isRunning = true;
       isPaused = false;
-      if (route.isEmpty) route.add(currentPosition);
+      if (route.isEmpty) {
+        route.add(currentPosition);
+        routeData.add({
+          "lat": currentPosition.latitude,
+          "lng": currentPosition.longitude,
+          "timestamp": DateTime.now().toIso8601String(),
+        });
+      }
     });
 
     _moveCameraToPlayer();
+
+    // Instancia a calculadora de Haversine do pacote latlong2
+    const distanceCalculator = Distance(
+      roundResult: false,
+      calculator: Haversine(),
+    );
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!isPaused) {
         setState(() {
           duration++;
+
+          // Simulador de GPS (gera o próximo ponto)
           double randomLat = (Random().nextDouble() - 0.5) * 0.0008;
           double randomLng = (Random().nextDouble() - 0.5) * 0.0008;
 
-          currentPosition = LatLng(
+          LatLng newPosition = LatLng(
             currentPosition.latitude + randomLat,
             currentPosition.longitude + randomLng,
           );
 
+          // Pega a hora exata daquele passo
+          final timestamp = DateTime.now().toIso8601String();
+
+          // Salva no cofre de dados da API
+          routeData.add({
+            "lat": newPosition.latitude,
+            "lng": newPosition.longitude,
+            "timestamp": timestamp,
+          });
+
+          // 1. CALCULA A DISTÂNCIA REAL ENTRE O PONTO ANTIGO E O NOVO (em metros)
+          final double incrementMeters = distanceCalculator.distance(
+            currentPosition,
+            newPosition,
+          );
+
+          // 2. ATUALIZA A DISTÂNCIA TOTAL (convertendo para Km)
+          distance += (incrementMeters / 1000.0);
+
+          currentPosition = newPosition;
           route.add(currentPosition);
-          distance += (selectedMode == "Corrida" ? 0.007 : 0.003);
+
           steps += (Random().nextInt(3) + 1);
           calories = (distance * 65).toInt();
 
@@ -142,19 +180,70 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     });
   }
 
-  void _stopRun() {
+  Future<void> _stopRun() async {
     _timer?.cancel();
-    _showSummary((distance * 15).toInt());
+
+    // 1. Pega o ID do usuário logado
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idUsuario = userProvider.usuarioLogado?.id ?? 1;
+
+    // 2. Converte a lista de LatLng do Flutter para a lista de CoordenadaDTO do Java
+    List<Map<String, double>> rotaFormatada = route
+        .map((p) => {"lat": p.latitude, "lng": p.longitude})
+        .toList();
+
+    // 3. Monta o pacote de dados (JSON) exatamente como o AtividadeRequestDTO espera
+    final body = jsonEncode({
+      "idUsuario": idUsuario,
+      "tipoAtividade": selectedMode == "Duelo de Territórios"
+          ? "Território"
+          : selectedMode,
+      "tempo": _formatTime(duration),
+      "pace": pace,
+      "calorias": calories,
+      "treinoPlanejado":
+          false, // No futuro podemos vincular isso aos treinos do Lab
+      "rota": routeData,
+    });
+
+    try {
+      // 4. Dispara a requisição para o motor de gamificação
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1:8080/api/atividades/registrar'),
+        headers: {"Content-Type": "application/json"},
+        body: body,
+      );
+
+      if (response.statusCode == 200) {
+        final recompensas = json.decode(utf8.decode(response.bodyBytes));
+        int xpReal = recompensas['xpGanhos'] ?? 0;
+
+        // Pega a distância oficial do servidor. Se falhar, usa a do celular como fallback.
+        double distanciaOficial = recompensas['distanciaOficial'] ?? distance;
+
+        // Passamos a distância oficial para o modal!
+        _showSummary(xpReal, distanciaOficial);
+      } else {
+        // Agora o celular te avisa qual foi o erro!
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro na API: ${response.statusCode}")),
+        );
+        _showSummary(0, distance);
+      }
+    } catch (e) {
+      debugPrint("Erro de conexão: $e");
+      _showSummary(0, distance); // Fallback de conexão
+    }
   }
 
-  void _showSummary(int xp) {
+  void _showSummary(int xp, double finalDistance) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => SummarySheet(
         route: route,
-        distance: distance,
+        distance: finalDistance,
         duration: duration,
         xp: xp,
         pace: pace,
@@ -166,6 +255,8 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             duration = 0;
             distance = 0;
             route = [];
+            routeData =
+                []; // <-- ADICIONAMOS AQUI PARA LIMPAR O COFRE DO BACK-END
             steps = 0;
             calories = 0;
           });
