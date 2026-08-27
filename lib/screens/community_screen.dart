@@ -14,10 +14,8 @@ class CommunityScreen extends StatelessWidget {
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // 1. Header Estilo Workout
             _buildSliverHeader(),
 
-            // 2. Campo de Busca
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
@@ -25,7 +23,6 @@ class CommunityScreen extends StatelessWidget {
               ),
             ),
 
-            // 3. Card "Minha Posição"
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -36,7 +33,6 @@ class CommunityScreen extends StatelessWidget {
               ),
             ),
 
-            // 4. TabBar Fixa (Sticky)
             SliverPersistentHeader(
               pinned: true,
               delegate: _SliverAppBarDelegate(
@@ -58,7 +54,6 @@ class CommunityScreen extends StatelessWidget {
               ),
             ),
 
-            // 5. Conteúdo das Abas
             SliverFillRemaining(
               child: TabBarView(
                 children: [
@@ -73,8 +68,6 @@ class CommunityScreen extends StatelessWidget {
       ),
     );
   }
-
-  // --- COMPONENTES DE INTERFACE ---
 
   Widget _buildSliverHeader() {
     return SliverAppBar(
@@ -167,11 +160,10 @@ class CommunityScreen extends StatelessWidget {
     );
   }
 
-  // --- CONTEÚDO DAS ABAS ---
-
+  // CONTEÚDO DAS ABAS 
   Widget _buildGlobalTab() {
     return ListView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 120),
       itemCount: 8,
       itemBuilder: (context, index) =>
           _RankingTile(index: index, name: "Atleta Lab Global"),
@@ -190,12 +182,17 @@ class CommunityScreen extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 0,
+            bottom: 120,
+          ),
           child: SizedBox(
             width: double.infinity,
             height: 50,
             child: OutlinedButton.icon(
-              onPressed: () {}, // Lógica para adicionar amigos
+              onPressed: () {}, // Lógica para adicionar amigos !!!!!!!!!!
               icon: const Icon(Icons.person_add_alt_1, size: 18),
               label: const Text(
                 "ADICIONAR AMIGOS",
@@ -217,7 +214,7 @@ class CommunityScreen extends StatelessWidget {
 
   Widget _buildTrainersTab(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 120),
       children: [
         Container(
           padding: const EdgeInsets.all(16),
@@ -240,7 +237,7 @@ class CommunityScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        _RankingTile(
+        const _RankingTile(
           index: 0,
           name: "Prof. Ricardo Silva",
           isTrainer: true,
@@ -248,7 +245,7 @@ class CommunityScreen extends StatelessWidget {
           rating: 4.8,
           students: 120,
         ),
-        _RankingTile(
+        const _RankingTile(
           index: 1,
           name: "Coach Marina Luz",
           isTrainer: true,
@@ -256,7 +253,7 @@ class CommunityScreen extends StatelessWidget {
           rating: 4.9,
           students: 200,
         ),
-        _RankingTile(
+        const _RankingTile(
           index: 2,
           name: "Dr. Paulo Mendes",
           isTrainer: true,
@@ -268,8 +265,6 @@ class CommunityScreen extends StatelessWidget {
     );
   }
 }
-
-// --- WIDGETS DE APOIO ---
 
 class _StatColumn extends StatelessWidget {
   final String label;
@@ -299,8 +294,8 @@ class _RankingTile extends StatelessWidget {
   final String name;
   final bool isTrainer;
   final String? specialty;
-  final double rating; // Adicionado: 0.0 a 5.0
-  final int students; // Adicionado: Qtd de alunos
+  final double rating; 
+  final int students; 
 
   const _RankingTile({
     super.key,
@@ -353,7 +348,7 @@ class _RankingTile extends StatelessWidget {
         ),
         child: Row(
           crossAxisAlignment:
-              CrossAxisAlignment.start, // Alinha ao topo para caber mais info
+              CrossAxisAlignment.start, 
           children: [
             if (!isTrainer) SizedBox(width: 30, child: Center(child: rankIcon)),
             const SizedBox(width: 12),

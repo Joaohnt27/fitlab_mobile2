@@ -79,14 +79,14 @@ class ProfileScreen extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             child: Column(
               children: [
-                _buildProfileHeader(usuario), // Passa o usuário para o header
+                _buildProfileHeader(usuario), 
 
                 const SizedBox(height: 30),
 
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 24),
                   child:
-                      ProfileLevelCard(), // Verifique se há um Consumer dentro deste widget também
+                      ProfileLevelCard(), 
                 ),
 
                 const SizedBox(height: 24),
@@ -103,7 +103,7 @@ class ProfileScreen extends StatelessWidget {
 
                 _buildMenuOptions(context),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 90),
               ],
             ),
           );
@@ -187,7 +187,7 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 30),
                   _buildQuickStatsGrid(
                     usuario,
-                  ), // Passa o usuário dinâmico aqui
+                  ), 
                 ],
               );
             },

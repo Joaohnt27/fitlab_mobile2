@@ -467,7 +467,7 @@ class _FeedScreenState extends State<FeedScreen> {
                   ),
                 ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
       ),
     );

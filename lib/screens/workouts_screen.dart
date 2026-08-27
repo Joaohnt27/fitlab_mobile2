@@ -76,7 +76,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- PAINEL DINÂMICO (TREINADOR VS ATLETA) ---
+                  // PAINEL DINÂMICO (TREINADOR VS ATLETA)
                   if (isTreinador) ...[
                     const CoachDashboard(),
                   ] else ...[
@@ -97,7 +97,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                     LabGoalsCard(onIniciar: _iniciarExperimento),
                   ],
 
-                  // --- SEÇÃO DE DESAFIOS ---
+                  // SEÇÃO DE DESAFIOS
                   const SizedBox(height: 32),
                   _SectionHeader(
                     title: "Desafios Ativos",
@@ -120,7 +120,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                         ),
                       ),
 
-                  // --- SEÇÃO PLANO SEMANAL (BLOQUEIO PREMIUM) ---
+                  // SEÇÃO PLANO SEMANAL (BLOQUEIO PREMIUM)
                   if (!isTreinador) ...[
                     const SizedBox(height: 32),
                     const _SectionHeader(title: "Plano Semanal"),
@@ -128,7 +128,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                     _buildWeeklyPlanWithAccessControl(isPremium),
                   ],
 
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
@@ -160,7 +160,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  // Overlay de Cadeado para usuários Free
+  // Overlay de Cadeado para usuários free
   Widget _buildLockOverlay() {
     return Column(
       children: [
@@ -296,8 +296,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 }
-
-// --- SUB-WIDGETS (SÃO PRIVADOS OU PODEM IR PARA OUTROS ARQUIVOS) ---
 
 class _SectionHeader extends StatelessWidget {
   final String title;

@@ -63,7 +63,6 @@ class _FeedCardState extends State<FeedCard> {
     }
   }
 
-  // --- NOVA FUNÇÃO: Abre o modal inferior de comentários ---
   void _abrirModalComentarios() {
     showModalBottomSheet(
       context: context,
@@ -76,7 +75,7 @@ class _FeedCardState extends State<FeedCard> {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(
             context,
-          ).viewInsets.bottom, // Evita que o teclado cubra o input
+          ).viewInsets.bottom, 
         ),
         child: SizedBox(
           height: MediaQuery.of(context).size.height * 0.6, // Ocupa 60% da tela
@@ -199,7 +198,7 @@ class _FeedCardState extends State<FeedCard> {
           if (tipo == 'CONQUISTA') _buildBadgeAward(titulo),
           if (tipo == 'TERRITORIO') _buildStatsRow(),
 
-          // Actions: Like e Comentário
+          // Like e Comentário
           const Divider(color: Colors.white10, height: 32),
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
@@ -213,12 +212,12 @@ class _FeedCardState extends State<FeedCard> {
                   onTap: _toggleLike,
                 ),
                 const SizedBox(width: 24),
-                // Botão de Comentário Chamando o Modal
+                // Botão de Comentário Interativo
                 _buildInteractiveActionButton(
                   icon: Icons.chat_bubble_outline,
                   count: comentarios,
                   isActive: false,
-                  onTap: _abrirModalComentarios, // Conectado!
+                  onTap: _abrirModalComentarios, 
                 ),
               ],
             ),

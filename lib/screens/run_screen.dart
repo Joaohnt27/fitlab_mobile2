@@ -220,12 +220,16 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             ],
           ),
 
-          // 2. PAINEL INFERIOR
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 25),
+              padding: const EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 25,
+                bottom: 120,
+              ),
               decoration: const BoxDecoration(
                 color: Color(0xFF0D0D0D),
                 borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
@@ -420,7 +424,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
                 Text(
                   selectedGoalType == "Sem Metas"
                       ? "Livre"
-                      : "${(progress * 100).toInt().clamp(0, 100)}%", 
+                      : "${(progress * 100).toInt().clamp(0, 100)}%",
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 36,
