@@ -140,7 +140,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
 
                     const SizedBox(height: 32),
-                    _buildBiometriaCard(context),
+                    // 👇 Passamos o 'nivelData' para o Card de Biometria!
+                    _buildBiometriaCard(context, nivelData),
 
                     const SizedBox(height: 32),
                     _buildMenuOptions(context),
@@ -312,7 +313,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildBiometriaCard(BuildContext context) {
+  // 👇 MÉTODO ATUALIZADO PARA RECEBER OS DADOS DO BANCO 👇
+  Widget _buildBiometriaCard(
+    BuildContext context,
+    Map<String, dynamic> nivelData,
+  ) {
+    // Convertendo os atributos que chegaram da API para doubles
+    final Map<String, double> radarStats = {
+      'Velocidade': ((nivelData['velocidade'] as num? ?? 0.0).toDouble() / 100)
+          .clamp(0.0, 1.0),
+      'Consistência':
+          ((nivelData['consistencia'] as num? ?? 0.0).toDouble() / 100).clamp(
+            0.0,
+            1.0,
+          ),
+      'Resistência':
+          ((nivelData['resistencia'] as num? ?? 0.0).toDouble() / 100).clamp(
+            0.0,
+            1.0,
+          ),
+      'Exploração': ((nivelData['exploracao'] as num? ?? 0.0).toDouble() / 100)
+          .clamp(0.0, 1.0),
+    };
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
@@ -341,16 +364,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
             const SizedBox(height: 32),
-            ValueListenableBuilder(
-              valueListenable: AppData.perfilAtleta,
-              builder: (context, perfil, child) {
-                return Center(
-                  child: RadarChartInteractive(
-                    data: perfil.normalizedData,
-                    color: const Color(0xFF06B6D4),
-                  ),
-                );
-              },
+            Center(
+              child: RadarChartInteractive(
+                data: radarStats, // <-- Gráfico injetado com os dados reais!
+                color: const Color(0xFF06B6D4),
+              ),
             ),
           ],
         ),
