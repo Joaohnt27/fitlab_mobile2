@@ -34,6 +34,11 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Map<String, dynamic>? _meuNivelData;
 
+  // Paginação
+  int _page = 0;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+
   @override
   void initState() {
     super.initState();
@@ -41,7 +46,7 @@ class _FeedScreenState extends State<FeedScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchSugestoes();
       _fetchDesafios();
-      _fetchFeed();
+      _fetchFeed(isRefresh: true);
       _fetchMeuNivel();
     });
   }
@@ -105,27 +110,61 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  Future<void> _fetchFeed() async {
-    // Pega o ID de quem está usando o app
+  Future<void> _fetchFeed({bool isRefresh = false}) async {
+    if (isRefresh) {
+      _page = 0;
+      _hasMore = true;
+      if (mounted) setState(() => _isLoadingFeed = true);
+    } else {
+      if (mounted) setState(() => _isLoadingMore = true);
+    }
+
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.usuarioLogado?.id ?? 1;
 
-    // Passa o ID na URL
-    final url = Uri.parse('${ApiConstants.baseUrl}/feed/social/$userId');
+    // Passando o parâmetro de página na URL
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/feed/social/$userId?page=$_page',
+    );
 
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        setState(() {
-          _feedDb = json.decode(utf8.decode(response.bodyBytes));
-          _isLoadingFeed = false;
-        });
+        final List novosPosts = json.decode(utf8.decode(response.bodyBytes));
+
+        if (mounted) {
+          setState(() {
+            if (isRefresh) {
+              _feedDb = novosPosts;
+            } else {
+              _feedDb.addAll(novosPosts); // Adiciona os novos no final da lista
+            }
+
+            _isLoadingFeed = false;
+            _isLoadingMore = false;
+
+            // Se vieram menos de 10 posts, significa que o banco acabou!
+            if (novosPosts.length < 10) {
+              _hasMore = false;
+            } else {
+              _page++; // Prepara o gatilho para a próxima página
+            }
+          });
+        }
       } else {
-        setState(() => _isLoadingFeed = false);
+        if (mounted)
+          setState(() {
+            _isLoadingFeed = false;
+            _isLoadingMore = false;
+          });
       }
     } catch (e) {
       debugPrint("Erro ao buscar feed: $e");
-      setState(() => _isLoadingFeed = false);
+      if (mounted)
+        setState(() {
+          _isLoadingFeed = false;
+          _isLoadingMore = false;
+        });
     }
   }
 
@@ -197,10 +236,15 @@ class _FeedScreenState extends State<FeedScreen> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-              child: _meuNivelData == null? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+              child: _meuNivelData == null
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF06B6D4),
+                      ),
                     )
-                  : ProfileLevelCard(nivelData: _meuNivelData!), // <-- Nosso querido Card aqui!
+                  : ProfileLevelCard(
+                      nivelData: _meuNivelData!,
+                    ), // <-- Nosso querido Card aqui!
             ),
           ),
 
@@ -459,39 +503,67 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
 
           // Feed Social Dinâmico
-          _isLoadingFeed
-              ? const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(40.0),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF06B6D4),
-                      ),
-                    ),
-                  ),
-                )
-              : _feedDb.isEmpty
-              ? const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(40.0),
-                    child: Center(
-                      child: Text(
-                        "Nenhuma atividade recente. Seja o primeiro!",
-                        style: TextStyle(color: Colors.white38),
-                      ),
-                    ),
-                  ),
-                )
-              : SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final postagem = _feedDb[index];
-                      // O FeedCard agora vai receber o Mapa inteiro!
-                      return FeedCard(post: postagem);
-                    }, childCount: _feedDb.length),
+          if (_isLoadingFeed)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: Center(
+                  child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                ),
+              ),
+            )
+          else if (_feedDb.isEmpty)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(40.0),
+                child: Center(
+                  child: Text(
+                    "Nenhuma atividade recente. Seja o primeiro!",
+                    style: TextStyle(color: Colors.white38),
                   ),
                 ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final postagem = _feedDb[index];
+                  return FeedCard(post: postagem);
+                }, childCount: _feedDb.length),
+              ),
+            ),
+
+          // 👇 O BOTÃO DE CARREGAR MAIS AGORA TEM UMA TRAVA DE SEGURANÇA 👇
+          if (!_isLoadingFeed && _feedDb.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 30),
+                child: Center(
+                  child: _isLoadingMore
+                      ? const CircularProgressIndicator(
+                          color: Color(0xFF06B6D4),
+                        )
+                      : _hasMore
+                      ? OutlinedButton(
+                          onPressed: () => _fetchFeed(isRefresh: false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF06B6D4),
+                            side: const BorderSide(color: Color(0xFF06B6D4)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: const Text("CARREGAR MAIS POSTS"),
+                        )
+                      : const Text(
+                          "Você chegou ao fim do FitFeed! 🏁",
+                          style: TextStyle(color: Colors.white38),
+                        ),
+                ),
+              ),
+            ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
