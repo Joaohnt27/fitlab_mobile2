@@ -243,6 +243,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => SummarySheet(
+        tipoAtividade: selectedMode,
         route: route,
         distance: finalDistance,
         duration: duration,

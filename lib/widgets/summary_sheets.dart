@@ -1,6 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import '../config/api_constants.dart';
 
 class SummarySheet extends StatefulWidget {
   final List<LatLng> route;
@@ -8,6 +13,7 @@ class SummarySheet extends StatefulWidget {
   final int duration;
   final int xp;
   final String pace;
+  final String tipoAtividade; // <-- ADICIONADO AQUI
   final VoidCallback onClose;
 
   const SummarySheet({
@@ -17,6 +23,7 @@ class SummarySheet extends StatefulWidget {
     required this.duration,
     required this.xp,
     required this.pace,
+    required this.tipoAtividade, // <-- ADICIONADO AQUI
     required this.onClose,
   });
 
@@ -28,6 +35,7 @@ class _SummarySheetState extends State<SummarySheet>
     with SingleTickerProviderStateMixin {
   late AnimationController _medalController;
   late Animation<double> _medalAnimation;
+  bool _isPosting = false;
 
   @override
   void initState() {
@@ -49,7 +57,82 @@ class _SummarySheetState extends State<SummarySheet>
     super.dispose();
   }
 
-  // Lógica para abrir o menu de compartilhamento
+  Future<void> _postarNoFeed(BuildContext context) async {
+    setState(() => _isPosting = true);
+
+    Navigator.pop(context);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Enviando para o feed..."),
+        backgroundColor: Colors.white38,
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idUsuario = userProvider.usuarioLogado?.id ?? 1;
+
+    final minutos = widget.duration ~/ 60;
+    final segundos = widget.duration % 60;
+    final tempoFormatado =
+        '${minutos.toString().padLeft(2, '0')}:${segundos.toString().padLeft(2, '0')}';
+
+    // --- LÓGICA DE MENSAGEM PADRONIZADA ---
+    final String nomeAtividade = widget.tipoAtividade
+        .toLowerCase(); // "corrida" ou "caminhada"
+    final String iconeAtividade = nomeAtividade == "corrida"
+        ? "🏃‍♂️"
+        : "🚶‍♂️"; // Ícone dinâmico!
+
+    final payload = {
+      "titulo":
+          "Finalizei meu treino de $nomeAtividade no FitLab! Percorri ${widget.distance.toStringAsFixed(2)} km em $minutos minutos!",
+      "texto":
+          "$iconeAtividade Distância: ${widget.distance.toStringAsFixed(2)} km \n⏱️ Tempo: $tempoFormatado \n⚡ Pace: ${widget.pace}/km \n📈 +${widget.xp} XP ganhos",
+    };
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/atividades/compartilhar/$idUsuario',
+    );
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Publicado com sucesso no seu Feed! 🚀"),
+            backgroundColor: Color(0xFF06B6D4),
+          ),
+        );
+      } else if (response.statusCode == 400) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.body),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } else {
+        throw Exception("Erro no servidor");
+      }
+    } catch (e) {
+      debugPrint("Erro ao postar: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Erro ao publicar. Verifique sua conexão."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isPosting = false);
+    }
+  }
+
   void _showShareOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -81,15 +164,7 @@ class _SummarySheetState extends State<SummarySheet>
                   "Postar no Feed FitLab",
                   style: TextStyle(color: Colors.white),
                 ),
-                onTap: () {
-                  // Aqui futuramente você chamará o Provider de Posts
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Publicado com sucesso no seu Feed!"),
-                    ),
-                  );
-                },
+                onTap: _isPosting ? null : () => _postarNoFeed(context),
               ),
               ListTile(
                 leading: Icon(Icons.message, color: const Color(0xFF25D366)),
@@ -261,8 +336,7 @@ class _SummarySheetState extends State<SummarySheet>
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () =>
-                            _showShareOptions(context), // ACIONA O MENU
+                        onPressed: () => _showShareOptions(context),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Colors.white10),

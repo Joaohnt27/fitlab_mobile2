@@ -24,6 +24,69 @@ class RunHistoryScreen extends StatelessWidget {
     }
   }
 
+  // --- NOVA FUNÇÃO DE COMPARTILHAMENTO ---
+  Future<void> _compartilharCorrida(
+    BuildContext context,
+    Map<String, dynamic> corrida,
+  ) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idUsuario = userProvider.usuarioLogado?.id ?? 1;
+
+    // Extraindo dados para montar o texto
+    final double km = (corrida["km"] as num? ?? 0.0).toDouble();
+    final String tempo = corrida["tempo"] ?? "00:00";
+    final String pace = corrida["pace"] ?? "0:00";
+    final String tipo = corrida["tipo"] ?? "Treino";
+    final String data = corrida["dataHora"] ?? "Recentemente";
+
+    // Montando o pacote JSON (Payload)
+    final payload = {
+      "titulo": "$tipo concluído em $data!",
+      "texto":
+          "🏃‍♂️ Distância: ${km.toStringAsFixed(2)} km \n⏱️ Tempo: $tempo \n⚡ Pace: $pace/km",
+    };
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/atividades/compartilhar/$idUsuario',
+    );
+
+    try {
+      // Feedback visual rápido
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Enviando para o feed..."),
+          backgroundColor: Colors.white38,
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Corrida compartilhada com sucesso! 🚀"),
+            backgroundColor: Color(0xFF06B6D4),
+          ),
+        );
+      } else {
+        throw Exception("Erro no servidor");
+      }
+    } catch (e) {
+      debugPrint("Erro ao compartilhar: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Erro ao compartilhar corrida. Tente novamente."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -93,76 +156,110 @@ class RunHistoryScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Row(
+                              children: [
+                                Text(
+                                  corrida["dataHora"] ?? "",
+                                  style: const TextStyle(
+                                    color: Color(0xFF06B6D4),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF06B6D4,
+                                    ).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    "+${corrida["xpGanho"]} XP",
+                                    style: const TextStyle(
+                                      color: Color(0xFF06B6D4),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
                             Text(
-                              corrida["dataHora"] ?? "",
+                              "${km.toStringAsFixed(2)} km",
                               style: const TextStyle(
-                                color: Color(0xFF06B6D4),
+                                color: Colors.white,
+                                fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF06B6D4,
-                                ).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                "+${corrida["xpGanho"]} XP",
-                                style: const TextStyle(
-                                  color: Color(0xFF06B6D4),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            Text(
+                              corrida["tipo"] ?? "Corrida",
+                              style: const TextStyle(
+                                color: Colors.white38,
+                                fontSize: 11,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "${km.toStringAsFixed(2)} km",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        Text(
-                          corrida["tipo"] ?? "Corrida",
-                          style: const TextStyle(
-                            color: Colors.white38,
-                            fontSize: 11,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            _buildStatRow(
+                              Icons.timer_outlined,
+                              corrida["tempo"] ?? "00:00",
+                            ),
+                            const SizedBox(height: 8),
+                            _buildStatRow(
+                              Icons.speed,
+                              "${corrida["pace"] ?? "0:00"} /km",
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        _buildStatRow(
-                          Icons.timer_outlined,
-                          corrida["tempo"] ?? "00:00",
+                    const SizedBox(height: 16),
+                    const Divider(color: Colors.white10, height: 1),
+                    const SizedBox(height: 8),
+                    // --- NOVO BOTÃO DE COMPARTILHAR ---
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        onPressed: () => _compartilharCorrida(context, corrida),
+                        icon: const Icon(
+                          Icons.share,
+                          size: 18,
+                          color: Color(0xFF06B6D4),
                         ),
-                        const SizedBox(height: 8),
-                        _buildStatRow(
-                          Icons.speed,
-                          "${corrida["pace"] ?? "0:00"} /km",
+                        label: const Text(
+                          "COMPARTILHAR NO FEED",
+                          style: TextStyle(
+                            color: Color(0xFF06B6D4),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
                         ),
-                      ],
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
