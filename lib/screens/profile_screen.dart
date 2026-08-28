@@ -106,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
               // Tratamento de Erro
               if (snapshot.hasError) {
-                return Center(
+                return const Center(
                   child: Text(
                     "Erro ao carregar perfil",
                     style: TextStyle(color: Colors.redAccent),
@@ -198,11 +198,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               letterSpacing: 1,
             ),
           ),
-          if (usuario?.bio != null && usuario!.bio.isNotEmpty)
+          // Usando a Bio que veio da API
+          if (perfilAPI['bio'] != null &&
+              perfilAPI['bio'].toString().isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
               child: Text(
-                usuario.bio,
+                perfilAPI['bio'],
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white70,
@@ -213,7 +215,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           const SizedBox(height: 10),
 
-          // Removendo o AppData falso e usando os dados diretos da API
+          // Renderizando dados diretos da API
           Column(
             children: [
               Text(
@@ -226,7 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               Text(
-                "Baseado em ${perfilAPI['historico'].length} experimentos",
+                "Baseado em ${(perfilAPI['historico'] as List?)?.length ?? 0} experimentos",
                 style: const TextStyle(color: Colors.white38, fontSize: 10),
               ),
               const SizedBox(height: 30),
@@ -246,16 +248,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Expanded(
             child: _buildStatCard(
-              Icons.map_outlined,
-              "${perfilAPI['territorios']}",
-              "Territórios",
+              Icons.people_outline, // Mudado para seguidores para o Perfil
+              "${perfilAPI['seguidores'] ?? 0}", // ATUALIZADO AQUI!
+              "Seguidores",
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _buildStatCard(
               Icons.star_border,
-              "${perfilAPI['fitpoints']}",
+              "${perfilAPI['fitpoints'] ?? 0}",
               "FitPoints",
             ),
           ),
@@ -263,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Expanded(
             child: _buildStatCard(
               Icons.local_fire_department_outlined,
-              "${perfilAPI['streak']}",
+              "${perfilAPI['streak'] ?? 0}",
               "Streak",
             ),
           ),

@@ -125,6 +125,8 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] ?? 0,
+      avatar: json['fotoPerfil'] ?? "🧪",
+      bio: json['bio'] ?? "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino.",
       nome: json['nome'] ?? '',
       email: json['email'] ?? '',
       senha: json['senha'] ?? '',
