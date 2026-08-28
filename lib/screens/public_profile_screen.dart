@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../providers/user_provider.dart';
+import '../config/api_constants.dart';
 
 class PublicProfileScreen extends StatefulWidget {
   final Map<String, dynamic> usuarioAlvo;
@@ -30,7 +31,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   Future<Map<String, dynamic>> _carregarPerfil() async {
     final idAlvo = widget.usuarioAlvo['id'];
     final response = await http.get(
-      Uri.parse('http://127.0.0.1:8080/api/usuarios/$idAlvo/perfil'),
+      Uri.parse('${ApiConstants.baseUrl}/usuarios/$idAlvo/perfil'),
     );
 
     if (response.statusCode == 200) {
@@ -46,7 +47,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     final idAlvo = widget.usuarioAlvo['id'];
 
     final url = Uri.parse(
-      'http://127.0.0.1:8080/api/social/$idLogado/segue/$idAlvo',
+      '${ApiConstants.baseUrl}/social/$idLogado/segue/$idAlvo',
     );
 
     try {
@@ -73,7 +74,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     final idAlvo = widget.usuarioAlvo['id'];
 
     final url = Uri.parse(
-      'http://127.0.0.1:8080/api/social/$idLogado/seguir/$idAlvo',
+      '${ApiConstants.baseUrl}/social/$idLogado/seguir/$idAlvo',
     );
 
     try {

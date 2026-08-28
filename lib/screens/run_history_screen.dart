@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../config/api_constants.dart';
 
 class RunHistoryScreen extends StatelessWidget {
   const RunHistoryScreen({super.key});
@@ -12,7 +13,7 @@ class RunHistoryScreen extends StatelessWidget {
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
 
     final response = await http.get(
-      Uri.parse('http://127.0.0.1:8080/api/usuarios/$idUsuario/perfil'),
+      Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/perfil'),
     );
 
     if (response.statusCode == 200) {

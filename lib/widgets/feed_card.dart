@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'dart:convert'; 
 import '../providers/user_provider.dart';
 import '../widgets/comments_sheet.dart';
+import '../config/api_constants.dart';
 
 class FeedCard extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -38,7 +39,7 @@ class _FeedCardState extends State<FeedCard> {
     final idPost = widget.post['id'];
 
     final url = Uri.parse(
-      'http://127.0.0.1:8080/api/feed/postagens/$idPost/curtir/$idUsuario',
+      '${ApiConstants.baseUrl}/feed/postagens/$idPost/curtir/$idUsuario',
     );
 
     try {

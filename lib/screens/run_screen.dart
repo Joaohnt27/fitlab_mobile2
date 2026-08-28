@@ -9,6 +9,7 @@ import '../widgets/summary_sheets.dart';
 import '../widgets/countdown_overlay.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_constants.dart';
 
 class RunScreen extends StatefulWidget {
   const RunScreen({super.key});
@@ -209,7 +210,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     try {
       // 4. Dispara a requisição para o motor de gamificação
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8080/api/atividades/registrar'),
+        Uri.parse('${ApiConstants.baseUrl}/atividades/registrar'),
         headers: {"Content-Type": "application/json"},
         body: body,
       );

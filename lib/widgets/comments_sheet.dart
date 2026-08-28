@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../providers/user_provider.dart';
+import '../config/api_constants.dart';
 
 class CommentsSheet extends StatefulWidget {
   final int idPost;
@@ -32,7 +33,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
   Future<void> _fetchComentarios() async {
     final url = Uri.parse(
-      'http://127.0.0.1:8080/api/feed/postagens/${widget.idPost}/comentarios',
+      '${ApiConstants.baseUrl}/feed/postagens/${widget.idPost}/comentarios',
     );
     try {
       final response = await http.get(url);
@@ -57,7 +58,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
 
     final url = Uri.parse(
-      'http://127.0.0.1:8080/api/feed/postagens/${widget.idPost}/comentarios/$idUsuario',
+      '${ApiConstants.baseUrl}/feed/postagens/${widget.idPost}/comentarios/$idUsuario',
     );
 
     try {

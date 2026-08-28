@@ -15,6 +15,7 @@ import 'notification_screen.dart';
 import 'subscription_screen.dart';
 import 'run_history_screen.dart';
 import 'privacy_screen.dart';
+import '../config/api_constants.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,7 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Chamada HTTP para buscar o pacote completo do Perfil
   Future<Map<String, dynamic>> _carregarDadosPerfil(int idUsuario) async {
     final response = await http.get(
-      Uri.parse('http://127.0.0.1:8080/api/usuarios/$idUsuario/perfil'),
+      Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/perfil'),
     );
 
     if (response.statusCode == 200) {

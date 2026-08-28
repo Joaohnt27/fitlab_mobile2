@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../config/api_constants.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -89,7 +90,7 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _fetchPlanos() async {
-    final url = Uri.parse('http://127.0.0.1:8080/api/planos');
+    final url = Uri.parse('${ApiConstants.baseUrl}/planos');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../providers/user_provider.dart';
+import '../config/api_constants.dart';
 
 class ChallengeDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> desafio;
@@ -31,7 +32,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     final idDesafio = widget.desafio['id'];
 
     final url = Uri.parse(
-      'http://127.0.0.1:8080/api/feed/desafios/$idDesafio/status/$idUsuario',
+      '${ApiConstants.baseUrl}/feed/desafios/$idDesafio/status/$idUsuario',
     );
 
     try {
@@ -58,7 +59,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     final idDesafio = widget.desafio['id'];
 
     final url = Uri.parse(
-      'http://127.0.0.1:8080/api/feed/desafios/$idDesafio/aceitar/$idUsuario',
+      '${ApiConstants.baseUrl}/feed/desafios/$idDesafio/aceitar/$idUsuario',
     );
 
     try {

@@ -9,6 +9,8 @@ import '../models/feed_item.dart';
 import '../widgets/suggest_user_card.dart';
 import '../widgets/trending_challenge_card.dart';
 import '../widgets/streak_meter.dart';
+import '../config/api_constants.dart';
+import '../widgets/profile_level_card.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -30,6 +32,8 @@ class _FeedScreenState extends State<FeedScreen> {
   List<dynamic> _feedDb = [];
   bool _isLoadingFeed = true;
 
+  Map<String, dynamic>? _meuNivelData;
+
   @override
   void initState() {
     super.initState();
@@ -38,7 +42,26 @@ class _FeedScreenState extends State<FeedScreen> {
       _fetchSugestoes();
       _fetchDesafios();
       _fetchFeed();
+      _fetchMeuNivel();
     });
+  }
+
+  Future<void> _fetchMeuNivel() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.usuarioLogado?.id ?? 1;
+    final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/$userId/perfil');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final dados = json.decode(utf8.decode(response.bodyBytes));
+        setState(() {
+          _meuNivelData = dados['nivel']; // Extrai apenas o bloco de XP
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar nível para o Feed: $e");
+    }
   }
 
   Future<void> _fetchSugestoes() async {
@@ -46,7 +69,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
     final userId = userProvider.usuarioLogado?.id ?? 1;
 
-    final url = Uri.parse('http://127.0.0.1:8080/api/feed/sugestoes/$userId');
+    final url = Uri.parse('${ApiConstants.baseUrl}/feed/sugestoes/$userId');
 
     try {
       final response = await http.get(url);
@@ -65,7 +88,7 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _fetchDesafios() async {
-    final url = Uri.parse('http://127.0.0.1:8080/api/feed/desafios-em-alta');
+    final url = Uri.parse('${ApiConstants.baseUrl}/feed/desafios-em-alta');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -88,7 +111,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final userId = userProvider.usuarioLogado?.id ?? 1;
 
     // Passa o ID na URL
-    final url = Uri.parse('http://127.0.0.1:8080/api/feed/social/$userId');
+    final url = Uri.parse('${ApiConstants.baseUrl}/feed/social/$userId');
 
     try {
       final response = await http.get(url);
@@ -171,10 +194,13 @@ class _FeedScreenState extends State<FeedScreen> {
             ),
           ),
 
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(24, 24, 24, 8),
-              child: FeedLevelRadial(),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+              child: _meuNivelData == null? const Center(
+                      child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                    )
+                  : ProfileLevelCard(nivelData: _meuNivelData!), // <-- Nosso querido Card aqui!
             ),
           ),
 
