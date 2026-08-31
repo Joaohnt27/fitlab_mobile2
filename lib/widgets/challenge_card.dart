@@ -7,7 +7,29 @@ class ChallengeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color diffColor = challenge['difficulty'] == "HARD"
+    // 1. Blindagem de Null-Safety para os textos
+    final String difficulty =
+        challenge['difficulty'] ?? challenge['dificuldade'] ?? "NORMAL";
+    final String icon = challenge['icon'] ?? challenge['icone'] ?? "🏆";
+    final String theme =
+        challenge['theme'] ?? challenge['tema'] ?? "DESAFIO GERAL";
+    final String title =
+        challenge['title'] ?? challenge['titulo'] ?? "Desafio FitLab";
+    final String reward =
+        challenge['reward'] ?? challenge['recompensa'] ?? "XP";
+
+    // 2. Conversão segura de números (evita erro se o Java mandar int no lugar de double)
+    final double progress =
+        (challenge['progress'] ?? challenge['progresso'] ?? 0).toDouble();
+    final double total = (challenge['total'] ?? 1)
+        .toDouble(); // Evita divisão por zero
+
+    // 3. Lógica da barra (clamp garante que não passe de 1.0)
+    final double progressPercent = (progress / total).clamp(0.0, 1.0);
+
+    Color diffColor =
+        difficulty.toUpperCase() == "HARD" ||
+            difficulty.toUpperCase() == "DIFÍCIL"
         ? Colors.redAccent
         : Colors.orangeAccent;
 
@@ -22,14 +44,14 @@ class ChallengeCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(challenge['icon'], style: const TextStyle(fontSize: 34)),
+              Text(icon, style: const TextStyle(fontSize: 34)),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      challenge['theme'],
+                      theme.toUpperCase(),
                       style: const TextStyle(
                         color: Color(0xFF06B6D4),
                         fontSize: 10,
@@ -38,7 +60,7 @@ class ChallengeCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      challenge['title'],
+                      title,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -58,7 +80,7 @@ class ChallengeCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  challenge['difficulty'],
+                  difficulty.toUpperCase(),
                   style: TextStyle(
                     color: diffColor,
                     fontSize: 9,
@@ -72,7 +94,7 @@ class ChallengeCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
-              value: challenge['progress'] / challenge['total'],
+              value: progressPercent,
               minHeight: 6,
               backgroundColor: Colors.white.withOpacity(0.05),
               color: const Color(0xFF06B6D4),
@@ -83,11 +105,11 @@ class ChallengeCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                challenge['reward'],
+                reward,
                 style: const TextStyle(color: Colors.white38, fontSize: 11),
               ),
               Text(
-                '${challenge['progress'].toStringAsFixed(1)} / ${challenge['total']} km',
+                '${progress.toStringAsFixed(1)} / ${total.toInt()} km',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,

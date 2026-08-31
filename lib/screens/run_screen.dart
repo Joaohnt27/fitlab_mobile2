@@ -203,6 +203,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       "pace": pace,
       "calorias": calories,
       "treinoPlanejado": false,
+      "km": distance, 
       "rota": routeData,
     });
 

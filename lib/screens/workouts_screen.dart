@@ -1,5 +1,7 @@
 import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/subscription_screen.dart';
@@ -9,7 +11,7 @@ import '../widgets/lab_goals_card.dart';
 import '../widgets/fitlab_ai_card.dart';
 import '../widgets/ai_training_result_card.dart';
 import '../widgets/coach_dashboard.dart';
-import '../data/challenges_data.dart';
+import '../config/api_constants.dart';
 
 class WorkoutsScreen extends StatefulWidget {
   const WorkoutsScreen({super.key});
@@ -21,6 +23,24 @@ class WorkoutsScreen extends StatefulWidget {
 class _WorkoutsScreenState extends State<WorkoutsScreen> {
   bool _hasGeneratedAIWorkout = false;
   Map<String, dynamic> aiRequestData = {"goal": "", "timeframe": ""};
+
+  // 👇 AGORA BUSCA OS DESAFIOS ESPECÍFICOS DO USUÁRIO 👇
+  Future<List<dynamic>> _fetchDesafiosAtivos(int idUsuario) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/$idUsuario/desafios',
+    );
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return json.decode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      } else {
+        throw Exception('Falha ao carregar desafios');
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar desafios ativos: $e");
+      return [];
+    }
+  }
 
   void _iniciarExperimento(String volume, String frequencia) {
     context.read<UserProvider>().salvarExperimentoUsuario(
@@ -34,22 +54,27 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  void _aoGerarTreinoIA(Map<String, dynamic> data) {
-    setState(() {
-      aiRequestData = data;
-      _hasGeneratedAIWorkout = true;
-    });
-
+  // 🤖 FUTURO PONTO DE CONEXÃO COM O GEMINI 🤖
+  void _aoGerarTreinoIA(Map<String, dynamic> data) async {
+    // 1. Mostrar o dialog de "PROCESSANDO..."
     _showCustomDialog(
       "PROCESSANDO DADOS...",
       "A IA está sintetizando seu treino. Disponível por 24 horas.",
       isAI: true,
     );
+
+    // 2. Futuramente, aqui faremos o POST para a rota do Gemini no Back-end!
+    // final response = await http.post('/api/ai/gerar-treino', body: data...);
+
+    // 3. Atualiza a tela com o resultado
+    setState(() {
+      aiRequestData = data;
+      _hasGeneratedAIWorkout = true;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch monitora mudanças no plano ou role
     final userProvider = context.watch<UserProvider>();
     final usuario = userProvider.usuarioLogado;
 
@@ -58,10 +83,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
         usuario?.plano != null &&
         usuario!.plano != 'Free' &&
         usuario.plano != '';
-
-    final activeChallenges = ChallengesData.allChallenges
-        .where((c) => c["isActive"] == true)
-        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
@@ -97,28 +118,74 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                     LabGoalsCard(onIniciar: _iniciarExperimento),
                   ],
 
-                  // SEÇÃO DE DESAFIOS
+                  // SEÇÃO DE DESAFIOS (AGORA COM API E ID DO USUÁRIO)
                   const SizedBox(height: 32),
                   _SectionHeader(
                     title: "Desafios Ativos",
-                    onViewAll: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AllChallengesScreen(
-                          challenges: ChallengesData.allChallenges,
+                    onViewAll: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AllChallengesScreen(),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
-                  ...activeChallenges
-                      .take(3)
-                      .map(
-                        (c) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: ChallengeCard(challenge: c),
-                        ),
-                      ),
+
+                  // 👇 PASSANDO O ID DO USUÁRIO PARA A BUSCA 👇
+                  FutureBuilder<List<dynamic>>(
+                    future: _fetchDesafiosAtivos(usuario?.id ?? 1),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20.0),
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF06B6D4),
+                            ),
+                          ),
+                        );
+                      }
+
+                      final activeChallenges = snapshot.data ?? [];
+
+                      if (activeChallenges.isEmpty) {
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A1A1A),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.05),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              "Nenhum desafio ativo.\nExplore o Lab para aceitar novos desafios!",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.white38),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Column(
+                        children: activeChallenges
+                            .take(3)
+                            .map(
+                              (c) => Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: ChallengeCard(
+                                  challenge: c as Map<String, dynamic>,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      );
+                    },
+                  ),
 
                   // SEÇÃO PLANO SEMANAL (BLOQUEIO PREMIUM)
                   if (!isTreinador) ...[

@@ -228,7 +228,7 @@ class _FitLabAICardState extends State<FitLabAICard> {
               ),
             ),
             Text(
-              "Powered by FitLab AI",
+              "Operado por Google Gemini",
               style: TextStyle(
                 color: Color(0xFF06B6D4),
                 fontSize: 10,
