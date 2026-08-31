@@ -1,9 +1,46 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../config/api_constants.dart';
 
-class CommunityScreen extends StatelessWidget {
+class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
+
+  @override
+  State<CommunityScreen> createState() => _CommunityScreenState();
+}
+
+class _CommunityScreenState extends State<CommunityScreen> {
+  // Chamada de API para buscar o ranking
+  Future<List<dynamic>> _fetchRankingGlobal() async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/ranking');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return json.decode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      } else {
+        throw Exception('Falha ao carregar ranking');
+      }
+    } catch (e) {
+      throw Exception('Erro de conexão: $e');
+    }
+  }
+
+  Future<List<dynamic>> _fetchTreinadores() async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/treinadores');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return json.decode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      } else {
+        throw Exception('Falha ao carregar treinadores');
+      }
+    } catch (e) {
+      throw Exception('Erro de conexão: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +94,7 @@ class CommunityScreen extends StatelessWidget {
             SliverFillRemaining(
               child: TabBarView(
                 children: [
-                  _buildGlobalTab(),
+                  _buildGlobalTab(), // <-- Agora bate na API
                   _buildFriendsTab(),
                   _buildTrainersTab(context),
                 ],
@@ -124,6 +161,7 @@ class CommunityScreen extends StatelessWidget {
 
   Widget _buildMyRankCard(BuildContext context) {
     final user = Provider.of<UserProvider>(context).usuarioLogado;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -147,12 +185,18 @@ class CommunityScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
+              // 1. Posição no Rank (Precisará ser preenchido pela sua API no futuro)
               _StatColumn(label: "RANK", value: "#${user?.ranking ?? '--'}"),
+
+              // 2. Número de Treinos
               _StatColumn(
-                label: "TERRITÓRIOS",
-                value: "${user?.territorios ?? 0}",
+                label: "TREINOS",
+                // Substitua 'totalTreinos' pelo nome exato da variável no seu UserModel, se for diferente
+                value: "${user?.totalTreinos ?? 0}",
               ),
-              _StatColumn(label: "DEFESAS", value: "8"),
+
+              // 3. FitPoints (Conectado diretamente ao banco!)
+              _StatColumn(label: "FITPOINTS", value: "${user?.fitpoints ?? 0}"),
             ],
           ),
         ],
@@ -160,13 +204,57 @@ class CommunityScreen extends StatelessWidget {
     );
   }
 
-  // CONTEÚDO DAS ABAS 
+  // CONTEÚDO DA ABA GLOBAL
   Widget _buildGlobalTab() {
-    return ListView.builder(
-      padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 120),
-      itemCount: 8,
-      itemBuilder: (context, index) =>
-          _RankingTile(index: index, name: "Atleta Lab Global"),
+    return FutureBuilder<List<dynamic>>(
+      future: _fetchRankingGlobal(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text(
+              "Erro ao carregar o ranking. Tente novamente.",
+              style: TextStyle(color: Colors.white54),
+            ),
+          );
+        }
+
+        final atletas = snapshot.data ?? [];
+
+        if (atletas.isEmpty) {
+          return const Center(
+            child: Text(
+              "O Laboratório está vazio.",
+              style: TextStyle(color: Colors.white54),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: 120,
+          ),
+          itemCount: atletas.length,
+          itemBuilder: (context, index) {
+            final atleta = atletas[index];
+            return _RankingTile(
+              index: index,
+              name: atleta['nome'] ?? "Atleta",
+              avatar: atleta['avatar'] ?? "🧪",
+              pontos: atleta['fitPoints'] ?? 0,
+              patente: atleta['nomePatente'] ?? "Recruta",
+            );
+          },
+        );
+      },
     );
   }
 
@@ -192,7 +280,7 @@ class CommunityScreen extends StatelessWidget {
             width: double.infinity,
             height: 50,
             child: OutlinedButton.icon(
-              onPressed: () {}, // Lógica para adicionar amigos !!!!!!!!!!
+              onPressed: () {}, // Lógica para adicionar amigos
               icon: const Icon(Icons.person_add_alt_1, size: 18),
               label: const Text(
                 "ADICIONAR AMIGOS",
@@ -213,55 +301,82 @@ class CommunityScreen extends StatelessWidget {
   }
 
   Widget _buildTrainersTab(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.only(left: 24, right: 24, top: 24, bottom: 120),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1D4ED8).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF1D4ED8).withOpacity(0.3)),
+    return FutureBuilder<List<dynamic>>(
+      future: _fetchTreinadores(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+          );
+        }
+
+        final treinadores = snapshot.data ?? [];
+
+        return ListView(
+          padding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: 120,
           ),
-          child: const Row(
-            children: [
-              Icon(Icons.lightbulb_outline, color: Color(0xFF06B6D4), size: 20),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  "Encontre treinadores profissionais e certificados para acelerar seus resultados",
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1D4ED8).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF1D4ED8).withOpacity(0.3),
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        const _RankingTile(
-          index: 0,
-          name: "Prof. Ricardo Silva",
-          isTrainer: true,
-          specialty: "Maratona & Corrida de Rua",
-          rating: 4.8,
-          students: 120,
-        ),
-        const _RankingTile(
-          index: 1,
-          name: "Coach Marina Luz",
-          isTrainer: true,
-          specialty: "HIIT & Performance Muscular",
-          rating: 4.9,
-          students: 200,
-        ),
-        const _RankingTile(
-          index: 2,
-          name: "Dr. Paulo Mendes",
-          isTrainer: true,
-          specialty: "Reabilitação Esportiva",
-          rating: 4.7,
-          students: 80,
-        ),
-      ],
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline,
+                    color: Color(0xFF06B6D4),
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "Encontre treinadores profissionais e certificados para acelerar seus resultados",
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (treinadores.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text(
+                    "Nenhum treinador cadastrado ainda.",
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                ),
+              )
+            else
+              ...treinadores.map((t) {
+                // Pegamos o índice atual verificando a posição na lista
+                int index = treinadores.indexOf(t);
+                return _RankingTile(
+                  index: index,
+                  name: t['nome'] ?? "Treinador",
+                  avatar: t['avatar'] ?? "👨‍🏫",
+                  isTrainer: true,
+                  specialty:
+                      t['nomePatente'] ??
+                      "Performance", // Pode ser dinâmico no futuro
+                  rating:
+                      5.0, // Fixo por enquanto, ou puxar da API se criar sistema de notas
+                  students: 0, // Fixo por enquanto
+                );
+              }),
+          ],
+        );
+      },
     );
   }
 }
@@ -292,15 +407,21 @@ class _StatColumn extends StatelessWidget {
 class _RankingTile extends StatelessWidget {
   final int index;
   final String name;
+  final String? avatar;
+  final int? pontos;
+  final String? patente;
   final bool isTrainer;
   final String? specialty;
-  final double rating; 
-  final int students; 
+  final double rating;
+  final int students;
 
   const _RankingTile({
     super.key,
     required this.index,
     required this.name,
+    this.avatar,
+    this.pontos,
+    this.patente,
     this.isTrainer = false,
     this.specialty,
     this.rating = 0.0,
@@ -319,7 +440,7 @@ class _RankingTile extends StatelessWidget {
     );
     double borderWidth = 1;
 
-    // Lógica do Top 3 para Atletas
+    // Lógica do Top 3 para Atletas (Ouro, Prata e Bronze)
     if (!isTrainer) {
       if (index == 0) {
         borderColor = const Color(0xFFFFD700).withOpacity(0.6);
@@ -337,7 +458,7 @@ class _RankingTile extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: isTrainer ? () => _mostrarPerfilTreinador(context) : null,
+      onTap: isTrainer ? () => _mostrarPerfilTreinador(context, name) : null,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -348,7 +469,7 @@ class _RankingTile extends StatelessWidget {
         ),
         child: Row(
           crossAxisAlignment:
-              CrossAxisAlignment.start, 
+              CrossAxisAlignment.center, // Centraliza verticalmente
           children: [
             if (!isTrainer) SizedBox(width: 30, child: Center(child: rankIcon)),
             const SizedBox(width: 12),
@@ -356,7 +477,7 @@ class _RankingTile extends StatelessWidget {
               radius: 24,
               backgroundColor: Colors.white10,
               child: Text(
-                isTrainer ? "👨‍🏫" : "🧪",
+                isTrainer ? "👨‍🏫" : (avatar ?? "🧪"),
                 style: const TextStyle(fontSize: 22),
               ),
             ),
@@ -389,16 +510,15 @@ class _RankingTile extends StatelessWidget {
                   Text(
                     isTrainer
                         ? (specialty ?? "Consultoria")
-                        : "Ribeirão Preto, SP",
+                        : (patente ?? "Atleta FitLab"),
                     style: const TextStyle(color: Colors.white38, fontSize: 12),
                   ),
 
-                  // Seção exclusiva para Treinadores: Estrelas e Alunos
+                  // Seção exclusiva para Treinadores
                   if (isTrainer) ...[
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        // Estrelas
                         const Icon(Icons.star, color: Colors.amber, size: 14),
                         const SizedBox(width: 4),
                         Text(
@@ -410,7 +530,6 @@ class _RankingTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // Alunos
                         const Icon(
                           Icons.groups,
                           color: Colors.white38,
@@ -430,6 +549,28 @@ class _RankingTile extends StatelessWidget {
                 ],
               ),
             ),
+            // 👇 Pontuação (FitPoints) no canto direito para a aba Global
+            if (!isTrainer && pontos != null) ...[
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "$pontos",
+                    style: const TextStyle(
+                      color: Color(0xFF06B6D4),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Text(
+                    "FP",
+                    style: TextStyle(color: Colors.white38, fontSize: 10),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(width: 8),
             const Icon(Icons.chevron_right, color: Colors.white10),
           ],
         ),
@@ -437,7 +578,7 @@ class _RankingTile extends StatelessWidget {
     );
   }
 
-  void _mostrarPerfilTreinador(BuildContext context) {
+  void _mostrarPerfilTreinador(BuildContext context, String name) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: const Color(0xFF1A1A1A),

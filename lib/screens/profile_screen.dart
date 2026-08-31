@@ -120,7 +120,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final nivelData = perfilAPI['nivel'];
 
               return SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
+                physics: const ClampingScrollPhysics(),
                 child: Column(
                   children: [
                     _buildProfileHeader(usuario, perfilAPI),
@@ -243,6 +243,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildQuickStatsGrid(Map<String, dynamic> perfilAPI) {
+    // Pega o usuário do Provider (que já tem o cálculo do ranking que vem do backend)
+    final user = Provider.of<UserProvider>(
+      context,
+      listen: false,
+    ).usuarioLogado;
+
+    // Pega o valor ou coloca '--' se der algum problema
+    final String posicaoRanking = user?.ranking != null && user!.ranking > 0
+        ? "#${user.ranking}"
+        : "--";
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
@@ -250,8 +261,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Expanded(
             child: _buildStatCard(
-              Icons.people_outline, // Mudado para seguidores para o Perfil
-              "${perfilAPI['seguidores'] ?? 0}", // ATUALIZADO AQUI!
+              Icons.people_outline,
+              "${perfilAPI['seguidores'] ?? 0}",
               "Seguidores",
             ),
           ),
@@ -275,7 +286,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Expanded(
             child: _buildStatCard(
               Icons.track_changes_outlined,
-              "#1", // Ranking provisório até criarmos o sistema de liga
+              posicaoRanking, // 👇 AQUI ESTÁ A POSIÇÃO DINÂMICA
               "Ranking",
             ),
           ),

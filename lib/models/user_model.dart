@@ -23,6 +23,8 @@ class UserModel {
   final String? cref; 
   final DateTime? ultimoLogin;
   final Map<String, dynamic>? experimento;
+  final int? totalTreinos;
+  final int? fitpoints;
 
   UserModel({
     this.id,
@@ -50,6 +52,8 @@ class UserModel {
     this.cref, 
     this.experimento,
     this.ultimoLogin,
+    this.totalTreinos,
+    this.fitpoints,
   });
 
   UserModel copyWith({
@@ -75,6 +79,8 @@ class UserModel {
     String? cref, 
     Map<String, dynamic>? experimento,
     DateTime? ultimoLogin,
+    int? totalTreinos,
+    int? fitpoints,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -99,6 +105,8 @@ class UserModel {
       cref: cref ?? this.cref, 
       experimento: experimento ?? this.experimento,
       ultimoLogin: ultimoLogin ?? this.ultimoLogin,
+      totalTreinos: totalTreinos ?? this.totalTreinos,
+      fitpoints: fitpoints ?? this.fitpoints
     );
   }
 
@@ -126,13 +134,17 @@ class UserModel {
     return UserModel(
       id: json['id'] ?? 0,
       avatar: json['fotoPerfil'] ?? "🧪",
-      bio: json['bio'] ?? "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino.",
+      bio: json['bioUsuario'] ?? json['bio'] ?? "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino.",
       nome: json['nome'] ?? '',
       email: json['email'] ?? '',
       senha: json['senha'] ?? '',
-      xp: json['xpAcumulado'] ?? 0,
+      xp: json['xp'] ?? json['xpAcumulado'] ?? 0,
       role: json['role'] ?? 'Atleta',
       plano: json['plano'] as Map<String, dynamic>?,
+      fitpoints: json['fitpoints'] ?? 0,
+      streak: json['streak'] ?? 0,
+      totalTreinos: json['totalTreinos'] ?? 0,
+      ranking: json['ranking'] ?? 0,
     );
   }
 }

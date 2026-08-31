@@ -394,6 +394,30 @@ class UserProvider with ChangeNotifier {
     );
   }
 
+  // --- ATUALIZAR DADOS SILENCIOSAMENTE (REFRESH) ---
+  Future<void> recarregarUsuario() async {
+    if (_usuarioLogado == null) return;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/${_usuarioLogado!.id}',
+    );
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(utf8.decode(response.bodyBytes));
+
+        // Sobrescreve o usuário velho com o usuário atualizado da API
+        _usuarioLogado = UserModel.fromJson(data);
+
+        // Avisa todas as telas do app para se redesenharem!
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Erro no refresh silencioso: $e");
+    }
+  }
+
   void alternarNotificacao(String chave, bool valor) {
     _prefsNotificacoes[chave] = valor;
     notifyListeners();

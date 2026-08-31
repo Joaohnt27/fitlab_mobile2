@@ -193,7 +193,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
         .map((p) => {"lat": p.latitude, "lng": p.longitude})
         .toList();
 
-    // 3. Monta o pacote de dados (JSON) exatamente como o AtividadeRequestDTO espera
+    // 3. Monta o pacote de dados (JSON)
     final body = jsonEncode({
       "idUsuario": idUsuario,
       "tipoAtividade": selectedMode == "Duelo de Territórios"
@@ -202,8 +202,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       "tempo": _formatTime(duration),
       "pace": pace,
       "calorias": calories,
-      "treinoPlanejado":
-          false, // No futuro podemos vincular isso aos treinos do Lab
+      "treinoPlanejado": false,
       "rota": routeData,
     });
 
@@ -218,14 +217,13 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       if (response.statusCode == 200) {
         final recompensas = json.decode(utf8.decode(response.bodyBytes));
         int xpReal = recompensas['xpGanhos'] ?? 0;
-
-        // Pega a distância oficial do servidor. Se falhar, usa a do celular como fallback.
         double distanciaOficial = recompensas['distanciaOficial'] ?? distance;
+
+        await userProvider.recarregarUsuario();
 
         // Passamos a distância oficial para o modal!
         _showSummary(xpReal, distanciaOficial);
       } else {
-        // Agora o celular te avisa qual foi o erro!
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Erro na API: ${response.statusCode}")),
         );
@@ -233,7 +231,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       debugPrint("Erro de conexão: $e");
-      _showSummary(0, distance); // Fallback de conexão
+      _showSummary(0, distance);
     }
   }
 
