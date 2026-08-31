@@ -1,8 +1,8 @@
 class UserModel {
   final int? id;
-  final String nome;
-  final String email;
-  final String senha;
+  String nome;
+  String email;
+  String senha;
   final String? estado;
   final String? cidade;
   final String? dtNascimento;
@@ -12,8 +12,8 @@ class UserModel {
   final int nivel;
   final int xp;
   final String classe;
-  final String avatar;
-  final String bio;
+  String avatar;
+  String bio;
   final int territorios;
   final int conquistas;
   final int streak;

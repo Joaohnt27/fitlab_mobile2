@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/app_data.dart';
 import '../models/user_model.dart';
-import '../services/auth_service.dart'; // IMPORTANTE: Adicionei a importação do seu serviço
+import '../services/auth_service.dart';
+import '../config/api_constants.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class UserProvider with ChangeNotifier {
   // Instância do serviço que se comunica com o Spring Boot
@@ -61,19 +64,115 @@ class UserProvider with ChangeNotifier {
   // ==========================================
   // 2. LÓGICAS DE PERFIL (Ajustadas para não depender da lista antiga)
   // ==========================================
-  void atualizarPerfil({
+  Future<void> atualizarPerfil({
     required String novoNome,
     String? novoAvatar,
     String? novaBio,
-  }) {
-    if (_usuarioLogado != null) {
-      _usuarioLogado = _usuarioLogado!.copyWith(
-        nome: novoNome,
-        avatar: novoAvatar,
-        bio: novaBio,
+  }) async {
+    if (_usuarioLogado == null) return;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/${_usuarioLogado!.id}/perfil',
+    );
+
+    // Monta o pacote com os dados novos
+    final payload = {
+      "nome": novoNome,
+      "bio": novaBio ?? "",
+      "avatar": novoAvatar ?? "🧪",
+    };
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(payload),
       );
-      // TODO futuro: Enviar um HTTP PUT para o Java atualizar no banco de dados
-      notifyListeners();
+
+      if (response.statusCode == 200) {
+        // Se a API salvou com sucesso, atualizamos a tela do celular instantaneamente!
+        _usuarioLogado!.nome = novoNome;
+        if (novoAvatar != null) _usuarioLogado!.avatar = novoAvatar;
+        if (novaBio != null) _usuarioLogado!.bio = novaBio;
+
+        notifyListeners(); // Avisa o app inteiro que o perfil mudou (Feed, Header, etc.)
+      } else {
+        debugPrint("Erro na API ao salvar perfil: ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("Erro de conexão ao salvar perfil: $e");
+    }
+  }
+
+  // --- ATUALIZAR E-MAIL ---
+  Future<String?> atualizarEmail(String novoEmail) async {
+    if (_usuarioLogado == null) return "Usuário não logado";
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/${_usuarioLogado!.id}/email',
+    );
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode({"email": novoEmail}),
+      );
+
+      if (response.statusCode == 200) {
+        _usuarioLogado!.email = novoEmail; // Atualiza localmente
+        notifyListeners();
+        return null; // Retorna null indicando SUCESSO
+      } else {
+        return response
+            .body; // Retorna a mensagem de erro do Spring Boot (ex: E-mail em uso)
+      }
+    } catch (e) {
+      return "Erro de conexão. Tente novamente.";
+    }
+  }
+
+  // --- ATUALIZAR SENHA ---
+  Future<String?> atualizarSenha(String senhaAtual, String novaSenha) async {
+    if (_usuarioLogado == null) return "Usuário não logado";
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/${_usuarioLogado!.id}/senha',
+    );
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode({"senhaAtual": senhaAtual, "novaSenha": novaSenha}),
+      );
+
+      if (response.statusCode == 200) {
+        return null; // Sucesso
+      } else {
+        return response.body; // Erro (ex: Senha atual incorreta)
+      }
+    } catch (e) {
+      return "Erro de conexão. Tente novamente.";
+    }
+  }
+
+  // --- EXCLUIR CONTA ---
+  Future<bool> excluirConta() async {
+    if (_usuarioLogado == null) return false;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/${_usuarioLogado!.id}',
+    );
+    try {
+      final response = await http.delete(url);
+      if (response.statusCode == 200) {
+        _usuarioLogado = null; // Limpa o usuário da memória do celular
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint("Erro ao excluir conta: $e");
+      return false;
     }
   }
 
