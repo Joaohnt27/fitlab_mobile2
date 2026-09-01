@@ -38,6 +38,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // Busca as badges reais da API para a prévia do perfil
+  Future<List<dynamic>> _carregarBadges(int idUsuario) async {
+    final response = await http.get(
+      Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/badges'),
+    );
+    if (response.statusCode == 200) {
+      return json.decode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+    }
+    return [];
+  }
+
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -99,13 +110,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return FutureBuilder<Map<String, dynamic>>(
             future: _carregarDadosPerfil(idBusca),
             builder: (context, snapshot) {
-              // Tela de Carregamento enquanto o Spring Boot responde
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
                   child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
                 );
               }
-              // Tratamento de Erro
               if (snapshot.hasError) {
                 return const Center(
                   child: Text(
@@ -115,7 +124,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               }
 
-              // Dados Reais da API!
               final perfilAPI = snapshot.data!;
               final nivelData = perfilAPI['nivel'];
 
@@ -124,28 +132,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     _buildProfileHeader(usuario, perfilAPI),
-
                     const SizedBox(height: 30),
-
-                    // O ProfileLevelCard agora precisa receber os dados do nível para atualizar a barra de XP
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: ProfileLevelCard(nivelData: nivelData),
                     ),
-
                     const SizedBox(height: 24),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: _buildBadgesGallery(context),
+                      child: _buildBadgesGallery(context, idBusca),
                     ),
-
                     const SizedBox(height: 32),
-                    // 👇 Passamos o 'nivelData' para o Card de Biometria!
                     _buildBiometriaCard(context, nivelData),
-
                     const SizedBox(height: 32),
                     _buildMenuOptions(context),
-
                     const SizedBox(height: 90),
                   ],
                 ),
@@ -185,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               radius: 50,
               backgroundColor: const Color(0xFF1A1A1A),
               child: Text(
-                perfilAPI['avatar'] ?? "🧪", // Vem direto do Banco de Dados
+                perfilAPI['avatar'] ?? "🧪",
                 style: const TextStyle(fontSize: 50),
               ),
             ),
@@ -200,7 +200,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               letterSpacing: 1,
             ),
           ),
-          // Usando a Bio que veio da API
           if (perfilAPI['bio'] != null &&
               perfilAPI['bio'].toString().isNotEmpty)
             Padding(
@@ -216,12 +215,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           const SizedBox(height: 10),
-
-          // Renderizando dados diretos da API
           Column(
             children: [
               Text(
-                perfilAPI['nivel']['nomePatente'], // Ex: "Recruta do laboratório"
+                perfilAPI['nivel']['nomePatente'],
                 style: const TextStyle(
                   color: Color(0xFF06B6D4),
                   fontSize: 16,
@@ -243,13 +240,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildQuickStatsGrid(Map<String, dynamic> perfilAPI) {
-    // Pega o usuário do Provider (que já tem o cálculo do ranking que vem do backend)
     final user = Provider.of<UserProvider>(
       context,
       listen: false,
     ).usuarioLogado;
 
-    // Pega o valor ou coloca '--' se der algum problema
     final String posicaoRanking = user?.ranking != null && user!.ranking > 0
         ? "#${user.ranking}"
         : "--";
@@ -286,7 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Expanded(
             child: _buildStatCard(
               Icons.track_changes_outlined,
-              posicaoRanking, // 👇 AQUI ESTÁ A POSIÇÃO DINÂMICA
+              posicaoRanking,
               "Ranking",
             ),
           ),
@@ -324,12 +319,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // 👇 MÉTODO ATUALIZADO PARA RECEBER OS DADOS DO BANCO 👇
   Widget _buildBiometriaCard(
     BuildContext context,
     Map<String, dynamic> nivelData,
   ) {
-    // Convertendo os atributos que chegaram da API para doubles
     final Map<String, double> radarStats = {
       'Velocidade': ((nivelData['velocidade'] as num? ?? 0.0).toDouble() / 100)
           .clamp(0.0, 1.0),
@@ -377,7 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 32),
             Center(
               child: RadarChartInteractive(
-                data: radarStats, // <-- Gráfico injetado com os dados reais!
+                data: radarStats,
                 color: const Color(0xFF06B6D4),
               ),
             ),
@@ -471,69 +464,159 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildBadgesGallery(BuildContext context) {
-    final displayBadges = AppData.allBadges.take(8).toList();
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // ATUALIZADO: Ordenação dinâmica no preview de conquistas
+  Widget _buildBadgesGallery(BuildContext context, int idUsuario) {
+    return FutureBuilder<List<dynamic>>(
+      future: _carregarBadges(idUsuario),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+          );
+        }
+
+        final badgesData = snapshot.data ?? [];
+
+        // 👇 Ordena as badges: Desbloqueadas primeiro
+        badgesData.sort((a, b) {
+          final aUnlocked = a['unlocked'] == true ? 1 : 0;
+          final bUnlocked = b['unlocked'] == true ? 1 : 0;
+          return bUnlocked.compareTo(aUnlocked);
+        });
+
+        // Exibe no máximo as 8 primeiras para a prévia do perfil
+        final displayBadges = badgesData.take(8).toList();
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                "CONQUISTAS",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                  fontSize: 12,
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          BadgesScreen(allBadges: AppData.allBadges),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "CONQUISTAS",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      fontSize: 12,
                     ),
-                  );
-                },
-                child: const Text(
-                  "Ver mais",
-                  style: TextStyle(color: Color(0xFF06B6D4), fontSize: 12),
-                ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const BadgesScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      "Ver mais",
+                      style: TextStyle(color: Color(0xFF06B6D4), fontSize: 12),
+                    ),
+                  ),
+                ],
               ),
+              const Text(
+                "Veja as conquistas que você desbloqueou",
+                style: TextStyle(color: Colors.white38, fontSize: 11),
+              ),
+              const SizedBox(height: 16),
+              if (displayBadges.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: Text(
+                      "O catálogo de insígnias está vazio no servidor.",
+                      style: TextStyle(color: Colors.white38),
+                    ),
+                  ),
+                )
+              else
+                GridView.builder(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 0.65,
+                  ),
+                  itemCount: displayBadges.length,
+                  itemBuilder: (context, index) {
+                    final badge = displayBadges[index];
+                    final nome = badge['name'] ?? 'Insígnia';
+                    final icone = badge['icon'] ?? '🏅';
+                    final isUnlocked = badge['unlocked'] == true;
+
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E1E1E),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isUnlocked
+                                      ? const Color(0xFF06B6D4).withOpacity(0.5)
+                                      : Colors.white10,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Center(
+                                child: Opacity(
+                                  opacity: isUnlocked ? 1.0 : 0.3,
+                                  child: Text(
+                                    icone,
+                                    style: const TextStyle(fontSize: 24),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (!isUnlocked)
+                              const Icon(
+                                Icons.lock,
+                                color: Colors.white54,
+                                size: 20,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          nome,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isUnlocked ? Colors.white : Colors.white38,
+                            fontSize: 9,
+                            fontWeight: isUnlocked
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
             ],
           ),
-          const Text(
-            "Veja as conquistas que você desbloqueou",
-            style: TextStyle(color: Colors.white38, fontSize: 11),
-          ),
-          const SizedBox(height: 16),
-          GridView.builder(
-            padding: EdgeInsets.zero,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 0.65,
-            ),
-            itemCount: displayBadges.length,
-            itemBuilder: (context, index) {
-              return BadgeItem(badge: displayBadges[index], context: context);
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
