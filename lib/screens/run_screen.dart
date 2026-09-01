@@ -203,7 +203,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       "pace": pace,
       "calorias": calories,
       "treinoPlanejado": false,
-      "km": distance, 
+      "km": distance,
       "rota": routeData,
     });
 
@@ -222,21 +222,30 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
         await userProvider.recarregarUsuario();
 
-        // Passamos a distância oficial para o modal!
-        _showSummary(xpReal, distanciaOficial);
+        // 👇 Guarda as badges em uma lista para enviar ao resumo 👇
+        List<dynamic> badgesGanhas = [];
+        if (recompensas['badgesDesbloqueadas'] != null) {
+          badgesGanhas = recompensas['badgesDesbloqueadas'];
+          debugPrint(
+            "🏆 BADGES RECEBIDAS DO JAVA: $badgesGanhas",
+          ); // Para checar no console
+        }
+
+        // Passa as badges para o método _showSummary
+        _showSummary(xpReal, distanciaOficial, badgesGanhas);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Erro na API: ${response.statusCode}")),
         );
-        _showSummary(0, distance);
+        _showSummary(0, distance, []); // Manda array vazio
       }
     } catch (e) {
       debugPrint("Erro de conexão: $e");
-      _showSummary(0, distance);
+      _showSummary(0, distance, []);
     }
   }
-
-  void _showSummary(int xp, double finalDistance) {
+  
+  void _showSummary(int xp, double finalDistance, List<dynamic> badgesGanhas) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -256,12 +265,34 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             duration = 0;
             distance = 0;
             route = [];
-            routeData =
-                []; // <-- ADICIONAMOS AQUI PARA LIMPAR O COFRE DO BACK-END
+            routeData = [];
             steps = 0;
             calories = 0;
           });
+
+          // Fecha o modal de resumo primeiro
           Navigator.pop(context);
+
+          // 👇 DEPOIS DE FECHAR O MODAL, A INSÍGNIA APARECE 👇
+          if (badgesGanhas.isNotEmpty) {
+            final userProvider = Provider.of<UserProvider>(
+              context,
+              listen: false,
+            );
+
+            // Um atraso de 300ms para garantir que a tela de resumo sumiu
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (context.mounted) {
+                for (var badge in badgesGanhas) {
+                  userProvider.mostrarAlertaBadge(
+                    context,
+                    badge['nome'] ?? 'Nova Conquista',
+                    badge['icone'] ?? '🏆',
+                  );
+                }
+              }
+            });
+          }
         },
       ),
     );
