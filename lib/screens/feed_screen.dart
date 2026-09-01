@@ -34,6 +34,10 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Map<String, dynamic>? _meuNivelData;
 
+  // 👇 Variáveis para o Experimento Ativo 👇
+  Map<String, dynamic>? _experimentoAtivo;
+  bool _isLoadingExperimento = true;
+
   // Paginação
   int _page = 0;
   bool _hasMore = true;
@@ -48,7 +52,40 @@ class _FeedScreenState extends State<FeedScreen> {
       _fetchDesafios();
       _fetchFeed(isRefresh: true);
       _fetchMeuNivel();
+      _fetchExperimentoAtivo(); // 👈 Inicia a busca do experimento ao abrir o feed!
     });
+  }
+
+  // 👇 NOVA FUNÇÃO: Busca o experimento real no banco 👇
+  Future<void> _fetchExperimentoAtivo() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idUsuario = userProvider.usuarioLogado?.id ?? 1;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/$idUsuario/experimentos/ativo',
+    );
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _experimentoAtivo = json.decode(utf8.decode(response.bodyBytes));
+            _isLoadingExperimento = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _experimentoAtivo = null;
+            _isLoadingExperimento = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar experimento ativo no feed: $e");
+      if (mounted) setState(() => _isLoadingExperimento = false);
+    }
   }
 
   Future<void> _fetchMeuNivel() async {
@@ -71,9 +108,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _fetchSugestoes() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-
     final userId = userProvider.usuarioLogado?.id ?? 1;
-
     final url = Uri.parse('${ApiConstants.baseUrl}/feed/sugestoes/$userId');
 
     try {
@@ -122,7 +157,6 @@ class _FeedScreenState extends State<FeedScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.usuarioLogado?.id ?? 1;
 
-    // Passando o parâmetro de página na URL
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/feed/social/$userId?page=$_page',
     );
@@ -137,17 +171,16 @@ class _FeedScreenState extends State<FeedScreen> {
             if (isRefresh) {
               _feedDb = novosPosts;
             } else {
-              _feedDb.addAll(novosPosts); // Adiciona os novos no final da lista
+              _feedDb.addAll(novosPosts);
             }
 
             _isLoadingFeed = false;
             _isLoadingMore = false;
 
-            // Se vieram menos de 10 posts, significa que o banco acabou!
             if (novosPosts.length < 10) {
               _hasMore = false;
             } else {
-              _page++; // Prepara o gatilho para a próxima página
+              _page++;
             }
           });
         }
@@ -242,19 +275,23 @@ class _FeedScreenState extends State<FeedScreen> {
                         color: Color(0xFF06B6D4),
                       ),
                     )
-                  : ProfileLevelCard(
-                      nivelData: _meuNivelData!,
-                    ), // <-- Nosso querido Card aqui!
+                  : ProfileLevelCard(nivelData: _meuNivelData!),
             ),
           ),
 
+          // 👇 SEÇÃO DO EXPERIMENTO ATIVO CONECTADA AO BANCO 👇
           SliverToBoxAdapter(
-            child: Consumer<UserProvider>(
-              builder: (context, userProvider, child) {
-                final experimento = userProvider.usuarioLogado?.experimento;
-
-                if (experimento == null) {
-                  return Container(
+            child: _isLoadingExperimento
+                ? const Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF06B6D4),
+                      ),
+                    ),
+                  )
+                : (_experimentoAtivo == null)
+                ? Container(
                     padding: const EdgeInsets.all(24),
                     alignment: Alignment.center,
                     child: const Text(
@@ -262,118 +299,137 @@ class _FeedScreenState extends State<FeedScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white24, fontSize: 12),
                     ),
-                  );
-                }
+                  )
+                : Builder(
+                    builder: (context) {
+                      // Extraindo dados da API
+                      final String volumeMetaStr =
+                          _experimentoAtivo!['volume']?.toString() ?? "0";
+                      final double progressoReal =
+                          (_experimentoAtivo!['progresso'] ?? 0.0).toDouble();
 
-                final String volumeMeta = experimento['volume'] ?? "0";
-                final String dias = experimento['frequencia'] ?? "0";
-                final double progressoReal = experimento['progresso'] ?? 0.0;
+                      double kmMetaNumerico =
+                          double.tryParse(
+                            volumeMetaStr.replaceAll(RegExp(r'[^0-9.]'), ''),
+                          ) ??
+                          0.0;
+                      double kmAtual = kmMetaNumerico * progressoReal;
 
-                double kmMetaNumerico =
-                    double.tryParse(
-                      volumeMeta.replaceAll(RegExp(r'[^0-9.]'), ''),
-                    ) ??
-                    0.0;
-                double kmAtual = kmMetaNumerico * progressoReal;
+                      // Lógica do DataFim para os dias restantes
+                      String diasRestantesFormatados = "0";
+                      if (_experimentoAtivo!['dataFim'] != null) {
+                        try {
+                          DateTime dataFim = DateTime.parse(
+                            _experimentoAtivo!['dataFim'],
+                          );
+                          int dias = dataFim.difference(DateTime.now()).inDays;
+                          diasRestantesFormatados = (dias > 0 ? dias : 0)
+                              .toString();
+                        } catch (e) {
+                          diasRestantesFormatados =
+                              _experimentoAtivo!['frequencia']?.toString() ??
+                              "0";
+                        }
+                      }
 
-                return Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A1A),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: const Color(0xFF06B6D4).withOpacity(0.2),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            "ANDAMENTO DO EXPERIMENTO",
-                            style: TextStyle(
-                              color: Color(0xFF06B6D4),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                            ),
+                      return Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A1A),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: const Color(0xFF06B6D4).withOpacity(0.2),
                           ),
-                          Text(
-                            "$dias restantes",
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            "${kmAtual.toStringAsFixed(1)}km",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              "Meta: ${volumeMeta}km",
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Stack(
-                        children: [
-                          Container(
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Colors.white10,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: progressoReal,
-                            child: Container(
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF06B6D4),
-                                borderRadius: BorderRadius.circular(3),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF06B6D4,
-                                    ).withOpacity(0.3),
-                                    blurRadius: 4,
-                                    spreadRadius: 1,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  "ANDAMENTO DO EXPERIMENTO",
+                                  style: TextStyle(
+                                    color: Color(0xFF06B6D4),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2,
                                   ),
-                                ],
-                              ),
+                                ),
+                                Text(
+                                  "$diasRestantesFormatados dias restantes",
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const SizedBox(height: 20),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  "${kmAtual.toStringAsFixed(1)}km",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text(
+                                    "Meta: ${volumeMetaStr}km",
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Stack(
+                              children: [
+                                Container(
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white10,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                ),
+                                FractionallySizedBox(
+                                  widthFactor: progressoReal.clamp(0.0, 1.0),
+                                  child: Container(
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF06B6D4),
+                                      borderRadius: BorderRadius.circular(3),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xFF06B6D4,
+                                          ).withOpacity(0.3),
+                                          blurRadius: 4,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 30)),
@@ -418,7 +474,6 @@ class _FeedScreenState extends State<FeedScreen> {
                           itemCount: _sugestoesDb.length,
                           itemBuilder: (context, index) {
                             final usuarioApi = _sugestoesDb[index];
-                            // Passamos o nome dinâmico para o card
                             return SuggestUserCard(usuario: usuarioApi);
                           },
                         ),
@@ -535,7 +590,6 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
             ),
 
-          // 👇 O BOTÃO DE CARREGAR MAIS AGORA TEM UMA TRAVA DE SEGURANÇA 👇
           if (!_isLoadingFeed && _feedDb.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(

@@ -249,40 +249,70 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  void salvarExperimentoUsuario(
+  Future<bool> salvarExperimentoUsuario(
     BuildContext context,
     String volume,
     String freq,
-  ) {
-    if (_usuarioLogado != null) {
-      _usuarioLogado = _usuarioLogado!.copyWith(
-        experimento: {
-          'volume': volume,
-          'frequencia': freq,
-          'progresso': 0.0,
-          'diasRestantes': 7,
-        },
+  ) async {
+    if (_usuarioLogado == null) return false;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/${_usuarioLogado!.id}/experimentos',
+    );
+
+    try {
+      debugPrint("📡 Enviando POST para: $url");
+      debugPrint("📦 Payload: volume=$volume, frequencia=$freq");
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode({"volume": volume, "frequencia": freq}),
       );
 
-      ganharXPeVerificarLevelUp(context, 10);
+      debugPrint("🔙 Retorno da API (Status): ${response.statusCode}");
+      debugPrint("🔙 Retorno da API (Body): ${response.body}");
 
-      int index = AppData.allBadges.indexWhere((b) => b.id == '1');
-      if (index != -1 && !AppData.allBadges[index].isUnlocked) {
-        AppData.allBadges[index] = AppData.allBadges[index].copyWith(
-          isUnlocked: true,
-        );
+      if (response.statusCode == 200) {
+        // Deu tudo certo, o back-end salvou no banco!
+        ganharXPeVerificarLevelUp(context, 10);
 
-        _usuarioLogado = _usuarioLogado!.copyWith(
-          conquistas: _usuarioLogado!.conquistas + 1,
-        );
+        // Lógica de destravar a badge (mantida do seu código)
+        int index = AppData.allBadges.indexWhere((b) => b.id == '1');
+        if (index != -1 && !AppData.allBadges[index].isUnlocked) {
+          AppData.allBadges[index] = AppData.allBadges[index].copyWith(
+            isUnlocked: true,
+          );
+          _usuarioLogado = _usuarioLogado!.copyWith(
+            conquistas: _usuarioLogado!.conquistas + 1,
+          );
+          mostrarAlertaBadge(
+            context,
+            AppData.allBadges[index].name,
+            AppData.allBadges[index].icon,
+          );
+        }
 
-        mostrarAlertaBadge(
-          context,
-          AppData.allBadges[index].name,
-          AppData.allBadges[index].icon,
-        );
+        notifyListeners();
+        return true; // 👉 SUCESSO!
+      } else {
+        // Se a regra de negócio barrou (ex: já tem um ativo) ou deu erro 500
+        final erroResponse = json.decode(utf8.decode(response.bodyBytes));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                erroResponse['erro'] ?? 'Erro desconhecido no servidor.',
+              ),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+        return false; // 👉 FALHA!
       }
-      notifyListeners();
+    } catch (e) {
+      debugPrint("❌ Erro fatal ao salvar experimento: $e");
+      return false; // 👉 FALHA!
     }
   }
 

@@ -24,7 +24,74 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   bool _hasGeneratedAIWorkout = false;
   Map<String, dynamic> aiRequestData = {"goal": "", "timeframe": ""};
 
-  // 👇 AGORA BUSCA OS DESAFIOS ESPECÍFICOS DO USUÁRIO 👇
+  Map<String, dynamic>? _experimentoAtivo;
+  bool _isLoadingExperimento = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchExperimentoAtivo();
+  }
+
+  // 👇 BUSCA O EXPERIMENTO ATIVO DO BANCO DE DADOS 👇
+  Future<void> _fetchExperimentoAtivo() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idUsuario = userProvider.usuarioLogado?.id ?? 1;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/$idUsuario/experimentos/ativo',
+    );
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        setState(() {
+          _experimentoAtivo = json.decode(utf8.decode(response.bodyBytes));
+          _isLoadingExperimento = false;
+        });
+      } else {
+        setState(() {
+          _experimentoAtivo = null;
+          _isLoadingExperimento = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar experimento ativo: $e");
+      setState(() => _isLoadingExperimento = false);
+    }
+  }
+
+  // 👇 DELETA (CANCELA) O EXPERIMENTO ATUAL 👇
+  Future<void> _abortarExperimento() async {
+    if (_experimentoAtivo == null) return;
+
+    final idExperimento = _experimentoAtivo!['id'];
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idUsuario = userProvider.usuarioLogado?.id ?? 1;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/usuarios/$idUsuario/experimentos/$idExperimento',
+    );
+
+    setState(() => _isLoadingExperimento = true);
+
+    try {
+      final response = await http.delete(url);
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Experimento abortado com sucesso."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        _fetchExperimentoAtivo(); // Recarrega a tela para mostrar o formulário novamente
+      }
+    } catch (e) {
+      debugPrint("Erro ao abortar experimento: $e");
+      setState(() => _isLoadingExperimento = false);
+    }
+  }
+
   Future<List<dynamic>> _fetchDesafiosAtivos(int idUsuario) async {
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/usuarios/$idUsuario/desafios',
@@ -42,31 +109,36 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
-  void _iniciarExperimento(String volume, String frequencia) {
-    context.read<UserProvider>().salvarExperimentoUsuario(
+  void _iniciarExperimento(String volume, String frequencia) async {
+    setState(() => _isLoadingExperimento = true);
+
+    // Aguarda a resposta verdadeira do Provider
+    bool sucesso = await context.read<UserProvider>().salvarExperimentoUsuario(
       context,
       volume,
       frequencia,
     );
-    _showCustomDialog(
-      "FÓRMULA PRONTA!",
-      "Seu experimento de $volume configurado.",
-    );
+
+    if (sucesso) {
+      // Só comemora se o Java salvou de verdade no banco
+      _showCustomDialog(
+        "FÓRMULA PRONTA!",
+        "Seu experimento de $volume configurado.",
+      );
+      _fetchExperimentoAtivo();
+    } else {
+      // Se falhou, tira o loading para o usuário poder tentar de novo
+      setState(() => _isLoadingExperimento = false);
+    }
   }
 
-  // 🤖 FUTURO PONTO DE CONEXÃO COM O GEMINI 🤖
   void _aoGerarTreinoIA(Map<String, dynamic> data) async {
-    // 1. Mostrar o dialog de "PROCESSANDO..."
     _showCustomDialog(
       "PROCESSANDO DADOS...",
       "A IA está sintetizando seu treino. Disponível por 24 horas.",
       isAI: true,
     );
 
-    // 2. Futuramente, aqui faremos o POST para a rota do Gemini no Back-end!
-    // final response = await http.post('/api/ai/gerar-treino', body: data...);
-
-    // 3. Atualiza a tela com o resultado
     setState(() {
       aiRequestData = data;
       _hasGeneratedAIWorkout = true;
@@ -97,7 +169,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // PAINEL DINÂMICO (TREINADOR VS ATLETA)
                   if (isTreinador) ...[
                     const CoachDashboard(),
                   ] else ...[
@@ -115,10 +186,20 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                     const SizedBox(height: 32),
                     const _SectionHeader(title: "Configurar Experimento"),
                     const SizedBox(height: 16),
-                    LabGoalsCard(onIniciar: _iniciarExperimento),
+
+                    // 👇 RENDERIZAÇÃO DINÂMICA DO EXPERIMENTO 👇
+                    if (_isLoadingExperimento)
+                      const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF06B6D4),
+                        ),
+                      )
+                    else if (_experimentoAtivo != null)
+                      _buildActiveExperimentCard()
+                    else
+                      LabGoalsCard(onIniciar: _iniciarExperimento),
                   ],
 
-                  // SEÇÃO DE DESAFIOS (AGORA COM API E ID DO USUÁRIO)
                   const SizedBox(height: 32),
                   _SectionHeader(
                     title: "Desafios Ativos",
@@ -133,7 +214,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 👇 PASSANDO O ID DO USUÁRIO PARA A BUSCA 👇
                   FutureBuilder<List<dynamic>>(
                     future: _fetchDesafiosAtivos(usuario?.id ?? 1),
                     builder: (context, snapshot) {
@@ -187,7 +267,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                     },
                   ),
 
-                  // SEÇÃO PLANO SEMANAL (BLOQUEIO PREMIUM)
                   if (!isTreinador) ...[
                     const SizedBox(height: 32),
                     const _SectionHeader(title: "Plano Semanal"),
@@ -205,7 +284,127 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  // Widget de controle de acesso ao plano semanal
+  Widget _buildActiveExperimentCard() {
+    final volume = _experimentoAtivo!['volume'] ?? "N/A";
+
+    // 👇 Calcula dinamicamente os dias restantes usando a dataFim vinda do back-end
+    String diasRestantesStr = "N/A";
+    if (_experimentoAtivo!['dataFim'] != null) {
+      try {
+        DateTime dataFim = DateTime.parse(_experimentoAtivo!['dataFim']);
+        int dias = dataFim.difference(DateTime.now()).inDays;
+        diasRestantesStr = "${dias > 0 ? dias : 0} dias";
+      } catch (e) {
+        diasRestantesStr = _experimentoAtivo!['frequencia'] ?? "N/A";
+      }
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF06B6D4).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.science, color: Color(0xFF06B6D4)),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "EM ANDAMENTO",
+                      style: TextStyle(
+                        color: Color(0xFF06B6D4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    Text(
+                      "Experimento Atual",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildExperimentData("Volume Meta", "$volume km"),
+              _buildExperimentData("Tempo Restante", diasRestantesStr),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: _abortarExperimento,
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.redAccent.withOpacity(0.1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                "ABORTAR EXPERIMENTO",
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExperimentData(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white38,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildWeeklyPlanWithAccessControl(bool isPremium) {
     if (isPremium) return const _TrainingPlanPlaceholder();
 
@@ -227,7 +426,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  // Overlay de Cadeado para usuários free
   Widget _buildLockOverlay() {
     return Column(
       children: [
