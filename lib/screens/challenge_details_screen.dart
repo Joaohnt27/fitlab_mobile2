@@ -18,6 +18,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   bool _isLoadingAction = false;
   bool _isLoadingStatus = true;
   bool _aceito = false;
+  bool _concluido = false;
   double _progressoReal = 0.0;
   double _totalReal = 1.0;
 
@@ -31,21 +32,62 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
     final idDesafio = widget.desafio['id'];
-
-    final url = Uri.parse(
-      '${ApiConstants.baseUrl}/usuarios/$idUsuario/desafios',
-    );
+    // Pega o nome exato da insígnia que este desafio dá
+    final nomeBadgeExclusiva = widget.desafio['badgeExclusiva']
+        ?.toString()
+        .trim();
 
     try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final List<dynamic> desafiosAtivos = json.decode(
-          utf8.decode(response.bodyBytes),
-        );
+      // 1. Busca os Desafios Ativos
+      final urlAtivos = Uri.parse(
+        '${ApiConstants.baseUrl}/usuarios/$idUsuario/desafios',
+      );
+      final resAtivos = await http.get(urlAtivos);
 
-        // A CORREÇÃO ESTÁ AQUI 👇
+      // 2. Busca as Insígnias do Usuário (O Pulo do Gato para saber se concluiu)
+      final urlBadges = Uri.parse(
+        '${ApiConstants.baseUrl}/usuarios/$idUsuario/badges',
+      );
+      final resBadges = await http.get(urlBadges);
+
+      bool jaConcluiu = false;
+
+      if (resBadges.statusCode == 200) {
+        final List<dynamic> badges = json.decode(
+          utf8.decode(resBadges.bodyBytes),
+        );
+        // Verifica se o usuário tem a insígnia que tenha o mesmo nome da recompensa deste desafio e está desbloqueada
+        jaConcluiu = badges.any(
+          (b) =>
+              b['unlocked'] == true &&
+              b['name'] != null &&
+              b['name'].toString().trim() == nomeBadgeExclusiva,
+        );
+      }
+
+      if (jaConcluiu) {
+        // Se já tem a badge, trava tudo em 100% concluído!
+        setState(() {
+          _concluido = true;
+          _aceito = true;
+          _totalReal =
+              (widget.desafio['total'] ?? widget.desafio['objetivoKm'] ?? 1)
+                  .toDouble();
+          _progressoReal = _totalReal;
+          _isLoadingStatus = false;
+        });
+        return;
+      }
+
+      // Se não concluiu, verifica se está em andamento
+      if (resAtivos.statusCode == 200) {
+        final List<dynamic> desafiosAtivos = json.decode(
+          utf8.decode(resAtivos.bodyBytes),
+        );
         final desafioAtivo = desafiosAtivos.firstWhere(
-          (d) => d['id'] == idDesafio,
+          (d) =>
+              d['id'] == idDesafio ||
+              (d['desafio'] != null && d['desafio']['id'] == idDesafio),
           orElse: () => null,
         );
 
@@ -60,8 +102,10 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             _totalReal =
                 (desafioAtivo['total'] ?? desafioAtivo['objetivoKm'] ?? 1)
                     .toDouble();
+            _concluido = _progressoReal >= _totalReal && _totalReal > 0;
           } else {
             _aceito = false;
+            _concluido = false;
             _totalReal =
                 (widget.desafio['total'] ?? widget.desafio['objetivoKm'] ?? 1)
                     .toDouble();
@@ -122,7 +166,10 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
           ),
         );
         await userProvider.recarregarUsuario();
-        setState(() => _aceito = false);
+        setState(() {
+          _aceito = false;
+          _progressoReal = 0.0;
+        });
       }
     } catch (e) {
       debugPrint("Erro ao cancelar: $e");
@@ -147,7 +194,9 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
     final double progresso = _progressoReal;
     final double total = _totalReal;
-    final double progressPercent = (progresso / total).clamp(0.0, 1.0);
+    final double progressPercent = total > 0
+        ? (progresso / total).clamp(0.0, 1.0)
+        : 0.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
@@ -167,12 +216,16 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF06B6D4).withOpacity(0.1),
+                      color: _concluido
+                          ? Colors.green.withOpacity(0.1)
+                          : const Color(0xFF06B6D4).withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.emoji_events,
-                      color: Color(0xFF06B6D4),
+                      color: _concluido
+                          ? Colors.green
+                          : const Color(0xFF06B6D4),
                       size: 60,
                     ),
                   ),
@@ -231,10 +284,10 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
             if (_aceito) ...[
               const SizedBox(height: 32),
-              const Text(
-                "SEU PROGRESSO",
+              Text(
+                _concluido ? "MISSÃO CONCLUÍDA!" : "SEU PROGRESSO",
                 style: TextStyle(
-                  color: Color(0xFF06B6D4),
+                  color: _concluido ? Colors.green : const Color(0xFF06B6D4),
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,
@@ -246,7 +299,11 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1A1A1A),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                  border: Border.all(
+                    color: _concluido
+                        ? Colors.green.withOpacity(0.3)
+                        : Colors.white.withOpacity(0.05),
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -256,7 +313,9 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                         value: progressPercent,
                         minHeight: 8,
                         backgroundColor: Colors.white10,
-                        color: const Color(0xFF06B6D4),
+                        color: _concluido
+                            ? Colors.green
+                            : const Color(0xFF06B6D4),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -265,9 +324,12 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                       children: [
                         Text(
                           "${(progressPercent * 100).toInt()}% Concluído",
-                          style: const TextStyle(
-                            color: Colors.white54,
+                          style: TextStyle(
+                            color: _concluido ? Colors.green : Colors.white54,
                             fontSize: 12,
+                            fontWeight: _concluido
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                         Text(
@@ -287,47 +349,73 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
             const Spacer(),
 
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: _isLoadingStatus
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF06B6D4),
-                      ),
-                    )
-                  : ElevatedButton(
-                      onPressed: _aceito || _isLoadingAction
-                          ? null
-                          : () =>
-                                _aceitarDesafio(context, widget.desafio['id']),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _aceito
-                            ? Colors.green.withOpacity(0.2)
-                            : const Color(0xFF06B6D4),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(
-                            color: _aceito ? Colors.green : Colors.transparent,
-                            width: 2,
+            if (_concluido)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.green.withOpacity(0.5)),
+                ),
+                child: const Center(
+                  child: Text(
+                    "🎉 PARABÉNS! VOCÊ VENCEU ESTE DESAFIO!",
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: _isLoadingStatus
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF06B6D4),
+                        ),
+                      )
+                    : ElevatedButton(
+                        onPressed: _aceito || _isLoadingAction
+                            ? null
+                            : () => _aceitarDesafio(
+                                context,
+                                widget.desafio['id'],
+                              ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _aceito
+                              ? Colors.amber.withOpacity(0.1)
+                              : const Color(0xFF06B6D4),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: _aceito
+                                  ? Colors.amber
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                         ),
-                      ),
-                      child: _isLoadingAction && !_aceito
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                              _aceito ? "EM ANDAMENTO" : "ACEITAR DESAFIO",
-                              style: TextStyle(
-                                color: _aceito ? Colors.green : Colors.black,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
+                        child: _isLoadingAction && !_aceito
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : Text(
+                                _aceito ? "EM ANDAMENTO" : "ACEITAR DESAFIO",
+                                style: TextStyle(
+                                  color: _aceito ? Colors.amber : Colors.black,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1,
+                                ),
                               ),
-                            ),
-                    ),
-            ),
+                      ),
+              ),
 
-            if (_aceito && !_isLoadingStatus) ...[
+            if (_aceito && !_concluido && !_isLoadingStatus) ...[
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
