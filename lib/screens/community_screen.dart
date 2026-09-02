@@ -15,6 +15,7 @@ class CommunityScreen extends StatefulWidget {
 }
 
 class _CommunityScreenState extends State<CommunityScreen> {
+  int? _treinadorVinculadoId;
   // Chamada de API para buscar o ranking
   Future<List<dynamic>> _fetchRankingGlobal() async {
     final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/ranking');
@@ -58,9 +59,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
     // MONTANDO O PACOTE
     final payload = {"atleta_id": atletaId, "treinador_id": treinadorId};
-    debugPrint(
-      "📦 ENVIANDO PAYLOAD PARA O JAVA: $payload",
-    ); // <-- OLHE ISSO NO CONSOLE!
+    debugPrint("📦 ENVIANDO PAYLOAD PARA O JAVA: $payload");
 
     try {
       final response = await http.post(
@@ -80,6 +79,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
       if (response.statusCode == 200) {
         if (context.mounted) {
+          setState(() {
+            _treinadorVinculadoId = treinadorId;
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Mentoria ativada com sucesso por 30 dias!"),
@@ -241,6 +244,35 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       ? const CircularProgressIndicator(
                           color: Color(0xFF06B6D4),
                         )
+                      : _treinadorVinculadoId == treinadorId
+                      ? SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            onPressed: null, // Desabilita o clique totalmente!
+                            icon: const Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              "MENTORIA ATIVA",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              disabledBackgroundColor: Colors.green.withOpacity(
+                                0.4,
+                              ),
+                              disabledForegroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        )
                       : SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -248,6 +280,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
                             onPressed: () async {
                               setStateSheet(() => isLoading = true);
                               await _vincularTreinador(context, treinadorId);
+                              // Caso o modal não feche, removemos o loading
+                              if (context.mounted) {
+                                setStateSheet(() => isLoading = false);
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF06B6D4),

@@ -27,10 +27,15 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   Map<String, dynamic>? _experimentoAtivo;
   bool _isLoadingExperimento = true;
 
+  // 👇 NOVAS VARIÁVEIS PARA A MENTORIA 👇
+  Map<String, dynamic>? _mentoriaAtiva;
+  bool _isLoadingMentoria = true;
+
   @override
   void initState() {
     super.initState();
     _fetchExperimentoAtivo();
+    _fetchMentoriaAtiva(); // Chama a busca da mentoria ao abrir a tela
   }
 
   // BUSCA O EXPERIMENTO ATIVO DO BANCO DE DADOS
@@ -61,6 +66,37 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
+  // 👇 BUSCA A MENTORIA ATIVA DO ATLETA 👇
+  Future<void> _fetchMentoriaAtiva() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idUsuario = userProvider.usuarioLogado?.id;
+
+    if (idUsuario == null) return;
+
+    // Rota esperada no Back-end para retornar a mentoria do atleta
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/mentorias/atleta/$idUsuario/ativa',
+    );
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        setState(() {
+          _mentoriaAtiva = json.decode(utf8.decode(response.bodyBytes));
+          _isLoadingMentoria = false;
+        });
+      } else {
+        setState(() {
+          _mentoriaAtiva = null;
+          _isLoadingMentoria = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar mentoria ativa: $e");
+      setState(() => _isLoadingMentoria = false);
+    }
+  }
+
   // DELETA (CANCELA) O EXPERIMENTO ATUAL
   Future<void> _abortarExperimento() async {
     if (_experimentoAtivo == null) return;
@@ -84,7 +120,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
             backgroundColor: Colors.redAccent,
           ),
         );
-        _fetchExperimentoAtivo(); // Recarrega a tela para mostrar o formulário novamente
+        _fetchExperimentoAtivo();
       }
     } catch (e) {
       debugPrint("Erro ao abortar experimento: $e");
@@ -130,7 +166,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   }
 
   void _aoGerarTreinoIA(Map<String, dynamic> data) async {
-    // 1. Abre um modal de Loading que o usuário não consegue fechar sozinho
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -174,9 +209,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 
     final payload = {
       "usuario_id": usuario?.id,
-      "role":
-          usuario?.role ??
-          'Free', // Enviamos o role pro backend verificar a cota
+      "role": usuario?.role ?? 'Free',
       "meta": data["meta"],
       "prazo": data["prazo"],
       "peso_kg": data["peso_kg"],
@@ -195,7 +228,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
         body: json.encode(payload),
       );
 
-      // 2. Fecha o Loading animado assim que a resposta chega
       if (context.mounted) Navigator.pop(context);
 
       if (response.statusCode == 200) {
@@ -213,7 +245,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           _hasGeneratedAIWorkout = true;
         });
       } else {
-        // 👇 AQUI ESTÁ O PORTEIRO INTERCEPTANDO A EXCEÇÃO DO JAVA! 👇
         if (response.body.contains('LIMITE_EXCEDIDO')) {
           _mostrarPaywall();
         } else {
@@ -230,8 +261,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
         }
       }
     } catch (e) {
-      if (context.mounted)
-        Navigator.pop(context); // Fecha o loading se der erro
+      if (context.mounted) Navigator.pop(context);
       debugPrint("Erro de conexão na IA: $e");
 
       if (context.mounted) {
@@ -245,7 +275,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
-  // 👇 NOVA FUNÇÃO: ABRE O MODAL DO PAYWALL 👇
   void _mostrarPaywall() {
     showModalBottomSheet(
       context: context,
@@ -286,8 +315,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
               height: 56,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(context); // Fecha o Modal
-                  // Navega para a tela de assinaturas
+                  Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -324,10 +352,8 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     final usuario = userProvider.usuarioLogado;
 
     final bool isTreinador = usuario?.role == 'Treinador';
-    final bool isPremium =
-        usuario?.plano != null &&
-        usuario!.plano != 'Free' &&
-        usuario.plano != '';
+    final bool isElite =
+        usuario?.plano?['nome']?.toString().contains('Elite') ?? false;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
@@ -441,9 +467,12 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 
                   if (!isTreinador) ...[
                     const SizedBox(height: 32),
-                    const _SectionHeader(title: "Plano Semanal"),
+                    const _SectionHeader(
+                      title: "Área de Testes",
+                      subtitle: "Acompanhamento de Especialistas",
+                    ),
                     const SizedBox(height: 16),
-                    _buildWeeklyPlanWithAccessControl(isPremium),
+                    _buildMentorTestingArea(isElite),
                   ],
 
                   const SizedBox(height: 80),
@@ -453,6 +482,234 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // 👇 PAINEL DE MENTORIA ATUALIZADO 👇
+  Widget _buildMentorTestingArea(bool isElite) {
+    // 1. Cadeado se não for Elite
+    if (!isElite) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Opacity(
+              opacity: 0.05,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  width: double.infinity,
+                  height: 160,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            _buildLockOverlayElite(),
+          ],
+        ),
+      );
+    }
+
+    // 2. Loading da Mentoria
+    if (_isLoadingMentoria) {
+      return Container(
+        height: 160,
+        alignment: Alignment.center,
+        child: const CircularProgressIndicator(color: Color(0xFF06B6D4)),
+      );
+    }
+
+    // 3. Se for Elite mas não contratou ninguém
+    if (_mentoriaAtiva == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withOpacity(0.05)),
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.person_search, color: Colors.white38, size: 40),
+            const SizedBox(height: 16),
+            const Text(
+              "Nenhum treinador vinculado",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Você tem acesso liberado! Encontre um treinador na aba Comunidade para iniciar a sua assessoria.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white38,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 4. Se for Elite e TEM treinador! Calcula os dias restantes.
+    final nomeTreinador =
+        _mentoriaAtiva!['treinadorNome'] ??
+        _mentoriaAtiva!['treinador_nome'] ??
+        "Seu Treinador";
+    String diasRestantesStr = "Ativa";
+
+    if (_mentoriaAtiva!['dataFim'] != null ||
+        _mentoriaAtiva!['data_fim'] != null) {
+      try {
+        String dtFimRaw =
+            _mentoriaAtiva!['dataFim'] ?? _mentoriaAtiva!['data_fim'];
+        DateTime dataFim = DateTime.parse(dtFimRaw);
+        int dias = dataFim.difference(DateTime.now()).inDays;
+        diasRestantesStr = dias > 0 ? "Expira em $dias dias" : "Expira hoje";
+      } catch (e) {
+        // Ignora o erro de parse e mantém "Ativa"
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1D4ED8).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF1D4ED8).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF1D4ED8),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.psychology, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      diasRestantesStr.toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFF06B6D4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      nomeTreinador,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Iniciando conexão segura com o treinador...",
+                        ),
+                        backgroundColor: Color(0xFF1D4ED8),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.chat_bubble_outline, size: 16),
+                  label: const Text("MENSAGEM"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1D4ED8),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.assignment_ind_outlined, size: 16),
+                  label: const Text("AVALIAÇÃO"),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLockOverlayElite() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.workspace_premium, color: Colors.amber, size: 36),
+        const SizedBox(height: 12),
+        const Text(
+          "ÁREA DE TESTES FECHADA",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          "Exclusivo para Atletas Elite",
+          style: TextStyle(color: Colors.white38, fontSize: 11),
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SubscriptionScreen()),
+          ),
+          child: const Text(
+            "FAZER UPGRADE",
+            style: TextStyle(
+              color: Colors.amber,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -570,64 +827,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
             color: Colors.white,
             fontSize: 14,
             fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWeeklyPlanWithAccessControl(bool isPremium) {
-    if (isPremium) return const _TrainingPlanPlaceholder();
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Opacity(
-            opacity: 0.1,
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: const _TrainingPlanPlaceholder(),
-            ),
-          ),
-          _buildLockOverlay(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLockOverlay() {
-    return Column(
-      children: [
-        const Icon(Icons.lock_outline, color: Color(0xFF06B6D4), size: 28),
-        const SizedBox(height: 12),
-        const Text(
-          "ACESSO RESTRITO",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            letterSpacing: 1,
-          ),
-        ),
-        const Text(
-          "Disponível apenas para membros Pro e Elite",
-          style: TextStyle(color: Colors.white38, fontSize: 11),
-        ),
-        const SizedBox(height: 8),
-        TextButton(
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const SubscriptionScreen()),
-          ),
-          child: const Text(
-            "FAZER UPGRADE",
-            style: TextStyle(
-              color: Color(0xFF06B6D4),
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
           ),
         ),
       ],
@@ -826,28 +1025,6 @@ class _PageIntroText extends StatelessWidget {
       child: Text(
         "Seu centro de treinamento e desafios",
         style: TextStyle(color: Colors.white70, fontSize: 14),
-      ),
-    );
-  }
-}
-
-class _TrainingPlanPlaceholder extends StatelessWidget {
-  const _TrainingPlanPlaceholder();
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 120,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: const Center(
-        child: Text(
-          "Plano Semanal Carregado",
-          style: TextStyle(color: Colors.white38),
-        ),
       ),
     );
   }
