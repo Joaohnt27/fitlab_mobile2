@@ -7,6 +7,28 @@ class AIWorkoutDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 1. Extração dos dados principais do plano
+    final Map<String, dynamic>? inputsUsuario = data['inputs_usuario'];
+    final String meta =
+        inputsUsuario?['meta']?.toString().toUpperCase() ?? "PERFORMANCE";
+    final String tituloIA = data['titulo'] ?? "Protocolo de Treinamento";
+    final String focoIA =
+        data['foco'] ?? "Baseado na sua biometria e histórico de 30 dias.";
+
+    // 2. Extração das listas dinâmicas geradas pela IA
+    final List<dynamic> dias = data['dias'] ?? [];
+    final List<dynamic> aquecimento =
+        data['aquecimento'] ?? ["Mobilidade básica (5 min)"];
+
+    // 3. Cálculo de Volume Total e Média de Tempo
+    double distanciaTotal = 0;
+    for (var dia in dias) {
+      distanciaTotal +=
+          double.tryParse(dia['distancia_km']?.toString() ?? "0") ?? 0;
+    }
+    final String janelaMedia =
+        "${(distanciaTotal * 5).round()}-${(distanciaTotal * 7).round()} min/dia";
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       appBar: AppBar(
@@ -27,15 +49,18 @@ class AIWorkoutDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
+            _buildHeader(meta, tituloIA, focoIA),
             const SizedBox(height: 32),
 
-            // GRID DE MÉTRICAS RÁPIDAS
             Row(
               children: [
-                _buildMetricBox("DISTÂNCIA", "5.2 km", Icons.straighten),
+                _buildMetricBox(
+                  "VOL. TOTAL",
+                  "${distanciaTotal.toStringAsFixed(1)} km",
+                  Icons.straighten,
+                ),
                 const SizedBox(width: 12),
-                _buildMetricBox("JANELA", "35-45 min", Icons.timer),
+                _buildMetricBox("MÉDIA DIÁRIA", janelaMedia, Icons.timer),
               ],
             ),
 
@@ -49,11 +74,40 @@ class AIWorkoutDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _buildWarmupList(),
+
+            // 👇 Renderiza os aquecimentos dinâmicos
+            Column(
+              children: aquecimento
+                  .map(
+                    (w) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.science,
+                            color: Color(0xFF06B6D4),
+                            size: 14,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              w.toString(),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
 
             const SizedBox(height: 32),
             const Text(
-              "EXECUÇÃO PRINCIPAL",
+              "CRONOGRAMA DE EXECUÇÃO",
               style: TextStyle(
                 color: Color(0xFF06B6D4),
                 fontWeight: FontWeight.bold,
@@ -61,7 +115,59 @@ class AIWorkoutDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _buildMainInstruction(),
+
+            // 👇 Renderiza TODOS os dias que a IA gerou
+            Column(
+              children: dias
+                  .map(
+                    (dia) => Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF06B6D4).withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF06B6D4).withOpacity(0.2),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                dia['dia'] ?? '',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                "${dia['distancia_km']} km",
+                                style: const TextStyle(
+                                  color: Color(0xFF06B6D4),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            dia['descricao'] ?? '',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              height: 1.5,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
 
             const SizedBox(height: 40),
             _buildStartButton(),
@@ -71,12 +177,12 @@ class AIWorkoutDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String meta, String titulo, String foco) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          data['goal']?.toString().toUpperCase() ?? "PERFORMANCE",
+          meta,
           style: const TextStyle(
             color: Color(0xFF06B6D4),
             fontWeight: FontWeight.bold,
@@ -84,17 +190,23 @@ class AIWorkoutDetailScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          "Protocolo de treinamento",
-          style: TextStyle(
+        Text(
+          titulo,
+          style: const TextStyle(
             color: Colors.white,
-            fontSize: 28,
+            fontSize: 26,
             fontWeight: FontWeight.bold,
+            height: 1.2,
           ),
         ),
-        const Text(
-          "Baseado na sua biometria e histórico de 30 dias.",
-          style: TextStyle(color: Colors.white38, fontSize: 13),
+        const SizedBox(height: 8),
+        Text(
+          foco,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 13,
+            height: 1.4,
+          ),
         ),
       ],
     );
@@ -132,48 +244,6 @@ class AIWorkoutDetailScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildWarmupList() {
-    final warmups = [
-      "Mobilidade de Tornozelo (2x15)",
-      "Elevação de Joelhos (30s)",
-      "Caminhada Ativa (5 min em Pace 8:00)",
-    ];
-    return Column(
-      children: warmups
-          .map(
-            (w) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  const Icon(Icons.science, color: Color(0xFF06B6D4), size: 14),
-                  const SizedBox(width: 12),
-                  Text(
-                    w,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Widget _buildMainInstruction() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06B6D4).withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.2)),
-      ),
-      child: const Text(
-        "Corra os primeiros 2km em ritmo de Z2 (confortável). Aumente para Z4 nos 2km seguintes e finalize com 1.2km de desaquecimento.",
-        style: TextStyle(color: Colors.white, height: 1.5, fontSize: 14),
       ),
     );
   }

@@ -8,47 +8,10 @@ class AppData {
     null,
   );
 
-  // Perfil do atleta
   static ValueNotifier<AthleteProfile> perfilAtleta = ValueNotifier(
     AthleteProfile(),
   );
 
-  // Método para configurar o perfil de um usuário "Elite" (mock)
-  static void configurarPerfilElite() {
-    perfilAtleta.value = AthleteProfile(
-      totalCorridas: 154,
-      velocidade: 95,
-      resistencia: 90,
-      exploracao: 85,
-      consistencia: 100,
-    );
-    perfilAtleta.notifyListeners();
-  }
-
-  static void resetarPerfil() {
-    perfilAtleta.value = AthleteProfile();
-
-    allBadges = allBadges.map((b) => b.copyWith(isUnlocked: false)).toList();
-
-    perfilAtleta.notifyListeners();
-  }
-
-  static void desbloquearConquistasDemo() {
-    List<BadgeModel> novaLista = [];
-
-    for (int i = 0; i < allBadges.length; i++) {
-      if (i < allBadges.length - 2) {
-        novaLista.add(allBadges[i].copyWith(isUnlocked: true));
-      } else {
-        novaLista.add(allBadges[i]); // Mantém bloqueado
-      }
-    }
-
-    allBadges = novaLista;
-    perfilAtleta.notifyListeners(); // Notifica a UI para colorir os ícones
-  }
-
-  // Lógica de Tradução de XP para nome da patente
   static final List<Map<String, dynamic>> levels = [
     {
       "lv": 1,
@@ -98,24 +61,9 @@ class AppData {
       "nome": "Elite Experimental",
       "icon": "🎖️",
       "min": 3001,
-      "max": null,
+      "max": 999999, // Um limite alto seguro no lugar do null
     },
   ];
-
-  static Map<String, dynamic> getNivelAtual(int xp) {
-    return levels.firstWhere(
-      (lvl) => xp >= lvl['min'] && xp <= lvl['max'],
-      orElse: () => levels.last,
-    );
-  }
-
-  static void desbloquearPrimeiroBadge() {
-    int index = allBadges.indexWhere((b) => b.id == '1');
-    if (index != -1) {
-      allBadges[index] = allBadges[index].copyWith(isUnlocked: true);
-      perfilAtleta.notifyListeners();
-    }
-  }
 
   static Map<String, dynamic> getNivelByXP(int xp) {
     return levels.firstWhere(

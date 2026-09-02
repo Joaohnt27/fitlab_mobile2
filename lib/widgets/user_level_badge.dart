@@ -12,7 +12,8 @@ class UserLevelBadge extends StatelessWidget {
       builder: (context, userProvider, child) {
         final xp = userProvider.usuarioLogado?.xp ?? 0;
 
-        final nivel = AppData.getNivelAtual(xp);
+        // 👇 AQUI: Trocado getNivelAtual por getNivelByXP 👇
+        final nivel = AppData.getNivelByXP(xp);
 
         // Cálculo do progresso
         double progresso = (xp - nivel['min']) / (nivel['max'] - nivel['min']);

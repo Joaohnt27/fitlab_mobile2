@@ -11,49 +11,25 @@ class FitLabAICard extends StatefulWidget {
 }
 
 class _FitLabAICardState extends State<FitLabAICard> {
-  Map<String, dynamic> aiRequestData = {"goal": "", "timeframe": ""};
+  // Controladores para os campos de texto numéricos e abertos
+  final TextEditingController _pesoController = TextEditingController();
+  final TextEditingController _alturaController = TextEditingController();
+  final TextEditingController _contextoController = TextEditingController();
 
-  void _iniciarFluxoIA() {
-    _showSelectionDialog(
-      title: "QUAL SUA META?",
-      options: [
-        {"label": "Preparar para Maratona", "value": "marathon", "icon": "🏁"},
-        {"label": "Corrida por Hobby", "value": "hobby", "icon": "🌳"},
-        {
-          "label": "Performance em Esportes",
-          "value": "performance",
-          "icon": "⚡",
-        },
-      ],
-      onSelected: (val) {
-        aiRequestData["goal"] = val;
-        Navigator.pop(context);
-        _passo2IA();
-      },
-    );
+  // Valores padrão dos seletores
+  String _selectedMeta = "Corrida por Hobby";
+  String _selectedPrazo = "3 meses (Foco)";
+  String _selectedNivel = "Iniciante";
+
+  @override
+  void dispose() {
+    _pesoController.dispose();
+    _alturaController.dispose();
+    _contextoController.dispose();
+    super.dispose();
   }
 
-  void _passo2IA() {
-    _showSelectionDialog(
-      title: "PRAZO DO OBJETIVO",
-      options: [
-        {"label": "1 Mês (Intensivo)", "value": "1_month", "icon": "📅"},
-        {"label": "3 Meses (Foco)", "value": "3_months", "icon": "🎯"},
-        {"label": "6 Meses (Evolução)", "value": "6_months", "icon": "📈"},
-      ],
-      onSelected: (val) {
-        aiRequestData["timeframe"] = val;
-        Navigator.pop(context);
-        widget.onGenerate(aiRequestData);
-      },
-    );
-  }
-
-  void _showSelectionDialog({
-    required String title,
-    required List<Map<String, String>> options,
-    required Function(String) onSelected,
-  }) {
+  void _abrirFormularioIA() {
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -67,56 +43,205 @@ class _FitLabAICardState extends State<FitLabAICard> {
           child: Opacity(
             opacity: anim1.value,
             child: Center(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.all(2), // Borda gradiente
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF06B6D4),
-                      Colors.transparent,
-                      Color(0xFF1D4ED8),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
                 child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D0D0D),
-                    borderRadius: BorderRadius.circular(26),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 40,
                   ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: 40,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF06B6D4),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        ...options.map(
-                          (opt) => _buildOptionItem(opt, onSelected),
-                        ),
+                  padding: const EdgeInsets.all(2), // Borda gradiente
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF06B6D4),
+                        Colors.transparent,
+                        Color(0xFF1D4ED8),
                       ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D0D0D),
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      // Usamos StatefulBuilder para atualizar os dropdowns dentro do modal
+                      child: StatefulBuilder(
+                        builder: (context, setStateModal) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Center(
+                                child: Text(
+                                  "BIOMETRIA & METAS",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Center(
+                                child: Container(
+                                  width: 40,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF06B6D4),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // --- LINHA 1: PESO E ALTURA ---
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      label: "Peso (kg)",
+                                      controller: _pesoController,
+                                      icon: Icons.monitor_weight_outlined,
+                                      isNumber: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      label: "Altura (cm)",
+                                      controller: _alturaController,
+                                      icon: Icons.height,
+                                      isNumber: true,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // --- LINHA 2: EXPERIÊNCIA ---
+                              _buildDropdown(
+                                label: "Nível de Experiência",
+                                value: _selectedNivel,
+                                options: [
+                                  "Iniciante",
+                                  "Amador",
+                                  "Praticante Assíduo",
+                                ],
+                                onChanged: (val) =>
+                                    setStateModal(() => _selectedNivel = val!),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // --- LINHA 3: META ---
+                              _buildDropdown(
+                                label: "Objetivo Principal",
+                                value: _selectedMeta,
+                                options: [
+                                  "Preparar para maratona",
+                                  "Corrida por Hobby",
+                                  "Performance em Esportes",
+                                ],
+                                onChanged: (val) =>
+                                    setStateModal(() => _selectedMeta = val!),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // --- LINHA 4: PRAZO ---
+                              _buildDropdown(
+                                label: "Prazo da Meta",
+                                value: _selectedPrazo,
+                                options: [
+                                  "1 mês (Intensivo)",
+                                  "3 meses (Foco)",
+                                  "6 meses (Evolução)",
+                                ],
+                                onChanged: (val) =>
+                                    setStateModal(() => _selectedPrazo = val!),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // --- LINHA 5: CONTEXTO LIVRE ---
+                              _buildTextField(
+                                label: "Contexto Adicional (Opcional)",
+                                hint:
+                                    "Ex: Transição da musculação para o cardio...",
+                                controller: _contextoController,
+                                icon: Icons.notes,
+                                maxLines: 2,
+                              ),
+                              const SizedBox(height: 32),
+
+                              // --- BOTÃO GERAR ---
+                              SizedBox(
+                                width: double.infinity,
+                                height: 50,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    // Validação básica
+                                    if (_pesoController.text.isEmpty ||
+                                        _alturaController.text.isEmpty) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            "Preencha peso e altura para segurança do treino.",
+                                          ),
+                                          backgroundColor: Colors.redAccent,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // Fecha o modal e envia os dados montados
+                                    Navigator.pop(context);
+                                    widget.onGenerate({
+                                      "peso_kg":
+                                          double.tryParse(
+                                            _pesoController.text,
+                                          ) ??
+                                          0.0,
+                                      "altura_cm":
+                                          int.tryParse(
+                                            _alturaController.text,
+                                          ) ??
+                                          0,
+                                      "nivel_experiencia": _selectedNivel,
+                                      "meta": _selectedMeta,
+                                      "prazo": _selectedPrazo,
+                                      "contexto_adicional":
+                                          _contextoController.text,
+                                    });
+                                  },
+                                  icon: const Icon(Icons.bolt, size: 20),
+                                  label: const Text(
+                                    "SINTETIZAR TREINO IA",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF06B6D4),
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -128,45 +253,105 @@ class _FitLabAICardState extends State<FitLabAICard> {
     );
   }
 
-  Widget _buildOptionItem(
-    Map<String, String> opt,
-    Function(String) onSelected,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: InkWell(
-        onTap: () => onSelected(opt["value"]!),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.03),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white10),
-          ),
-          child: Row(
-            children: [
-              Text(opt["icon"]!, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  opt["label"]!,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.arrow_forward_ios,
-                color: Color(0xFF06B6D4),
-                size: 14,
-              ),
-            ],
+  // Widget auxiliar para os campos de texto
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    bool isNumber = false,
+    int maxLines = 1,
+    String? hint,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
           ),
         ),
-      ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          maxLines: maxLines,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
+            prefixIcon: maxLines == 1
+                ? Icon(icon, color: const Color(0xFF06B6D4), size: 18)
+                : null,
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.05),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF06B6D4), width: 1),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Widget auxiliar para os menus Dropdown
+  Widget _buildDropdown({
+    required String label,
+    required String value,
+    required List<String> options,
+    required Function(String?) onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: value,
+          dropdownColor: const Color(0xFF1A1A1A),
+          icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF06B6D4)),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.05),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          items: options.map((String opt) {
+            return DropdownMenuItem<String>(
+              value: opt,
+              child: Text(
+                opt,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 
@@ -190,7 +375,7 @@ class _FitLabAICardState extends State<FitLabAICard> {
           _buildHeader(),
           const SizedBox(height: 16),
           const Text(
-            "Crie um treino personalizado baseado no seu cansaço e objetivo.",
+            "Crie um treino biomecanicamente seguro baseado na sua experiência e meta.",
             style: TextStyle(color: Colors.white70, fontSize: 12),
           ),
           const SizedBox(height: 20),
@@ -256,10 +441,10 @@ class _FitLabAICardState extends State<FitLabAICard> {
         ],
       ),
       child: ElevatedButton.icon(
-        onPressed: _iniciarFluxoIA,
+        onPressed: _abrirFormularioIA,
         icon: const Icon(Icons.bolt, size: 18),
         label: const Text(
-          "GERAR TREINO AGORA",
+          "CONFIGURAR TREINO",
           style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
         ),
         style: ElevatedButton.styleFrom(

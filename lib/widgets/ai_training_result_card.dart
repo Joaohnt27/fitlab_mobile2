@@ -24,7 +24,7 @@ class _AITrainingResultCardState extends State<AITrainingResultCard> {
   @override
   void initState() {
     super.initState();
-    _timeLeft = const Duration(hours: 0, minutes: 1, seconds: 0); // 23 59 59
+    _timeLeft = const Duration(hours: 0, minutes: 1, seconds: 0);
     _startTimer();
   }
 
@@ -59,6 +59,9 @@ class _AITrainingResultCardState extends State<AITrainingResultCard> {
 
   @override
   Widget build(BuildContext context) {
+    final String tituloIA = widget.data['titulo'] ?? 'Fórmula Sintetizada';
+    final Map<String, dynamic>? inputs = widget.data['inputs_usuario'];
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -92,16 +95,60 @@ class _AITrainingResultCardState extends State<AITrainingResultCard> {
           ),
           const SizedBox(height: 20),
           Text(
-            _isExpired ? "SESSÃO EXPIRADA" : "Resistência de Elite",
+            _isExpired ? "SESSÃO EXPIRADA" : tituloIA,
             style: TextStyle(
               color: _isExpired ? Colors.white24 : Colors.white,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 24),
 
+          // 👇 NOVO: Resumo do Pedido do Usuário (Renderizado apenas se não estiver expirado)
+          if (inputs != null && !_isExpired) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildInputBadge(Icons.bolt, inputs['nivel'] ?? ''),
+                _buildInputBadge(
+                  Icons.monitor_weight_outlined,
+                  "${inputs['peso']}kg | ${inputs['altura']}cm",
+                ),
+                _buildInputBadge(Icons.flag, inputs['meta'] ?? ''),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 24),
           if (_isExpired) _buildExpiredView() else _buildActiveView(),
+        ],
+      ),
+    );
+  }
+
+  // 👇 NOVO: Widget que desenha as tags bonitinhas
+  Widget _buildInputBadge(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white54, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -174,9 +221,7 @@ class _AITrainingResultCardState extends State<AITrainingResultCard> {
         ),
         const SizedBox(height: 16),
         TextButton(
-          onPressed: () {
-            // Lógica para gerar dnv ou ir para o Pro
-          },
+          onPressed: widget.onStart,
           child: const Text(
             "SINTETIZAR NOVA FÓRMULA",
             style: TextStyle(color: Color(0xFF06B6D4)),

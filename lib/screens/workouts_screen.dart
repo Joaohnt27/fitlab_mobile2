@@ -133,16 +133,109 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   }
 
   void _aoGerarTreinoIA(Map<String, dynamic> data) async {
-    _showCustomDialog(
-      "PROCESSANDO DADOS...",
-      "A IA está sintetizando seu treino. Disponível por 24 horas.",
-      isAI: true,
+    // 1. Abre um modal de Loading que o usuário não consegue fechar sozinho
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                SizedBox(height: 24),
+                Text(
+                  "SINTETIZANDO FÓRMULA...",
+                  style: TextStyle(
+                    color: Color(0xFF06B6D4),
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  "O Cérebro FitLab está calculando sua biometria. Isso pode levar alguns minutos.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
 
-    setState(() {
-      aiRequestData = data;
-      _hasGeneratedAIWorkout = true;
-    });
+    final url = Uri.parse('${ApiConstants.baseUrl}/ia/gerar-treino');
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final usuario = userProvider.usuarioLogado;
+
+    final payload = {
+      "usuario_id": usuario?.id,
+      "meta": data["meta"],
+      "prazo": data["prazo"],
+      "peso_kg": data["peso_kg"],
+      "altura_cm": data["altura_cm"],
+      "nivel_experiencia": data["nivel_experiencia"],
+      "contexto_adicional": data["contexto_adicional"],
+      "dt_nascimento": usuario?.dtNascimento ?? "Não informada",
+      "historico_app":
+          "Atleta com ${usuario?.totalTreinos ?? 0} treinos no app e streak atual de ${usuario?.streak ?? 0} dias.",
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(payload),
+      );
+
+      // 2. Fecha o Loading animado assim que a resposta chega
+      if (context.mounted) Navigator.pop(context);
+
+      if (response.statusCode == 200) {
+        final treinoInteligente = json.decode(utf8.decode(response.bodyBytes));
+
+        treinoInteligente['inputs_usuario'] = {
+          "peso": data["peso_kg"],
+          "altura": data["altura_cm"],
+          "nivel": data["nivel_experiencia"],
+          "meta": data["meta"],
+        };
+
+        setState(() {
+          aiRequestData = treinoInteligente;
+          _hasGeneratedAIWorkout = true;
+        });
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text("Falha ao gerar o treino. Tente novamente."),
+              backgroundColor: Colors.redAccent.withOpacity(0.8),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted)
+        Navigator.pop(context); // Fecha o loading se der erro
+      debugPrint("Erro de conexão na IA: $e");
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text("O Cérebro FitLab está offline no momento."),
+            backgroundColor: Colors.redAccent.withOpacity(0.8),
+          ),
+        );
+      }
+    }
   }
 
   @override

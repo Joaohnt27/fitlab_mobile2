@@ -37,13 +37,8 @@ class UserProvider with ChangeNotifier {
       if (user != null) {
         _usuarioLogado = user;
 
-        // Mantive a sua lógica de gamificação para o usuário Elite!
-        if (user.email == "fraga@email.com") {
-          AppData.configurarPerfilElite();
-          AppData.desbloquearConquistasDemo();
-        } else {
-          AppData.resetarPerfil();
-        }
+        // O bloco if/else que chamava AppData.configurarPerfilElite()
+        // e afins foi removido, pois o back-end agora gerencia tudo isso!
 
         notifyListeners();
         return true; // Login deu certo!
