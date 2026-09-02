@@ -1,13 +1,321 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+
+import '../providers/user_provider.dart';
+import '../config/api_constants.dart';
+import 'subscription_screen.dart';
 
 class AIWorkoutDetailScreen extends StatelessWidget {
   final Map<String, dynamic> data;
 
   const AIWorkoutDetailScreen({super.key, required this.data});
 
+  // 👇 NOVA LÓGICA COM MODAL DE CARREGAMENTO 👇
+  Future<void> _enviarAjusteParaAPI(
+    BuildContext context,
+    String promptAjuste,
+  ) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final usuario = userProvider.usuarioLogado;
+
+    // Tenta pegar o ID (Vamos precisar garantir que a tela anterior envie isso)
+    final idTreino = data['id'];
+
+    if (usuario == null) return;
+
+    if (idTreino == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Erro: ID da fórmula não encontrado. Acesse pelo Histórico para ajustar.",
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // 1. ABRE O MODAL DE CARREGAMENTO TRAVANDO A TELA
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Impede de fechar clicando fora
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                SizedBox(height: 24),
+                Text(
+                  "RECALCULANDO FÓRMULA...",
+                  style: TextStyle(
+                    color: Color(0xFF06B6D4),
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  "O Cérebro FitLab está aplicando seu ajuste biológico e recalculando o volume.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/ia/ajustar-treino');
+    final payload = {
+      "usuario_id": usuario.id,
+      "treino_id": idTreino,
+      "ajuste_solicitado": promptAjuste,
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(payload),
+      );
+
+      // 2. FECHA O MODAL DE CARREGAMENTO
+      if (context.mounted) Navigator.pop(context);
+
+      if (response.statusCode == 200) {
+        final treinoAjustado = json.decode(utf8.decode(response.bodyBytes));
+
+        // Injeta o ID de volta no novo JSON para permitir múltiplos ajustes seguidos!
+        treinoAjustado['id'] = idTreino;
+        treinoAjustado['inputs_usuario'] = data['inputs_usuario'];
+
+        if (context.mounted) {
+          // Fecha a tela atual e abre a nova com o treino atualizado
+          Navigator.pop(context);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AIWorkoutDetailScreen(data: treinoAjustado),
+            ),
+          );
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Fórmula ajustada com sucesso!"),
+              backgroundColor: Color(0xFF06B6D4),
+            ),
+          );
+        }
+      } else {
+        if (response.body.contains('LIMITE_EXCEDIDO')) {
+          if (context.mounted) _mostrarPaywallAjuste(context);
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Falha ao ajustar o treino. Tente novamente."),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Erro ao solicitar ajuste: $e");
+      if (context.mounted)
+        Navigator.pop(context); // Garante que o loading feche no erro
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("O Cérebro FitLab está offline no momento."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  // 👇 MODAL DE INPUT (SEM O LOADING INLINE, APENAS COLETANDO DADOS) 👇
+  void _abrirDialogoAjuste(BuildContext context) {
+    final TextEditingController ajusteController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.auto_fix_high, color: Color(0xFF06B6D4)),
+            SizedBox(width: 8),
+            Text(
+              "AJUSTE BIOMÉTRICO",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Descreva o que deseja mudar na fórmula.\nEx: 'Tenho dor no joelho, reduza o impacto' ou 'Remova os treinos de sexta'.",
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ajusteController,
+              maxLength: 250,
+              maxLines: 4,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: "Digite sua solicitação...",
+                hintStyle: const TextStyle(color: Colors.white24),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF06B6D4),
+                    width: 1,
+                  ),
+                ),
+                counterStyle: const TextStyle(
+                  color: Color(0xFF06B6D4),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              "CANCELAR",
+              style: TextStyle(color: Colors.white38),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (ajusteController.text.trim().isEmpty) return;
+
+              // Fecha a caixa de texto
+              Navigator.pop(context);
+
+              // Chama o método que vai abrir o Modal de Loading e fazer o POST
+              _enviarAjusteParaAPI(context, ajusteController.text);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF06B6D4),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              "SINTETIZAR",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarPaywallAjuste(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_outline, color: Colors.redAccent, size: 56),
+            const SizedBox(height: 24),
+            const Text(
+              "LIMITE ATINGIDO",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "Você esgotou os ajustes biológicos do seu plano atual (Pro: 6 | Elite: 20).\n\nFaça o upgrade para liberar edições ilimitadas e refinar sua performance ao máximo.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SubscriptionScreen(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF06B6D4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "CONHECER PLANOS",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 1. Extração dos dados principais do plano
     final Map<String, dynamic>? inputsUsuario = data['inputs_usuario'];
     final String meta =
         inputsUsuario?['meta']?.toString().toUpperCase() ?? "PERFORMANCE";
@@ -15,12 +323,10 @@ class AIWorkoutDetailScreen extends StatelessWidget {
     final String focoIA =
         data['foco'] ?? "Baseado na sua biometria e histórico de 30 dias.";
 
-    // 2. Extração das listas dinâmicas geradas pela IA
     final List<dynamic> dias = data['dias'] ?? [];
     final List<dynamic> aquecimento =
         data['aquecimento'] ?? ["Mobilidade básica (5 min)"];
 
-    // 3. Cálculo de Volume Total e Média de Tempo
     double distanciaTotal = 0;
     for (var dia in dias) {
       distanciaTotal +=
@@ -51,7 +357,6 @@ class AIWorkoutDetailScreen extends StatelessWidget {
           children: [
             _buildHeader(meta, tituloIA, focoIA),
             const SizedBox(height: 32),
-
             Row(
               children: [
                 _buildMetricBox(
@@ -63,7 +368,6 @@ class AIWorkoutDetailScreen extends StatelessWidget {
                 _buildMetricBox("MÉDIA DIÁRIA", janelaMedia, Icons.timer),
               ],
             ),
-
             const SizedBox(height: 32),
             const Text(
               "PROTOCOLO DE AQUECIMENTO",
@@ -74,8 +378,6 @@ class AIWorkoutDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-
-            // 👇 Renderiza os aquecimentos dinâmicos
             Column(
               children: aquecimento
                   .map(
@@ -104,7 +406,6 @@ class AIWorkoutDetailScreen extends StatelessWidget {
                   )
                   .toList(),
             ),
-
             const SizedBox(height: 32),
             const Text(
               "CRONOGRAMA DE EXECUÇÃO",
@@ -115,8 +416,6 @@ class AIWorkoutDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-
-            // 👇 Renderiza TODOS os dias que a IA gerou
             Column(
               children: dias
                   .map(
@@ -168,9 +467,8 @@ class AIWorkoutDetailScreen extends StatelessWidget {
                   )
                   .toList(),
             ),
-
             const SizedBox(height: 40),
-            _buildStartButton(),
+            _buildAdjustButton(context),
           ],
         ),
       ),
@@ -248,27 +546,29 @@ class AIWorkoutDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStartButton() {
+  Widget _buildAdjustButton(BuildContext context) {
     return Container(
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
-        ),
+        border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.5)),
+        color: const Color(0xFF06B6D4).withOpacity(0.1),
       ),
-      child: ElevatedButton(
-        onPressed: () {
-          // IMPLEMENTAR: IR PARA A TELA DE INICIAR O TREINO
-        },
+      child: ElevatedButton.icon(
+        onPressed: () => _abrirDialogoAjuste(context),
+        icon: const Icon(Icons.auto_fix_high, color: Color(0xFF06B6D4)),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
         ),
-        child: const Text(
-          "INICIAR TREINO",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        label: const Text(
+          "SOLICITAR AJUSTE DA IA",
+          style: TextStyle(
+            color: Color(0xFF06B6D4),
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
         ),
       ),
     );

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:fitlab_mobile2/screens/ai_workout_detail_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 
 class AITrainingResultCard extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -17,15 +19,34 @@ class AITrainingResultCard extends StatefulWidget {
 }
 
 class _AITrainingResultCardState extends State<AITrainingResultCard> {
-  late Timer _timer;
-  late Duration _timeLeft;
+  Timer? _timer;
+  Duration _timeLeft = const Duration(hours: 24);
   bool _isExpired = false;
+  String _tempoExpiracaoTexto = "24h";
 
   @override
   void initState() {
     super.initState();
-    _timeLeft = const Duration(hours: 0, minutes: 1, seconds: 0);
+    _configurarTempoPorPlano();
     _startTimer();
+  }
+
+  void _configurarTempoPorPlano() {
+    final usuario = Provider.of<UserProvider>(
+      context,
+      listen: false,
+    ).usuarioLogado;
+    final plano = usuario?.plano?['nome']?.toString().toUpperCase() ?? 'FREE';
+
+    setState(() {
+      if (plano.contains('PRO') || plano.contains('ELITE')) {
+        _timeLeft = const Duration(days: 30);
+        _tempoExpiracaoTexto = "30 dias";
+      } else {
+        _timeLeft = const Duration(hours: 24);
+        _tempoExpiracaoTexto = "24h";
+      }
+    });
   }
 
   void _startTimer() {
@@ -37,7 +58,7 @@ class _AITrainingResultCardState extends State<AITrainingResultCard> {
       } else {
         setState(() {
           _isExpired = true;
-          _timer.cancel();
+          _timer?.cancel();
         });
       }
     });
@@ -45,16 +66,23 @@ class _AITrainingResultCardState extends State<AITrainingResultCard> {
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 
   String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String hours = twoDigits(duration.inHours);
-    String minutes = twoDigits(duration.inMinutes.remainder(60));
-    String seconds = twoDigits(duration.inSeconds.remainder(60));
-    return "$hours:$minutes:$seconds";
+    if (duration.inDays > 0) {
+      // Formato longo para Pro/Elite (Ex: 29d 23h)
+      int horasRestantes = duration.inHours.remainder(24);
+      return "${duration.inDays}d ${horasRestantes.toString().padLeft(2, '0')}h";
+    } else {
+      // Relógio regressivo clássico para as últimas 24h (HH:MM:SS)
+      String twoDigits(int n) => n.toString().padLeft(2, "0");
+      String hours = twoDigits(duration.inHours);
+      String minutes = twoDigits(duration.inMinutes.remainder(60));
+      String seconds = twoDigits(duration.inSeconds.remainder(60));
+      return "$hours:$minutes:$seconds";
+    }
   }
 
   @override
@@ -103,7 +131,7 @@ class _AITrainingResultCardState extends State<AITrainingResultCard> {
             ),
           ),
 
-          // 👇 NOVO: Resumo do Pedido do Usuário (Renderizado apenas se não estiver expirado)
+          // Resumo do Pedido do Usuário
           if (inputs != null && !_isExpired) ...[
             const SizedBox(height: 16),
             Wrap(
@@ -127,7 +155,6 @@ class _AITrainingResultCardState extends State<AITrainingResultCard> {
     );
   }
 
-  // 👇 NOVO: Widget que desenha as tags bonitinhas
   Widget _buildInputBadge(IconData icon, String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -214,9 +241,9 @@ class _AITrainingResultCardState extends State<AITrainingResultCard> {
   Widget _buildExpiredView() {
     return Column(
       children: [
-        const Text(
-          "Esta fórmula química perdeu a estabilidade após 24h.",
-          style: TextStyle(color: Colors.white38, fontSize: 12),
+        Text(
+          "Esta fórmula química perdeu a estabilidade após $_tempoExpiracaoTexto.",
+          style: const TextStyle(color: Colors.white38, fontSize: 12),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),

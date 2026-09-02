@@ -1,4 +1,8 @@
+import 'dart:convert';
+
+import 'package:fitlab_mobile2/config/api_constants.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../models/user_model.dart';
@@ -267,24 +271,73 @@ class SubscriptionScreen extends StatelessWidget {
     );
 
     Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pop(context); 
+      Navigator.pop(context);
       _processarUpgradeOuCancelamento(context, novoPlano);
     });
   }
 
-  void _processarUpgradeOuCancelamento(BuildContext context, String planoNome) {
+  Future<void> _processarUpgradeOuCancelamento(
+    BuildContext context,
+    String planoNome,
+  ) async {
     final provider = Provider.of<UserProvider>(context, listen: false);
-    if (provider.usuarioLogado != null) {
-      provider.atualizarPerfilCompleto(
-        provider.usuarioLogado!.copyWith(plano: {"nome": planoNome}),
+    final usuario = provider.usuarioLogado;
+
+    if (usuario == null) return;
+
+    // 1. Abre um loading para não deixar o usuário clicar de novo
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+      ),
+    );
+
+    // 2. Chama a API do Java para atualizar o banco de dados
+    try {
+      final url = Uri.parse(
+        '${ApiConstants.baseUrl}/usuarios/${usuario.id}/plano',
+      ); // <-- Mude para a sua ApiConstants.baseUrl
+
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          "nome_plano": planoNome,
+        }), // Enviamos o nome (Ex: "Atleta Pro", "Coach Elite", "Free")
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Plano atualizado para: $planoNome"),
-          backgroundColor: const Color(0xFF06B6D4),
-        ),
-      );
+      // Fecha o loading de salvamento
+      if (context.mounted) Navigator.pop(context);
+
+      if (response.statusCode == 200) {
+        // 3. Se o banco atualizou com sucesso, atualizamos a memória do Flutter!
+        provider.atualizarPerfilCompleto(
+          usuario.copyWith(plano: {"nome": planoNome}),
+        );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Plano atualizado para: $planoNome"),
+              backgroundColor: const Color(0xFF06B6D4),
+            ),
+          );
+        }
+      } else {
+        throw Exception("Erro ao salvar no banco");
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Fecha loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Falha ao processar pagamento. Tente novamente."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 }

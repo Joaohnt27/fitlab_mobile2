@@ -33,7 +33,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     _fetchExperimentoAtivo();
   }
 
-  // 👇 BUSCA O EXPERIMENTO ATIVO DO BANCO DE DADOS 👇
+  // BUSCA O EXPERIMENTO ATIVO DO BANCO DE DADOS
   Future<void> _fetchExperimentoAtivo() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
@@ -61,7 +61,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
-  // 👇 DELETA (CANCELA) O EXPERIMENTO ATUAL 👇
+  // DELETA (CANCELA) O EXPERIMENTO ATUAL
   Future<void> _abortarExperimento() async {
     if (_experimentoAtivo == null) return;
 
@@ -112,7 +112,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   void _iniciarExperimento(String volume, String frequencia) async {
     setState(() => _isLoadingExperimento = true);
 
-    // Aguarda a resposta verdadeira do Provider
     bool sucesso = await context.read<UserProvider>().salvarExperimentoUsuario(
       context,
       volume,
@@ -120,14 +119,12 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
 
     if (sucesso) {
-      // Só comemora se o Java salvou de verdade no banco
       _showCustomDialog(
         "FÓRMULA PRONTA!",
         "Seu experimento de $volume configurado.",
       );
       _fetchExperimentoAtivo();
     } else {
-      // Se falhou, tira o loading para o usuário poder tentar de novo
       setState(() => _isLoadingExperimento = false);
     }
   }
@@ -177,6 +174,9 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 
     final payload = {
       "usuario_id": usuario?.id,
+      "role":
+          usuario?.role ??
+          'Free', // Enviamos o role pro backend verificar a cota
       "meta": data["meta"],
       "prazo": data["prazo"],
       "peso_kg": data["peso_kg"],
@@ -213,13 +213,20 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           _hasGeneratedAIWorkout = true;
         });
       } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text("Falha ao gerar o treino. Tente novamente."),
-              backgroundColor: Colors.redAccent.withOpacity(0.8),
-            ),
-          );
+        // 👇 AQUI ESTÁ O PORTEIRO INTERCEPTANDO A EXCEÇÃO DO JAVA! 👇
+        if (response.body.contains('LIMITE_EXCEDIDO')) {
+          _mostrarPaywall();
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  "Falha ao gerar o treino. Tente novamente.",
+                ),
+                backgroundColor: Colors.redAccent.withOpacity(0.8),
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -236,6 +243,79 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
         );
       }
     }
+  }
+
+  // 👇 NOVA FUNÇÃO: ABRE O MODAL DO PAYWALL 👇
+  void _mostrarPaywall() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_outline, color: Color(0xFF06B6D4), size: 56),
+            const SizedBox(height: 24),
+            const Text(
+              "SESSÃO EXPIRADA",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "Você atingiu o limite de fórmulas da sua licença atual.\n\nFaça o upgrade para continuar gerando inteligência atlética e desbloquear todo o potencial do Cérebro FitLab.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // Fecha o Modal
+                  // Navega para a tela de assinaturas
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SubscriptionScreen(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF06B6D4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  "CONHECER PLANOS",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -280,7 +360,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                     const _SectionHeader(title: "Configurar Experimento"),
                     const SizedBox(height: 16),
 
-                    // 👇 RENDERIZAÇÃO DINÂMICA DO EXPERIMENTO 👇
                     if (_isLoadingExperimento)
                       const Center(
                         child: CircularProgressIndicator(
@@ -380,7 +459,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   Widget _buildActiveExperimentCard() {
     final volume = _experimentoAtivo!['volume'] ?? "N/A";
 
-    // 👇 Calcula dinamicamente os dias restantes usando a dataFim vinda do back-end
     String diasRestantesStr = "N/A";
     if (_experimentoAtivo!['dataFim'] != null) {
       try {

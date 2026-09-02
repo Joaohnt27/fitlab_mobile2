@@ -19,8 +19,8 @@ class UserModel {
   final int streak;
   final int ranking;
   final String role;
-  final Map<String, dynamic>? plano; 
-  final String? cref; 
+  final Map<String, dynamic>? plano;
+  final String? cref;
   final DateTime? ultimoLogin;
   final Map<String, dynamic>? experimento;
   final int? totalTreinos;
@@ -48,8 +48,8 @@ class UserModel {
     this.streak = 0,
     this.ranking = 0,
     this.role = "Atleta",
-    this.plano, 
-    this.cref, 
+    this.plano,
+    this.cref,
     this.experimento,
     this.ultimoLogin,
     this.totalTreinos,
@@ -75,8 +75,8 @@ class UserModel {
     int? streak,
     int? ranking,
     String? role,
-    Map<String, dynamic>? plano, 
-    String? cref, 
+    Map<String, dynamic>? plano,
+    String? cref,
     Map<String, dynamic>? experimento,
     DateTime? ultimoLogin,
     int? totalTreinos,
@@ -101,12 +101,12 @@ class UserModel {
       streak: streak ?? this.streak,
       ranking: ranking ?? this.ranking,
       role: role ?? this.role,
-      plano: plano ?? this.plano, 
-      cref: cref ?? this.cref, 
+      plano: plano ?? this.plano,
+      cref: cref ?? this.cref,
       experimento: experimento ?? this.experimento,
       ultimoLogin: ultimoLogin ?? this.ultimoLogin,
       totalTreinos: totalTreinos ?? this.totalTreinos,
-      fitpoints: fitpoints ?? this.fitpoints
+      fitpoints: fitpoints ?? this.fitpoints,
     );
   }
 
@@ -124,8 +124,8 @@ class UserModel {
       "dtNascimento": dtNascimento,
       "genero": genero,
       "role": role,
-      "plano": plano, 
-      "cref": cref, 
+      "plano": plano,
+      "cref": cref,
     };
   }
 
@@ -134,20 +134,27 @@ class UserModel {
     return UserModel(
       id: json['id'] ?? 0,
       avatar: json['fotoPerfil'] ?? "🧪",
-      bio: json['bioUsuario'] ?? json['bio'] ?? "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino.",
+      bio:
+          json['bioUsuario'] ??
+          json['bio'] ??
+          "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino.",
       nome: json['nome'] ?? '',
       email: json['email'] ?? '',
       senha: json['senha'] ?? '',
-      dtNascimento: json['dtNascimento'] ?? json['dataNascimento'], 
+      dtNascimento: json['dtNascimento'] ?? json['dataNascimento'],
       peso: json['peso'] != null ? (json['peso'] as num).toDouble() : null,
-      altura: json['altura'] != null ? (json['altura'] as num).toDouble() : null,
+      altura: json['altura'] != null
+          ? (json['altura'] as num).toDouble()
+          : null,
       estado: json['estado'],
       cidade: json['cidade'],
       genero: json['genero'],
       cref: json['cref'],
       xp: json['xp'] ?? json['xpAcumulado'] ?? 0,
       role: json['role'] ?? 'Atleta',
-      plano: json['plano'] as Map<String, dynamic>?,
+      plano: json['nomePlano'] != null
+          ? {'nome': json['nomePlano']}
+          : (json['plano'] as Map<String, dynamic>?),
       fitpoints: json['fitpoints'] ?? 0,
       streak: json['streak'] ?? 0,
       totalTreinos: json['totalTreinos'] ?? 0,
