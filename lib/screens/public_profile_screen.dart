@@ -85,7 +85,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           _isFollowing = !_isFollowing;
           _isLoadingFollowAction = false;
 
-          // NOVO 2/3: A matemática que atualiza o número instantaneamente
+          // A matemática que atualiza o número instantaneamente
           if (_seguidoresTempoReal != null) {
             if (_isFollowing) {
               _seguidoresTempoReal =
@@ -135,7 +135,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
           final perfilAPI = snapshot.data!;
 
-          // NOVO 3/3: Define o número inicial do banco apenas na primeira renderização
+          // Define o número inicial do banco apenas na primeira renderização
           _seguidoresTempoReal ??= perfilAPI['seguidores'] ?? 0;
 
           // Extraindo os dados da API (Single Source of Truth)
@@ -143,15 +143,23 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               perfilAPI['nome'] ?? widget.usuarioAlvo['nome'] ?? 'Usuário';
           final avatar =
               perfilAPI['avatar'] ?? widget.usuarioAlvo['avatar'] ?? '🧪';
-          final role =
-              widget.usuarioAlvo['role'] ??
-              'Atleta'; // Mantido do argumento inicial
-
+          final role = widget.usuarioAlvo['role'] ?? 'Atleta';
           final String bioReal =
+              perfilAPI['bioUsuario'] ??
               perfilAPI['bio'] ??
-              "Olá! Sou um entusiasta do FitLab e estou aqui para experimentar novas rotinas de treino.";
+              "Sem biografia cadastrada.";
+
           final int nivelAtual = perfilAPI['nivel']?['levelAtual'] ?? 1;
+          final int rankAtual = perfilAPI['ranking'] ?? 0;
           final int qtdTreinos = (perfilAPI['historico'] as List?)?.length ?? 0;
+
+          // 👇 EXTRAINDO CONQUISTAS (Máx 5) E POSTS DA API 👇
+          final List<dynamic> conquistasRaw = perfilAPI['conquistas'] ?? [];
+          final List<dynamic> conquistas = conquistasRaw
+              .take(5)
+              .toList(); // Limita a 5
+
+          final List<dynamic> publicacoes = perfilAPI['publicacoes'] ?? [];
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -290,13 +298,17 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                         children: [
                           _buildStatColumn("$nivelAtual", "NÍVEL"),
                           _buildVerticalDivider(),
-                          // Usa a nossa variável dinâmica aqui:
                           _buildStatColumn(
                             "$_seguidoresTempoReal",
                             "SEGUIDORES",
                           ),
                           _buildVerticalDivider(),
                           _buildStatColumn("$qtdTreinos", "TREINOS"),
+                          _buildVerticalDivider(),
+                          _buildStatColumn(
+                            rankAtual > 0 ? "#$rankAtual" : "--",
+                            "RANK",
+                          ),
                         ],
                       ),
 
@@ -324,9 +336,9 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
                       const SizedBox(height: 32),
 
-                      // MEDALHAS RECENTES (Pode ser integrado depois)
+                      // CONQUISTAS DINÂMICAS DA API (Max 5)
                       const Text(
-                        "CONQUISTAS RECENTES",
+                        "TOP CONQUISTAS",
                         style: TextStyle(
                           color: Color(0xFF06B6D4),
                           fontSize: 10,
@@ -335,18 +347,63 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          _buildBadge(
-                            "🔥",
-                            "Streak ${perfilAPI['streak'] ?? 0} Dias",
+                      if (conquistas.isEmpty)
+                        const Text(
+                          "Este usuário ainda não possui conquistas raras.",
+                          style: TextStyle(color: Colors.white38, fontSize: 13),
+                        )
+                      else
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: conquistas.map((conquista) {
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 12.0),
+                                child: _buildBadge(
+                                  conquista['icone'] ?? "🏅",
+                                  conquista['nome'] ?? "Conquista",
+                                ),
+                              );
+                            }).toList(),
                           ),
-                          const SizedBox(width: 12),
-                          _buildBadge("🏃‍♂️", "Ativo"),
-                          const SizedBox(width: 12),
-                          _buildBadge("🥇", "Membro"),
-                        ],
+                        ),
+
+                      const SizedBox(height: 32),
+
+                      // FEED DE PUBLICAÇÕES DINÂMICAS
+                      const Text(
+                        "FEED RECENTE",
+                        style: TextStyle(
+                          color: Color(0xFF06B6D4),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
                       ),
+                      const SizedBox(height: 16),
+                      if (publicacoes.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24.0),
+                            child: Text(
+                              "Nenhuma atividade recente encontrada.",
+                              style: TextStyle(color: Colors.white38),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics:
+                              const NeverScrollableScrollPhysics(), // Evita erro de scroll aninhado
+                          itemCount: publicacoes.length,
+                          itemBuilder: (context, index) {
+                            return _buildPostCard(publicacoes[index]);
+                          },
+                        ),
+
+                      const SizedBox(height: 80), // Espaço pro final da tela
                     ],
                   ),
                 ),
@@ -389,29 +446,107 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   }
 
   Widget _buildBadge(String icon, String title) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-        ),
-        child: Column(
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 24)),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
+    return Container(
+      width: 100,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 24)),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostCard(Map<String, dynamic> post) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF06B6D4).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.bolt,
+                  color: Color(0xFF06B6D4),
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  post['titulo'] ?? "Novo Treino Concluído!",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            post['conteudo'] ?? "Atividade registrada no FitLab.",
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                post['dataCriacao']?.split('T')[0] ?? "Data Desconhecida",
+                style: const TextStyle(color: Colors.white38, fontSize: 10),
+              ),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.favorite_border,
+                    color: Colors.white38,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    "${post['curtidas'] ?? 0}",
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
