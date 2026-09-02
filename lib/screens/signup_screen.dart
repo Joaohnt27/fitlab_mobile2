@@ -52,7 +52,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   // Planos (Vindos do Back-end)
   List<dynamic> _planosDb = [];
-  String? _selectedPlanoId; 
+  String? _selectedPlanoId;
 
   @override
   void initState() {
@@ -90,7 +90,7 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _fetchPlanos() async {
-    final url = Uri.parse('${ApiConstants.baseUrl}/planos');
+    final url = Uri.parse('${ApiConstants.baseUrl}/planos/treinadores');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -450,22 +450,16 @@ class _SignupScreenState extends State<SignupScreen> {
                           label: 'PLANO DE ASSINATURA',
                           icon: Icons.star_outline,
                           value: _selectedPlanoId,
-                          items: _planosDb
-                              .where(
-                                (plano) =>
-                                    plano['nome'].toString().contains('Coach'),
-                              )
-                              .map((plano) {
-                                return DropdownMenuItem<String>(
-                                  value: plano['id'].toString(),
-                                  child: Text(
-                                    "${plano['nome']} - R\$ ${plano['valor']}",
-                                    style: const TextStyle(fontSize: 13),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
-                              })
-                              .toList(),
+                          items: _planosDb.map((plano) {
+                            return DropdownMenuItem<String>(
+                              value: plano['id'].toString(),
+                              child: Text(
+                                "${plano['nome']} - R\$ ${plano['valor']}",
+                                style: const TextStyle(fontSize: 13),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
                           onChanged: (val) {
                             setState(() {
                               _selectedPlanoId = val as String?;
@@ -639,7 +633,7 @@ class _SignupScreenState extends State<SignupScreen> {
             if (role == 'Atleta') {
               _crefController.clear();
               _bioController.clear();
-              _selectedPlanoId = null; 
+              _selectedPlanoId = null;
               _atuoSemCref = false;
               _selectedCrefEstadoSigla = null;
             }

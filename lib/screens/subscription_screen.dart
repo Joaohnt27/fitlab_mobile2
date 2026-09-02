@@ -285,7 +285,15 @@ class SubscriptionScreen extends StatelessWidget {
 
     if (usuario == null) return;
 
-    // 1. Abre um loading para não deixar o usuário clicar de novo
+    // 1. Traduz o nome do plano para o ID do banco de dados!
+    int planoId = 1; // 1 = Free
+    if (planoNome.contains("Pro")) {
+      planoId = 2; // 2 = Pro
+    } else if (planoNome.contains("Elite")) {
+      planoId = 3; // 3 = Elite
+    }
+
+    // 2. Abre um loading para não deixar o usuário clicar de novo
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -294,25 +302,21 @@ class SubscriptionScreen extends StatelessWidget {
       ),
     );
 
-    // 2. Chama a API do Java para atualizar o banco de dados
+    // 3. Chama a NOVA API do Java para atualizar as duas tabelas!
     try {
-      final url = Uri.parse(
-        '${ApiConstants.baseUrl}/usuarios/${usuario.id}/plano',
-      ); // <-- Mude para a sua ApiConstants.baseUrl
+      final url = Uri.parse('${ApiConstants.baseUrl}/planos/upgrade');
 
       final response = await http.put(
         url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          "nome_plano": planoNome,
-        }), // Enviamos o nome (Ex: "Atleta Pro", "Coach Elite", "Free")
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode({"usuario_id": usuario.id, "plano_id": planoId}),
       );
 
       // Fecha o loading de salvamento
       if (context.mounted) Navigator.pop(context);
 
       if (response.statusCode == 200) {
-        // 3. Se o banco atualizou com sucesso, atualizamos a memória do Flutter!
+        // 4. Se o banco atualizou com sucesso, atualizamos a memória do Flutter!
         provider.atualizarPerfilCompleto(
           usuario.copyWith(plano: {"nome": planoNome}),
         );
@@ -329,6 +333,7 @@ class SubscriptionScreen extends StatelessWidget {
         throw Exception("Erro ao salvar no banco");
       }
     } catch (e) {
+      debugPrint("Erro no upgrade: $e");
       if (context.mounted) {
         Navigator.pop(context); // Fecha loading
         ScaffoldMessenger.of(context).showSnackBar(

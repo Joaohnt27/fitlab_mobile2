@@ -152,9 +152,9 @@ class UserModel {
       cref: json['cref'],
       xp: json['xp'] ?? json['xpAcumulado'] ?? 0,
       role: json['role'] ?? 'Atleta',
-      plano: json['nomePlano'] != null
-          ? {'nome': json['nomePlano']}
-          : (json['plano'] as Map<String, dynamic>?),
+      plano: json['plano'] != null
+          ? (json['plano'] as Map<String, dynamic>)
+          : (json['nomePlano'] != null ? {'nome': json['nomePlano']} : null),
       fitpoints: json['fitpoints'] ?? 0,
       streak: json['streak'] ?? 0,
       totalTreinos: json['totalTreinos'] ?? 0,
