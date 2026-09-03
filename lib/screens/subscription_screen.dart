@@ -167,7 +167,7 @@ class SubscriptionScreen extends StatelessWidget {
       ),
       PlanCard(
         title: "Atleta Elite",
-        price: "R\$ 49,90",
+        price: "R\$ 79,90",
         accentColor: const Color(0xFF1D4ED8),
         isCurrentPlan: nomePlanoAtual == "Atleta Elite",
         features: [

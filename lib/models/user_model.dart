@@ -26,6 +26,9 @@ class UserModel {
   final int? totalTreinos;
   final int? fitpoints;
   final String? codigoAmizade;
+  final double? saldoFinanceiro;
+  // 👇 NOVO CAMPO PARA O STATUS DO CREF 👇
+  final String statusCref;
 
   UserModel({
     this.id,
@@ -55,7 +58,9 @@ class UserModel {
     this.ultimoLogin,
     this.totalTreinos,
     this.fitpoints,
-    this.codigoAmizade, 
+    this.codigoAmizade,
+    this.saldoFinanceiro,
+    this.statusCref = "SEM_CREF", // Padrão seguro
   });
 
   UserModel copyWith({
@@ -83,7 +88,9 @@ class UserModel {
     DateTime? ultimoLogin,
     int? totalTreinos,
     int? fitpoints,
-    String? codigoAmizade, // 👇 INCLUÍDO NO COPYWITH
+    String? codigoAmizade,
+    double? saldoFinanceiro,
+    String? statusCref,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -110,7 +117,9 @@ class UserModel {
       ultimoLogin: ultimoLogin ?? this.ultimoLogin,
       totalTreinos: totalTreinos ?? this.totalTreinos,
       fitpoints: fitpoints ?? this.fitpoints,
-      codigoAmizade: codigoAmizade ?? this.codigoAmizade, // 👇 ATUALIZADO AQUI
+      codigoAmizade: codigoAmizade ?? this.codigoAmizade,
+      saldoFinanceiro: saldoFinanceiro ?? this.saldoFinanceiro,
+      statusCref: statusCref ?? this.statusCref,
     );
   }
 
@@ -130,7 +139,10 @@ class UserModel {
       "role": role,
       "plano": plano,
       "cref": cref,
-      "codigoAmizade": codigoAmizade, 
+      "codigoAmizade": codigoAmizade,
+      "saldoFinanceiro": saldoFinanceiro,
+      "biografia": bio,
+      "status_cref": statusCref,
     };
   }
 
@@ -165,6 +177,10 @@ class UserModel {
       totalTreinos: json['totalTreinos'] ?? 0,
       ranking: json['ranking'] ?? 0,
       codigoAmizade: json['codigoAmizade'] ?? json['codigo_amizade'],
+      saldoFinanceiro: json['saldoFinanceiro'] != null
+          ? (json['saldoFinanceiro'] as num).toDouble()
+          : 0.0,
+      statusCref: json['statusCref'] ?? json['status_cref'] ?? "SEM_CREF",
     );
   }
 }

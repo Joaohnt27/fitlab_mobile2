@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../config/api_constants.dart';
 import 'subscription_screen.dart';
-import 'public_profile_screen.dart'; // 👇 IMPORT DA TELA DE PERFIL PÚBLICO
+import 'public_profile_screen.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -16,9 +16,10 @@ class CommunityScreen extends StatefulWidget {
 }
 
 class _CommunityScreenState extends State<CommunityScreen> {
+  // 👇 AGORA CONTROLAMOS OS DOIS ESTADOS 👇
   int? _treinadorVinculadoId;
+  int? _treinadorPendenteId;
 
-  // Variáveis do sistema de amizades
   List<dynamic> _amigos = [];
   List<dynamic> _pendentes = [];
   bool _isLoadingAmigos = true;
@@ -26,13 +27,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   void initState() {
     super.initState();
-    _checkMentoriaAtiva();
+    _checkMentoriaStatus(); // Chama a nova função
     _carregarAmizades();
   }
 
-  // 👇 NOVA FUNÇÃO: Roteia para o Perfil Público 👇
   void _abrirPerfilPublico(BuildContext context, Map<String, dynamic> usuario) {
-    // Normaliza o ID, pois o Global chama de 'idUsuario' e Amigos de 'idAmigo'
     final targetId =
         usuario['idUsuario'] ?? usuario['idAmigo'] ?? usuario['id'];
 
@@ -46,7 +45,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
       return;
     }
 
-    // Monta o pacote básico para o PublicProfileScreen
     final usuarioAlvo = {
       'id': targetId,
       'nome': usuario['nome'] ?? 'Atleta',
@@ -62,24 +60,38 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  Future<void> _checkMentoriaAtiva() async {
+  // 👇 NOVA FUNÇÃO QUE VERIFICA O STATUS EXATO (PENDENTE OU ACEITO) 👇
+  Future<void> _checkMentoriaStatus() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final atletaId = userProvider.usuarioLogado?.id;
     if (atletaId == null) return;
 
     final url = Uri.parse(
-      '${ApiConstants.baseUrl}/mentorias/atleta/$atletaId/ativa',
+      '${ApiConstants.baseUrl}/mentorias/atleta/$atletaId/status',
     );
+
     try {
       final response = await http.get(url);
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         final data = json.decode(utf8.decode(response.bodyBytes));
         setState(() {
-          _treinadorVinculadoId = data['treinadorId'];
+          if (data['status'] == 'ACEITO') {
+            _treinadorVinculadoId = data['treinadorId'];
+            _treinadorPendenteId = null;
+          } else if (data['status'] == 'PENDENTE') {
+            _treinadorPendenteId = data['treinadorId'];
+            _treinadorVinculadoId = null;
+          }
+        });
+      } else {
+        // Não tem nenhum vínculo
+        setState(() {
+          _treinadorVinculadoId = null;
+          _treinadorPendenteId = null;
         });
       }
     } catch (e) {
-      debugPrint("Erro ao verificar mentoria na comunidade: $e");
+      debugPrint("Erro ao verificar status da mentoria: $e");
     }
   }
 
@@ -125,7 +137,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
       if (response.statusCode == 200) {
         if (context.mounted) {
-          Navigator.pop(context); // Fecha o modal
+          Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(body['mensagem']),
@@ -160,9 +172,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
       final response = aceitar
           ? await http.put(Uri.parse(urlAcao))
           : await http.delete(Uri.parse(urlAcao));
-
       if (response.statusCode == 200) {
-        _carregarAmizades(); // Recarrega as listas automaticamente
+        _carregarAmizades();
       }
     } catch (e) {
       debugPrint("Erro ao responder convite: $e");
@@ -220,11 +231,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
       if (response.statusCode == 200) {
         if (context.mounted) {
           setState(() {
-            _treinadorVinculadoId = treinadorId;
+            _treinadorPendenteId =
+                treinadorId; // 👇 AGORA FICA PENDENTE EM VEZ DE ATIVO!
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Mentoria ativada com sucesso!"),
+              content: Text(
+                "Solicitação enviada! Aguardando aprovação do coach.",
+              ),
               backgroundColor: Color(0xFF06B6D4),
             ),
           );
@@ -256,21 +270,19 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   void _abrirPerfilTreinador(
     BuildContext context,
-    Map<String, dynamic> treinador,
-  ) {
+    Map<String, dynamic> treinadorResumo,
+  ) async {
     dynamic rawId =
-        treinador['id'] ?? treinador['idUsuario'] ?? treinador['id_user'];
+        treinadorResumo['id'] ??
+        treinadorResumo['idUsuario'] ??
+        treinadorResumo['id_user'];
     int treinadorId = rawId != null ? (int.tryParse(rawId.toString()) ?? 0) : 0;
 
     if (treinadorId == 0) return;
 
-    final nome = treinador['nome'] ?? 'Treinador Especialista';
-    final bio =
-        treinador['bioUsuario'] ??
-        treinador['biografia'] ??
-        'Olá! Estou aqui para otimizar a sua performance.';
-    final avatar = treinador['avatar'] ?? '👨‍🏫';
-    final rating = 5.0;
+    await _checkMentoriaStatus();
+
+    if (!context.mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -280,23 +292,88 @@ class _CommunityScreenState extends State<CommunityScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        bool isLoading = false;
-        return StatefulBuilder(
-          builder: (context, setStateSheet) {
-            return Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.white10,
-                    child: Text(avatar, style: const TextStyle(fontSize: 40)),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+        return FutureBuilder<http.Response>(
+          future: http.get(
+            Uri.parse('${ApiConstants.baseUrl}/usuarios/$treinadorId/perfil'),
+          ),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.all(60.0),
+                child: Center(
+                  child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                ),
+              );
+            }
+
+            Map<String, dynamic> treinadorFull = Map<String, dynamic>.from(
+              treinadorResumo,
+            );
+
+            if (snapshot.hasData && snapshot.data!.statusCode == 200) {
+              final perfilData = json.decode(
+                utf8.decode(snapshot.data!.bodyBytes),
+              );
+              treinadorFull.addAll(perfilData);
+            }
+
+            final nome = treinadorFull['nome'] ?? 'Treinador Especialista';
+            final bio =
+                treinadorFull['bioUsuario'] ??
+                treinadorFull['bio'] ??
+                treinadorFull['biografia'] ??
+                'Olá! Estou aqui para otimizar a sua performance.';
+            final avatar =
+                treinadorFull['avatar'] ??
+                treinadorFull['fotoPerfil'] ??
+                '👨‍🏫';
+
+            final double rating = treinadorFull['rating'] != null
+                ? (treinadorFull['rating'] as num).toDouble()
+                : 5.0;
+            final int qtdAlunos =
+                treinadorFull['qtdAlunos'] ??
+                treinadorFull['alunos'] ??
+                treinadorFull['seguidores'] ??
+                0;
+
+            final String planoNome =
+                treinadorFull['nomePatente'] ??
+                treinadorFull['nomePlano'] ??
+                treinadorFull['plano']?['nome'] ??
+                'Coach Start';
+
+            final String statusCref =
+                treinadorFull['statusCref'] ??
+                treinadorFull['status_cref'] ??
+                'SEM_CREF';
+
+            String anoFiliacao = "2026";
+            if (treinadorFull['dataCriacao'] != null) {
+              anoFiliacao = treinadorFull['dataCriacao'].toString().split(
+                '-',
+              )[0];
+            }
+
+            bool isRequesting = false;
+
+            return StatefulBuilder(
+              builder: (context, setStateSheet) {
+                return Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: Colors.white10,
+                        child: Text(
+                          avatar,
+                          style: const TextStyle(fontSize: 40),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
                       Text(
                         nome,
                         style: const TextStyle(
@@ -305,121 +382,204 @@ class _CommunityScreenState extends State<CommunityScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.verified,
-                        color: Color(0xFF06B6D4),
-                        size: 18,
+
+                      // 👇 SELO DINÂMICO DE CREF 👇
+                      const SizedBox(height: 8),
+                      _buildCrefBadge(statusCref),
+
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.star, color: Colors.amber, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            rating.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: Colors.amber,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Icon(
+                            Icons.groups,
+                            color: Colors.white38,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            "$qtdAlunos alunos",
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Icon(
+                            Icons.workspace_premium,
+                            color: Color(0xFF06B6D4),
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            planoNome,
+                            style: const TextStyle(
+                              color: Color(0xFF06B6D4),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 16),
-                      const SizedBox(width: 4),
+                      const SizedBox(height: 8),
                       Text(
-                        rating.toStringAsFixed(1),
+                        "No FitLab desde $anoFiliacao",
                         style: const TextStyle(
-                          color: Colors.amber,
-                          fontWeight: FontWeight.bold,
+                          color: Colors.white24,
+                          fontSize: 10,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.groups, color: Colors.white38, size: 16),
-                      const SizedBox(width: 4),
-                      const Text(
-                        "Coach Elite",
-                        style: TextStyle(color: Colors.white38),
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          bio,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
                       ),
+                      const SizedBox(height: 32),
+
+                      isRequesting
+                          ? const CircularProgressIndicator(
+                              color: Color(0xFF06B6D4),
+                            )
+                          : _treinadorVinculadoId == treinadorId
+                          ? SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton.icon(
+                                onPressed: null,
+                                icon: const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.white,
+                                ),
+                                label: const Text(
+                                  "MENTORIA ATIVA",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  disabledBackgroundColor: Colors.green
+                                      .withOpacity(0.4),
+                                  disabledForegroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : _treinadorPendenteId == treinadorId
+                          ? SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton.icon(
+                                onPressed: null,
+                                icon: const Icon(
+                                  Icons.access_time,
+                                  color: Colors.white,
+                                ),
+                                label: const Text(
+                                  "AGUARDANDO APROVAÇÃO",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  disabledBackgroundColor: Colors.orange
+                                      .withOpacity(0.4),
+                                  disabledForegroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : _treinadorVinculadoId != null ||
+                                _treinadorPendenteId != null
+                          ? SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton.icon(
+                                onPressed: null,
+                                icon: const Icon(
+                                  Icons.block,
+                                  color: Colors.white,
+                                ),
+                                label: const Text(
+                                  "VOCÊ JÁ POSSUI UM MENTOR",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  disabledBackgroundColor: Colors.white10,
+                                  disabledForegroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  setStateSheet(() => isRequesting = true);
+                                  await _vincularTreinador(
+                                    context,
+                                    treinadorId,
+                                  );
+                                  if (context.mounted)
+                                    setStateSheet(() => isRequesting = false);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF06B6D4),
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                child: const Text(
+                                  "SOLICITAR MENTORIA (30 DIAS)",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                              ),
+                            ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      bio,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  isLoading
-                      ? const CircularProgressIndicator(
-                          color: Color(0xFF06B6D4),
-                        )
-                      : _treinadorVinculadoId != null
-                      ? SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton.icon(
-                            onPressed: null,
-                            icon: Icon(
-                              _treinadorVinculadoId == treinadorId
-                                  ? Icons.check_circle
-                                  : Icons.block,
-                              color: Colors.white,
-                            ),
-                            label: Text(
-                              _treinadorVinculadoId == treinadorId
-                                  ? "MENTORIA ATIVA"
-                                  : "VOCÊ JÁ POSSUI UM MENTOR",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              disabledBackgroundColor:
-                                  _treinadorVinculadoId == treinadorId
-                                  ? Colors.green.withOpacity(0.4)
-                                  : Colors.white10,
-                              disabledForegroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                          ),
-                        )
-                      : SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              setStateSheet(() => isLoading = true);
-                              await _vincularTreinador(context, treinadorId);
-                              if (context.mounted) {
-                                setStateSheet(() => isLoading = false);
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF06B6D4),
-                              foregroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: const Text(
-                              "SOLICITAR MENTORIA (30 DIAS)",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                ],
-              ),
+                );
+              },
             );
           },
         );
@@ -798,12 +958,66 @@ class _CommunityScreenState extends State<CommunityScreen> {
               avatar: atleta['avatar'] ?? "🧪",
               pontos: atleta['fitPoints'] ?? 0,
               patente: atleta['nomePatente'] ?? "Recruta",
-              // 👇 ADICIONADO O CLIQUE PARA O GLOBAL 👇
               onTap: () => _abrirPerfilPublico(context, atleta),
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildCrefBadge(String status) {
+    Color color;
+    IconData icon;
+    String text;
+
+    switch (status) {
+      case 'APROVADO':
+        color = const Color(0xFF06B6D4);
+        icon = Icons.verified;
+        text = "CREF Verificado";
+        break;
+      case 'EM_AVALIACAO':
+      case 'ENVIADO_AVALIACAO':
+        color = Colors.amber;
+        icon = Icons.pending_actions;
+        text = "CREF em Análise";
+        break;
+      case 'RECUSADO':
+        color = Colors.redAccent;
+        icon = Icons.gpp_bad;
+        text = "CREF Recusado";
+        break;
+      case 'SEM_CREF':
+      default:
+        color = Colors.redAccent;
+        icon = Icons.warning_amber_rounded;
+        text = "Atua sem CREF";
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 12),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -875,7 +1089,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     avatar: a['avatar'] ?? "🧪",
                     pontos: a['fitPoints'] ?? 0,
                     patente: a['patente'] ?? "Atleta",
-                    // 👇 ADICIONADO O CLIQUE PARA OS AMIGOS 👇
                     onTap: () => _abrirPerfilPublico(context, a),
                   );
                 }),
@@ -1021,14 +1234,23 @@ class _CommunityScreenState extends State<CommunityScreen> {
             else
               ...treinadores.map((t) {
                 int index = treinadores.indexOf(t);
+                // 👇 PUXA OS DADOS REAIS OU DEFAULT DA LISTA 👇
+                final double rating = t['rating'] != null
+                    ? (t['rating'] as num).toDouble()
+                    : 5.0;
+                final int qtdAlunos = t['qtdAlunos'] ?? 0;
+                final String statusCref =
+                    t['statusCref'] ?? t['status_cref'] ?? 'SEM_CREF';
+
                 return _RankingTile(
                   index: index,
                   name: t['nome'] ?? "Treinador",
                   avatar: t['avatar'] ?? "👨‍🏫",
                   isTrainer: true,
                   specialty: t['nomePatente'] ?? "Performance",
-                  rating: 5.0,
-                  students: 0,
+                  rating: rating,
+                  students: qtdAlunos,
+                  statusCref: statusCref, // 👈 PASSAMOS O STATUS PRO CARD!
                   onTap: () => _abrirPerfilTreinador(context, t),
                 );
               }),
@@ -1072,6 +1294,7 @@ class _RankingTile extends StatelessWidget {
   final String? specialty;
   final double rating;
   final int students;
+  final String statusCref;
   final VoidCallback? onTap;
 
   const _RankingTile({
@@ -1085,8 +1308,32 @@ class _RankingTile extends StatelessWidget {
     this.specialty,
     this.rating = 0.0,
     this.students = 0,
+    this.statusCref = 'SEM_CREF',
     this.onTap,
   });
+
+  Widget _buildMiniCrefBadge(String status) {
+    Color color;
+    IconData icon;
+    switch (status) {
+      case 'APROVADO':
+        color = const Color(0xFF06B6D4);
+        icon = Icons.verified;
+        break;
+      case 'EM_AVALIACAO':
+      case 'ENVIADO_AVALIACAO':
+        color = Colors.amber;
+        icon = Icons.pending_actions;
+        break;
+      case 'RECUSADO':
+      case 'SEM_CREF':
+      default:
+        color = Colors.redAccent;
+        icon = Icons.warning_amber_rounded;
+        break;
+    }
+    return Icon(icon, color: color, size: 14);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1156,11 +1403,9 @@ class _RankingTile extends StatelessWidget {
                       ),
                       if (isTrainer) ...[
                         const SizedBox(width: 4),
-                        const Icon(
-                          Icons.verified,
-                          color: Color(0xFF06B6D4),
-                          size: 14,
-                        ),
+                        _buildMiniCrefBadge(
+                          statusCref,
+                        ), // 👈 CHAMA O ÍCONE COLORIDO AQUI!
                       ],
                     ],
                   ),
