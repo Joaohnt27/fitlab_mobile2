@@ -94,6 +94,403 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
+  // 👇 BUSCA O TREINO ATUAL DO ATLETA 👇
+  Future<void> _buscarMeuTreino() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idAtleta = userProvider.usuarioLogado?.id;
+    if (idAtleta == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          const Center(child: CircularProgressIndicator(color: Colors.amber)),
+    );
+
+    // Mudamos a rota para /atual
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/treinos/atleta/$idAtleta/atual',
+    );
+
+    try {
+      final response = await http.get(url);
+      if (context.mounted) Navigator.pop(context); // Fecha o loading
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final treino = json.decode(utf8.decode(response.bodyBytes));
+
+        // Verifica qual modal abrir baseado no status do backend
+        if (treino['status'] == 'PENDENTE') {
+          _mostrarModalTreinoPendente(treino);
+        } else if (treino['status'] == 'ACEITO') {
+          _mostrarModalTreinoAtivo(
+            treino,
+          ); // Abre o treino para leitura/conclusão!
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              "Você não possui treinos ativos no momento.",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: Colors.amber.shade800,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      debugPrint("Erro ao buscar treino: $e");
+    }
+  }
+
+  // 👇 NOVO MODAL PARA LER E CONCLUIR O TREINO ACEITO 👇
+  void _mostrarModalTreinoAtivo(Map<String, dynamic> treino) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 32,
+            bottom: 40,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.greenAccent.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.directions_run_rounded,
+                    color: Colors.greenAccent,
+                    size: 32,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  treino['titulo'] ?? "Treino Atual",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  "TREINO EM ANDAMENTO",
+                  style: TextStyle(
+                    color: Colors.greenAccent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              _buildExperimentData("Volume / Carga", treino['volume'] ?? "N/A"),
+              const SizedBox(height: 16),
+              _buildExperimentData("Protocolo", treino['descricao'] ?? "N/A"),
+              const SizedBox(height: 40),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          Navigator.pop(context), // Apenas fecha pra ler depois
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white54,
+                        side: const BorderSide(color: Colors.white24),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        "FECHAR",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      // Envia "CONCLUIDO" para o Java!
+                      onPressed: () =>
+                          _responderTreino(treino['id'], "CONCLUIDO", ""),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.greenAccent,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        "CONCLUIR TREINO",
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 👇 MODAL PARA O ATLETA AVALIAR O TREINO 👇
+  void _mostrarModalTreinoPendente(Map<String, dynamic> treino) {
+    final TextEditingController motivoController = TextEditingController();
+    bool isRecusando = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 24,
+                right: 24,
+                top: 32,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.assignment_rounded,
+                        color: Colors.amber,
+                        size: 32,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Text(
+                      treino['titulo'] ?? "Novo Treino",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildExperimentData(
+                    "Volume / Carga",
+                    treino['volume'] ?? "N/A",
+                  ),
+                  const SizedBox(height: 16),
+                  _buildExperimentData(
+                    "Protocolo",
+                    treino['descricao'] ?? "N/A",
+                  ),
+                  const SizedBox(height: 32),
+
+                  if (isRecusando) ...[
+                    const Text(
+                      "Motivo da recusa:",
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: motivoController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: "Ex: Estou com dor no joelho...",
+                        hintStyle: const TextStyle(color: Colors.white24),
+                        filled: true,
+                        fillColor: Colors.black,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () =>
+                                setModalState(() => isRecusando = false),
+                            child: const Text(
+                              "VOLTAR",
+                              style: TextStyle(color: Colors.white54),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => _responderTreino(
+                              treino['id'],
+                              "RECUSADO",
+                              motivoController.text,
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              "CONFIRMAR",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                setModalState(() => isRecusando = true),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.redAccent,
+                              side: const BorderSide(color: Colors.redAccent),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              "RECUSAR",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () =>
+                                _responderTreino(treino['id'], "ACEITO", ""),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.amber,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              "ACEITAR",
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 32),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _responderTreino(
+    int idTreino,
+    String status,
+    String motivo,
+  ) async {
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/treinos/$idTreino/responder',
+    );
+
+    try {
+      await http.put(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode({"status": status, "motivo": motivo}),
+      );
+
+      if (context.mounted) {
+        Navigator.pop(context); // Fecha o modal
+
+        // 👇 CORREÇÃO: Tratando os 3 status diferentes com cores próprias! 👇
+        String mensagem = "";
+        Color corFundo = Colors.grey;
+
+        if (status == "ACEITO") {
+          mensagem = "Treino aceito! Bom trabalho!";
+          corFundo = Colors.greenAccent;
+        } else if (status == "CONCLUIDO") {
+          mensagem = "Parabéns! Treino concluído com sucesso! 🏆";
+          corFundo = const Color(0xFF06B6D4); // Azul Cyan do FitLab
+        } else {
+          mensagem = "Treino recusado e treinador notificado.";
+          corFundo = Colors.redAccent;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              mensagem,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            backgroundColor: corFundo,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Erro ao responder: $e");
+    }
+  }
+
   Future<void> _abortarExperimento() async {
     if (_experimentoAtivo == null) return;
 
@@ -678,16 +1075,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                 subtitle: "Ver prescrição",
                 color: Colors.amber,
                 unreadCount: 0,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text(
-                        "Buscando prescrição do treinador...",
-                      ),
-                      backgroundColor: Colors.amber.shade700,
-                    ),
-                  );
-                },
+                onTap: _buscarMeuTreino, // 👈 Chama a nova função!
               ),
             ],
           ),

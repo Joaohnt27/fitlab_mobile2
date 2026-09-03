@@ -1,5 +1,11 @@
-import 'package:fitlab_mobile2/screens/prescription_history_screen.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+
+import '../providers/user_provider.dart';
+import '../config/api_constants.dart';
+import 'prescription_history_screen.dart';
 
 class PrescribeTrainingScreen extends StatefulWidget {
   const PrescribeTrainingScreen({super.key});
@@ -11,7 +17,160 @@ class PrescribeTrainingScreen extends StatefulWidget {
 
 class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
   int _targetType = 0; // 0 para Individual, 1 para Turma
-  String? _selectedTarget;
+  String? _selectedTargetId;
+
+  List<Map<String, dynamic>> _meusAlunos = [];
+  bool _isLoadingAlunos = true;
+
+  // Controladores dos campos de texto
+  final TextEditingController _tituloController = TextEditingController();
+  final TextEditingController _volumeController = TextEditingController();
+  final TextEditingController _protocoloController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _buscarMeusAlunos();
+  }
+
+  @override
+  void dispose() {
+    _tituloController.dispose();
+    _volumeController.dispose();
+    _protocoloController.dispose();
+    super.dispose();
+  }
+
+  // BUSCA OS ALUNOS VINCULADOS AO TREINADOR
+  Future<void> _buscarMeusAlunos() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idCoach = userProvider.usuarioLogado?.id;
+    if (idCoach == null) return;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/mentorias/treinador/$idCoach/alunos',
+    );
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> dados = json.decode(
+          utf8.decode(response.bodyBytes),
+        );
+        setState(() {
+          _meusAlunos = dados
+              .map((a) => {"id": a['idAtleta'].toString(), "nome": a['nome']})
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar alunos: $e");
+    } finally {
+      setState(() => _isLoadingAlunos = false);
+    }
+  }
+
+  // ENVIA O TREINO PARA O BACK-END
+  // ENVIA O TREINO PARA O BACK-END
+  Future<void> _dispararProtocolo() async {
+    // 1. Validações Básicas
+    if (_selectedTargetId == null && _targetType == 0) {
+      _showError("Selecione um aluno alvo.");
+      return;
+    }
+    if (_tituloController.text.trim().isEmpty) {
+      _showError("Dê um nome para a identificação do treino.");
+      return;
+    }
+    if (_volumeController.text.trim().isEmpty) {
+      _showError("Insira a carga do treino.");
+      return;
+    }
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idTreinador = userProvider.usuarioLogado?.id;
+
+    // 2. Construindo o Payload para casar com o DTO do Java
+    final payload = {
+      "treinadorId": idTreinador,
+      "alvoId": int.parse(
+        _selectedTargetId!,
+      ), // Converte a String do Dropdown para int
+      "tipoAlvo": _targetType == 0 ? "INDIVIDUAL" : "TURMA",
+      "titulo": _tituloController.text.trim(),
+      "volume": _volumeController.text.trim(),
+      "descricao": _protocoloController.text.trim(),
+    };
+
+    // Abre o loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+      ),
+    );
+
+    // 3. Disparo HTTP para o Spring Boot
+    final url = Uri.parse('${ApiConstants.baseUrl}/treinos/prescrever');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(payload),
+      );
+
+      if (context.mounted) Navigator.pop(context); // Fecha o loading
+
+      if (response.statusCode == 200) {
+        _showSuccessFeedback();
+
+        // Volta para o Dashboard após 2 segundos
+        Future.delayed(const Duration(seconds: 2), () {
+          if (context.mounted) Navigator.pop(context);
+        });
+      } else {
+        _showError("Erro ao enviar prescrição: ${response.body}");
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      _showError("Falha de conexão com o laboratório.");
+    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showSuccessFeedback() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF06B6D4),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.black),
+            SizedBox(width: 12),
+            Text(
+              "Treino enviado ao laboratório do atleta!",
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,12 +242,14 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
               "Identificação do Treino",
               "Ex: Sprint de Explosão",
               Icons.bolt_rounded,
+              controller: _tituloController,
             ),
             const SizedBox(height: 20),
             _buildInputField(
               "Volume da Carga",
               "Ex: 12km ou 45 min",
               Icons.timer_outlined,
+              controller: _volumeController,
             ),
             const SizedBox(height: 20),
             _buildInputField(
@@ -96,6 +257,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
               "Descreva a intensidade, pace e intervalos...",
               Icons.subject_rounded,
               maxLines: 5,
+              controller: _protocoloController,
             ),
 
             const SizedBox(height: 48),
@@ -135,7 +297,8 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       child: GestureDetector(
         onTap: () => setState(() {
           _targetType = index;
-          _selectedTarget = null;
+          _selectedTargetId =
+              null; // Reseta o aluno selecionado ao trocar de aba
         }),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
@@ -177,15 +340,59 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
   }
 
   Widget _buildTargetDropdown() {
-    List<String> items = _targetType == 0
-        ? ["Arthur Fontana", "João Henrique", "Maria Cobaia", "Lucas Rocha"]
-        : [
-            "Elite Sprint",
-            "Maratonistas Z2",
-            "Iniciantes Lab",
-            "Triathlon Team",
-          ];
+    if (_isLoadingAlunos && _targetType == 0) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+      );
+    }
 
+    // Se for Turma (Mockado por enquanto)
+    if (_targetType == 1) {
+      List<String> turmas = [
+        "Elite Sprint",
+        "Maratonistas Z2",
+        "Iniciantes Lab",
+        "Triathlon Team",
+      ];
+      return _renderDropdown(
+        items: turmas
+            .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+            .toList(),
+        hint: "Escolher Turma...",
+      );
+    }
+
+    // Se for Atleta Individual e não tiver nenhum aluno
+    if (_targetType == 0 && _meusAlunos.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          "Você ainda não tem alunos ativos.",
+          style: TextStyle(color: Colors.white38),
+        ),
+      );
+    }
+
+    // Dropdown Real puxando da API
+    return _renderDropdown(
+      items: _meusAlunos.map((aluno) {
+        return DropdownMenuItem<String>(
+          value: aluno["id"],
+          child: Text(aluno["nome"]),
+        );
+      }).toList(),
+      hint: "Escolher Aluno...",
+    );
+  }
+
+  Widget _renderDropdown({
+    required List<DropdownMenuItem<String>> items,
+    required String hint,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       decoration: BoxDecoration(
@@ -195,9 +402,9 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedTarget,
+          value: _selectedTargetId,
           hint: Text(
-            _targetType == 0 ? "Escolher Aluno..." : "Escolher Turma...",
+            hint,
             style: const TextStyle(color: Colors.white24, fontSize: 14),
           ),
           dropdownColor: const Color(0xFF1A1A1A),
@@ -208,10 +415,8 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
-          items: items.map((String value) {
-            return DropdownMenuItem<String>(value: value, child: Text(value));
-          }).toList(),
-          onChanged: (newValue) => setState(() => _selectedTarget = newValue),
+          items: items,
+          onChanged: (newValue) => setState(() => _selectedTargetId = newValue),
         ),
       ),
     );
@@ -222,6 +427,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     String hint,
     IconData icon, {
     int maxLines = 1,
+    required TextEditingController controller,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,6 +444,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
           ),
         ),
         TextField(
+          controller: controller,
           maxLines: maxLines,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
@@ -288,13 +495,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
         ),
       ),
       child: ElevatedButton(
-        onPressed: () {
-          _showSuccessFeedback();
-          Future.delayed(
-            const Duration(seconds: 2),
-            () => Navigator.pop(context),
-          );
-        },
+        onPressed: _dispararProtocolo,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -310,29 +511,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
             fontSize: 14,
             letterSpacing: 2,
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showSuccessFeedback() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF06B6D4),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        content: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.black),
-            SizedBox(width: 12),
-            Text(
-              "Treino enviado ao laboratório do atleta!",
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
         ),
       ),
     );
