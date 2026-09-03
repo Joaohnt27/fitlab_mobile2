@@ -12,6 +12,7 @@ import '../widgets/fitlab_ai_card.dart';
 import '../widgets/ai_training_result_card.dart';
 import '../widgets/coach_dashboard.dart';
 import '../config/api_constants.dart';
+import 'chat_room_screen.dart';
 
 class WorkoutsScreen extends StatefulWidget {
   const WorkoutsScreen({super.key});
@@ -27,7 +28,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   Map<String, dynamic>? _experimentoAtivo;
   bool _isLoadingExperimento = true;
 
-  // 👇 NOVAS VARIÁVEIS PARA A MENTORIA 👇
   Map<String, dynamic>? _mentoriaAtiva;
   bool _isLoadingMentoria = true;
 
@@ -35,10 +35,9 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   void initState() {
     super.initState();
     _fetchExperimentoAtivo();
-    _fetchMentoriaAtiva(); // Chama a busca da mentoria ao abrir a tela
+    _fetchMentoriaAtiva();
   }
 
-  // BUSCA O EXPERIMENTO ATIVO DO BANCO DE DADOS
   Future<void> _fetchExperimentoAtivo() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
@@ -66,14 +65,12 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
-  // BUSCA A MENTORIA ATIVA DO ATLETA
   Future<void> _fetchMentoriaAtiva() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id;
 
     if (idUsuario == null) return;
 
-    // Rota esperada no Back-end para retornar a mentoria do atleta
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/mentorias/atleta/$idUsuario/ativa',
     );
@@ -97,7 +94,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
-  // DELETA (CANCELA) O EXPERIMENTO ATUAL
   Future<void> _abortarExperimento() async {
     if (_experimentoAtivo == null) return;
 
@@ -114,12 +110,14 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     try {
       final response = await http.delete(url);
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Experimento abortado com sucesso."),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Experimento abortado com sucesso."),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
         _fetchExperimentoAtivo();
       }
     } catch (e) {
@@ -357,7 +355,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
-      // 👇 ADICIONADO REFRESH INDICATOR PARA RECARREGAR A MENTORIA 👇
       body: RefreshIndicator(
         color: const Color(0xFF06B6D4),
         backgroundColor: const Color(0xFF1A1A1A),
@@ -366,8 +363,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           await _fetchExperimentoAtivo();
         },
         child: CustomScrollView(
-          physics:
-              const AlwaysScrollableScrollPhysics(), // Garante que dê pra puxar
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             _buildSliverAppBar(usuario?.streak ?? 0),
             const SliverToBoxAdapter(child: _PageIntroText()),
@@ -496,9 +492,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  // 👇 PAINEL DE MENTORIA ATUALIZADO 👇
   Widget _buildMentorTestingArea(bool isElite) {
-    // 1. Loading da Mentoria
     if (_isLoadingMentoria) {
       return Container(
         height: 160,
@@ -507,7 +501,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
       );
     }
 
-    // 2. Se NÃO é Elite E NÃO tem mentoria ativa (Não usou código) -> Mostra Cadeado
     if (!isElite && _mentoriaAtiva == null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -525,13 +518,12 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                 ),
               ),
             ),
-            _buildLockOverlayElite(), // O cadeado do paywall
+            _buildLockOverlayElite(),
           ],
         ),
       );
     }
 
-    // 3. Se for Elite mas AINDA não contratou ninguém (Pode procurar um coach)
     if (_mentoriaAtiva == null) {
       return Container(
         width: double.infinity,
@@ -568,13 +560,19 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
       );
     }
 
-    // 4. Se TEM treinador! (Ou porque é Elite e contratou, ou porque usou código)
     final nomeTreinador =
         _mentoriaAtiva!['treinadorNome'] ??
         _mentoriaAtiva!['treinador_nome'] ??
         "Seu Treinador";
-    String diasRestantesStr = "Ativa";
 
+    final avatarCoach =
+        _mentoriaAtiva!['treinadorAvatar'] ??
+        _mentoriaAtiva!['avatar'] ??
+        "👨‍🏫";
+
+    int unreadMsgs = _mentoriaAtiva!['mensagensNaoLidas'] ?? 0;
+
+    String diasRestantesStr = "Ativa";
     if (_mentoriaAtiva!['dataFim'] != null ||
         _mentoriaAtiva!['data_fim'] != null) {
       try {
@@ -583,15 +581,16 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
         DateTime dataFim = DateTime.parse(dtFimRaw);
         int dias = dataFim.difference(DateTime.now()).inDays;
         diasRestantesStr = dias > 0 ? "Expira em $dias dias" : "Expira hoje";
-      } catch (e) {
-        // Ignora o erro de parse e mantém "Ativa"
-      }
+      } catch (e) {}
     }
 
+    // 👇 O NOVO LAYOUT DA ÁREA DE MENTORIA PREMIUM 👇
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF1D4ED8).withOpacity(0.1),
+        color: const Color(
+          0xFF1D4ED8,
+        ).withOpacity(0.05), // Fundo azul bem suave
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFF1D4ED8).withOpacity(0.3)),
       ),
@@ -600,13 +599,10 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1D4ED8),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.psychology, color: Colors.white),
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: const Color(0xFF1D4ED8).withOpacity(0.2),
+                child: Text(avatarCoach, style: const TextStyle(fontSize: 26)),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -622,7 +618,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                         letterSpacing: 1.5,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       nomeTreinador,
                       style: const TextStyle(
@@ -632,6 +628,11 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      "Treinador FitLab",
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
@@ -640,47 +641,135 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           const SizedBox(height: 24),
           Row(
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          "Iniciando conexão segura com o treinador...",
+              // CARD 1: CHAT
+              _buildActionTile(
+                icon: Icons.chat_bubble_rounded,
+                title: "Mensagens",
+                subtitle: "Fale com o coach",
+                color: const Color(0xFF06B6D4),
+                unreadCount: unreadMsgs,
+                onTap: () {
+                  final idTreinador =
+                      _mentoriaAtiva!['treinadorId'] ??
+                      _mentoriaAtiva!['treinador_id'];
+                  if (idTreinador != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatRoomScreen(
+                          idDestinatario: idTreinador,
+                          nomeDestinatario: nomeTreinador,
+                          avatarDestinatario: avatarCoach,
                         ),
-                        backgroundColor: Color(0xFF1D4ED8),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.chat_bubble_outline, size: 16),
-                  label: const Text("MENSAGEM"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1D4ED8),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
+                    ).then((_) {
+                      // Atualiza a tela ao voltar para zerar a bolinha caso tenha lido
+                      _fetchMentoriaAtiva();
+                    });
+                  }
+                },
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.assignment_ind_outlined, size: 16),
-                  label: const Text("AVALIAÇÃO"),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withOpacity(0.2)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              const SizedBox(width: 16),
+
+              // CARD 2: TREINO / AVALIAÇÃO
+              _buildActionTile(
+                icon: Icons.assignment_rounded,
+                title: "Meu Treino",
+                subtitle: "Ver prescrição",
+                color: Colors.amber,
+                unreadCount: 0,
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text(
+                        "Buscando prescrição do treinador...",
+                      ),
+                      backgroundColor: Colors.amber.shade700,
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  // 👇 O NOVO COMPONENTE DE CARD DE AÇÃO (ACTION TILE) 👇
+  Widget _buildActionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required int unreadCount,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withOpacity(0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: color, size: 20),
+                  ),
+                  if (unreadCount > 0)
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: Colors.redAccent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        "$unreadCount",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 11,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

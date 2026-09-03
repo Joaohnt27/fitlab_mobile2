@@ -19,6 +19,7 @@ dependencies:
   device_preview_plus: ^2.9.0
   firebase_messaging: ^16.6.0
   firebase_core: ^4.14.0
+  stomp_dart_client: ^3.0.1
 
 dev_dependencies:
   flutter_test:
