@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; 
 
 import '../providers/user_provider.dart';
 
@@ -11,10 +12,33 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  bool _reminders = true;
-  bool _achievements = true;
-  bool _ranking = false;
-  bool _marketing = false;
+  // 👇 NOVA FUNÇÃO: Sincroniza o Provider local com os Tópicos do Firebase
+  Future<void> _handleNotificationToggle(
+    String topicKey,
+    bool isEnabled,
+    UserProvider userProvider,
+  ) async {
+    // 1. Atualiza a interface e a memória local instantaneamente
+    userProvider.alternarNotificacao(topicKey, isEnabled);
+
+    // 2. Avisa o Firebase Cloud Messaging sobre a preferência
+    try {
+      final fcm = FirebaseMessaging.instance;
+      // Adicionamos um prefixo 'fitlab_' para organizar os tópicos no painel do Firebase
+      final String topicName = 'fitlab_$topicKey';
+
+      if (isEnabled) {
+        await fcm.subscribeToTopic(topicName);
+        debugPrint("✅ Firebase: Inscrito no tópico $topicName");
+      } else {
+        await fcm.unsubscribeFromTopic(topicName);
+        debugPrint("❌ Firebase: Desinscrito do tópico $topicName");
+      }
+    } catch (e) {
+      debugPrint("⚠️ Erro ao sincronizar tópico com Firebase: $e");
+      // Opcional: Você pode exibir um SnackBar aqui avisando que falhou a conexão
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,11 +74,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               Icons.timer_outlined,
               "Lembretes de Treino",
               "Avisar quando for hora de iniciar o experimento do dia.",
-              prefs['reminders'] ?? true, // Lendo do Provider
-              (val) => userProvider.alternarNotificacao(
+              prefs['reminders'] ?? true,
+              (val) => _handleNotificationToggle(
                 'reminders',
                 val,
-              ), // Alterando no Provider
+                userProvider,
+              ), // 👇 Usando a nova função
             ),
             const Divider(color: Colors.white10, height: 1),
 
@@ -64,14 +89,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               "Conquistas e Badges",
               "Notificar imediatamente ao desbloquear um novo badge.",
               prefs['achievements'] ?? true,
-              (val) => userProvider.alternarNotificacao('achievements', val),
+              (val) =>
+                  _handleNotificationToggle('achievements', val, userProvider),
             ),
             _buildNotificationTile(
               Icons.leaderboard_outlined,
               "Alertas de Ranking",
               "Avisar se alguém te ultrapassar no ranking global.",
               prefs['ranking'] ?? false,
-              (val) => userProvider.alternarNotificacao('ranking', val),
+              (val) => _handleNotificationToggle('ranking', val, userProvider),
             ),
 
             _buildSectionHeader("COMUNICADOS"),
@@ -80,7 +106,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               "Novidades do Lab",
               "Receba atualizações sobre novas funcionalidades e eventos.",
               prefs['marketing'] ?? false,
-              (val) => userProvider.alternarNotificacao('marketing', val),
+              (val) =>
+                  _handleNotificationToggle('marketing', val, userProvider),
             ),
 
             const SizedBox(height: 40),

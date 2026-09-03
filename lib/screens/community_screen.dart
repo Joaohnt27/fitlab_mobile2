@@ -16,6 +16,35 @@ class CommunityScreen extends StatefulWidget {
 
 class _CommunityScreenState extends State<CommunityScreen> {
   int? _treinadorVinculadoId;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkMentoriaAtiva();
+  }
+
+  Future<void> _checkMentoriaAtiva() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final atletaId = userProvider.usuarioLogado?.id;
+    if (atletaId == null) return;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/mentorias/atleta/$atletaId/ativa',
+    );
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final data = json.decode(utf8.decode(response.bodyBytes));
+        setState(() {
+          // Salva o ID do treinador que o Java acabou de nos mandar
+          _treinadorVinculadoId = data['treinadorId'];
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao verificar mentoria na comunidade: $e");
+    }
+  }
+
   // Chamada de API para buscar o ranking
   Future<List<dynamic>> _fetchRankingGlobal() async {
     final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/ranking');
@@ -116,7 +145,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
-  // 👇 BOTTOM SHEET COM EXTRAÇÃO BLINDADA DO ID 👇
   void _abrirPerfilTreinador(
     BuildContext context,
     Map<String, dynamic> treinador,
@@ -244,28 +272,37 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       ? const CircularProgressIndicator(
                           color: Color(0xFF06B6D4),
                         )
-                      : _treinadorVinculadoId == treinadorId
+                      : _treinadorVinculadoId != null
                       ? SizedBox(
                           width: double.infinity,
                           height: 52,
                           child: ElevatedButton.icon(
-                            onPressed: null, // Desabilita o clique totalmente!
-                            icon: const Icon(
-                              Icons.check_circle,
+                            onPressed: null, // Bloqueia o botão
+                            icon: Icon(
+                              // Se for o Zidane, mostra check. Se for outro, mostra bloqueio
+                              _treinadorVinculadoId == treinadorId
+                                  ? Icons.check_circle
+                                  : Icons.block,
                               color: Colors.white,
                             ),
-                            label: const Text(
-                              "MENTORIA ATIVA",
-                              style: TextStyle(
+                            label: Text(
+                              _treinadorVinculadoId == treinadorId
+                                  ? "MENTORIA ATIVA"
+                                  : "VOCÊ JÁ POSSUI UM MENTOR",
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                                 letterSpacing: 1,
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
-                              disabledBackgroundColor: Colors.green.withOpacity(
-                                0.4,
-                              ),
+                              disabledBackgroundColor:
+                                  _treinadorVinculadoId == treinadorId
+                                  ? Colors.green.withOpacity(
+                                      0.4,
+                                    ) // Verde pro seu treinador
+                                  : Colors
+                                        .white10, // Cinza escuro para os outros
                               disabledForegroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -280,7 +317,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
                             onPressed: () async {
                               setStateSheet(() => isLoading = true);
                               await _vincularTreinador(context, treinadorId);
-                              // Caso o modal não feche, removemos o loading
                               if (context.mounted) {
                                 setStateSheet(() => isLoading = false);
                               }
