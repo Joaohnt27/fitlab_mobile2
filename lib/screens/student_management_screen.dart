@@ -1,5 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Para copiar o link
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+
+import 'package:fitlab_mobile2/config/api_constants.dart';
+import 'package:fitlab_mobile2/providers/user_provider.dart';
 
 class StudentManagementScreen extends StatefulWidget {
   const StudentManagementScreen({super.key});
@@ -10,15 +16,76 @@ class StudentManagementScreen extends StatefulWidget {
 }
 
 class _StudentManagementScreenState extends State<StudentManagementScreen> {
-  // Lista fake para exemplo
-  final List<Map<String, dynamic>> groups = [
-    {"name": "Elite Sprint", "desc": "Foco em explosão e 100m", "count": 8},
-    {
-      "name": "Maratonistas Z2",
-      "desc": "Treinos de endurance leve",
-      "count": 15,
-    },
-  ];
+  // Lista de Turmas fake para exemplo (Será real no futuro)
+  final List<Map<String, dynamic>> groups = [];
+
+  // 👇 DADOS REAIS DO BACKEND 👇
+  List<dynamic> _alunos = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarAlunos();
+  }
+
+  // BUSCA OS ALUNOS VINCULADOS AO TREINADOR
+  Future<void> _carregarAlunos() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idCoach = userProvider.usuarioLogado?.id;
+    if (idCoach == null) return;
+
+    try {
+      final url = Uri.parse(
+        '${ApiConstants.baseUrl}/mentorias/treinador/$idCoach/alunos',
+      );
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _alunos = json.decode(utf8.decode(response.bodyBytes));
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint("Erro ao carregar alunos: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // FUNÇÃO DE REMOVER O VÍNCULO DO ALUNO
+  Future<void> _removerAluno(int idVinculo, String nomeAluno) async {
+    try {
+      final url = Uri.parse(
+        '${ApiConstants.baseUrl}/mentorias/$idVinculo/recusar',
+      ); // ou /remover dependendo do seu java
+      final response = await http.delete(url);
+
+      if (response.statusCode == 200) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("$nomeAluno foi removido da sua assessoria."),
+              backgroundColor: const Color(0xFF06B6D4),
+            ),
+          );
+        }
+        _carregarAlunos(); // Recarrega a lista
+
+        // Atualiza os dados do Treinador no App (Saldo, contagens, etc)
+        if (context.mounted) {
+          await Provider.of<UserProvider>(
+            context,
+            listen: false,
+          ).recarregarUsuario();
+        }
+      }
+    } catch (e) {
+      debugPrint("Erro ao remover aluno: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,48 +104,61 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSearchBar(),
-            const SizedBox(height: 32),
+      body: RefreshIndicator(
+        color: const Color(0xFF06B6D4),
+        backgroundColor: const Color(0xFF1A1A1A),
+        onRefresh: _carregarAlunos,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSearchBar(),
+              const SizedBox(height: 32),
 
-            _buildSectionHeader("TURMAS ATIVAS", Icons.group_work_rounded),
-            const SizedBox(height: 16),
-            _buildGroupsList(),
+              _buildSectionHeader("TURMAS ATIVAS", Icons.group_work_rounded),
+              const SizedBox(height: 16),
+              _buildGroupsList(),
 
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildSectionHeader(
-                  "TODAS AS COBAIAS",
-                  Icons.person_search_rounded,
-                ),
-                // BOTÃO ADICIONAR ALUNO (GERAR LINK)
-                TextButton.icon(
-                  onPressed: () => _showInviteLinkDialog(context),
-                  icon: const Icon(
-                    Icons.link,
-                    size: 18,
-                    color: Color(0xFF06B6D4),
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildSectionHeader(
+                    "TODAS AS COBAIAS (${_alunos.length})",
+                    Icons.person_search_rounded,
                   ),
-                  label: const Text(
-                    "ADICIONAR ALUNO",
-                    style: TextStyle(
+                  // BOTÃO ADICIONAR ALUNO (GERAR LINK)
+                  TextButton.icon(
+                    onPressed: () => _showInviteLinkDialog(context),
+                    icon: const Icon(
+                      Icons.link,
+                      size: 18,
                       color: Color(0xFF06B6D4),
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                    ),
+                    label: const Text(
+                      "ADICIONAR ALUNO",
+                      style: TextStyle(
+                        color: Color(0xFF06B6D4),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildAllStudentsList(),
-          ],
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF06B6D4),
+                      ),
+                    )
+                  : _buildAllStudentsList(),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -140,10 +220,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         itemBuilder: (context, index) {
           final group = groups[index];
           return GestureDetector(
-            onLongPress: () => _showEditDeleteGroupOptions(
-              context,
-              group,
-            ), // Opções ao segurar
+            onLongPress: () => _showEditDeleteGroupOptions(context, group),
             child: Container(
               width: 220,
               margin: const EdgeInsets.only(right: 16),
@@ -208,60 +285,155 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
+  // 👇 LISTA DE ALUNOS REAIS COM IDENTIFICAÇÃO DE ELITE VS ASSESSORIA 👇
   Widget _buildAllStudentsList() {
+    if (_alunos.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.02)),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.person_off_outlined, color: Colors.white24, size: 48),
+            SizedBox(height: 16),
+            Text(
+              "Nenhuma cobaia no seu laboratório ainda.",
+              style: TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: 5,
+      itemCount: _alunos.length,
       itemBuilder: (context, index) {
+        final aluno = _alunos[index];
+        final bool isElite = aluno['plano'].toString().toUpperCase().contains(
+          'ELITE',
+        );
+
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: const Color(0xFF1A1A1A),
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              // Destaca a borda se for Elite App
+              color: isElite
+                  ? Colors.amber.withOpacity(0.3)
+                  : Colors.white.withOpacity(0.02),
+            ),
           ),
           child: ListTile(
-            leading: const CircleAvatar(
+            leading: CircleAvatar(
               backgroundColor: Colors.white10,
-              child: Icon(Icons.person, color: Colors.white38),
-            ),
-            title: Text(
-              "Atleta Cobaia #0$index",
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+              child: Text(
+                aluno['avatar'] ?? "🧪",
+                style: const TextStyle(fontSize: 20),
               ),
             ),
-            subtitle: const Text(
-              "Plano Pro • Última atividade: Hoje",
-              style: TextStyle(color: Colors.white38, fontSize: 11),
-            ),
-            trailing: PopupMenuButton(
-              icon: const Icon(Icons.more_vert, color: Colors.white24),
-              color: const Color(0xFF1A1A1A),
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'remove',
+            title: Row(
+              children: [
+                Expanded(
                   child: Text(
-                    "Remover Aluno",
-                    style: TextStyle(color: Colors.redAccent, fontSize: 14),
+                    aluno['nome'] ?? "Atleta",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
-              onSelected: (val) {
-                if (val == 'remove')
-                  _confirmDelete(context, "Atleta Cobaiaa #0$index");
-              },
             ),
+            subtitle: Row(
+              children: [
+                Icon(
+                  isElite
+                      ? Icons.workspace_premium
+                      : Icons.fitness_center_rounded,
+                  color: isElite ? Colors.amber : Colors.white38,
+                  size: 12,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isElite ? "Assinante Elite App" : "Aluno de Assessoria",
+                  style: TextStyle(
+                    color: isElite ? Colors.amber : Colors.white38,
+                    fontSize: 11,
+                    fontWeight: isElite ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+            trailing: isElite
+                ? IconButton(
+                    icon: const Icon(
+                      Icons.lock_outline,
+                      color: Colors.amber,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Contrato Ativo: Atletas Elite não podem ser removidos durante os 30 dias de vigência.",
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          backgroundColor: Colors.amber,
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    },
+                  )
+                : PopupMenuButton(
+                    icon: const Icon(Icons.more_vert, color: Colors.white24),
+                    color: const Color(0xFF1A1A1A),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'remove',
+                        child: Text(
+                          "Remover Aluno",
+                          style: TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onSelected: (val) {
+                      if (val == 'remove') {
+                        _confirmDelete(
+                          context,
+                          aluno['idVinculo'],
+                          aluno['nome'],
+                        );
+                      }
+                    },
+                  ),
           ),
         );
       },
     );
   }
 
-  // DIÁLOGO PARA GERAR LINK DE CONVITE
+  // DIÁLOGO PARA GERAR LINK DE CONVITE (Será real no futuro)
   void _showInviteLinkDialog(BuildContext context) {
-    const String inviteLink = "https://fitlab.app/invite/coach-joao-123";
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final String coachCode =
+        userProvider.usuarioLogado?.codigoAmizade ?? "ERROR";
+    final String inviteLink = "$coachCode";
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -279,7 +451,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              "Compartilhe o link abaixo para que o atleta se vincule ao seu laboratório.",
+              "Seu aluno da vida real pode ingressar sem pagar a assinatura da Mentoria. Compartilhe seu código com ele:",
               style: TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 20),
@@ -289,9 +461,14 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                 color: Colors.black,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                inviteLink,
-                style: TextStyle(color: Color(0xFF06B6D4), fontSize: 12),
+              child: Text(
+                coachCode,
+                style: const TextStyle(
+                  color: Color(0xFF06B6D4),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
               ),
             ),
           ],
@@ -299,7 +476,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Clipboard.setData(const ClipboardData(text: inviteLink));
+              Clipboard.setData(ClipboardData(text: inviteLink));
               Navigator.pop(context);
               ScaffoldMessenger.of(
                 context,
@@ -318,7 +495,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
-  // MODAL PARA EDITAR OU EXCLUIR TURMA
   void _showEditDeleteGroupOptions(BuildContext context, Map group) {
     showModalBottomSheet(
       context: context,
@@ -348,7 +524,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
             ),
             onTap: () {
               Navigator.pop(context);
-              _confirmDelete(context, group['name']);
+              // Lógica de exclusão de turma no futuro
             },
           ),
           const SizedBox(height: 20),
@@ -357,7 +533,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
-  // MODAL UNIFICADO PARA CRIAR/EDITAR TURMA
   void _showGroupModal(BuildContext context, {Map? existingGroup}) {
     showModalBottomSheet(
       context: context,
@@ -421,13 +596,14 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
-  void _confirmDelete(BuildContext context, String targetName) {
+  // 👇 DIALOG ATUALIZADO PARA EXCLUIR ALUNO REAL DO BANCO 👇
+  void _confirmDelete(BuildContext context, int idVinculo, String targetName) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
         title: const Text(
-          "CONFIRMAR EXCLUSÃO",
+          "REMOVER ALUNO",
           style: TextStyle(
             color: Colors.redAccent,
             fontSize: 16,
@@ -435,7 +611,8 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
           ),
         ),
         content: Text(
-          "Deseja realmente remover '$targetName'? Esta ação não pode ser desfeita.",
+          "Deseja realmente remover '$targetName' da sua assessoria? O vínculo de treinos será quebrado.",
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -446,10 +623,16 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
             ),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context);
+              _removerAluno(idVinculo, targetName); // Chama a exclusão real
+            },
             child: const Text(
               "EXCLUIR",
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],

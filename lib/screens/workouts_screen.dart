@@ -66,7 +66,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
-  // 👇 BUSCA A MENTORIA ATIVA DO ATLETA 👇
+  // BUSCA A MENTORIA ATIVA DO ATLETA
   Future<void> _fetchMentoriaAtiva() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id;
@@ -357,138 +357,158 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          _buildSliverAppBar(usuario?.streak ?? 0),
-          const SliverToBoxAdapter(child: _PageIntroText()),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isTreinador) ...[
-                    const CoachDashboard(),
-                  ] else ...[
-                    const _SectionHeader(
-                      title: "Cérebro FitLab",
-                      subtitle: "Inteligência Artificial",
-                    ),
-                    const SizedBox(height: 16),
-                    _hasGeneratedAIWorkout
-                        ? AITrainingResultCard(
-                            data: aiRequestData,
-                            onStart: () => debugPrint("Iniciando GPS..."),
-                          )
-                        : FitLabAICard(onGenerate: _aoGerarTreinoIA),
-                    const SizedBox(height: 32),
-                    const _SectionHeader(title: "Configurar Experimento"),
-                    const SizedBox(height: 16),
-
-                    if (_isLoadingExperimento)
-                      const Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF06B6D4),
-                        ),
-                      )
-                    else if (_experimentoAtivo != null)
-                      _buildActiveExperimentCard()
-                    else
-                      LabGoalsCard(onIniciar: _iniciarExperimento),
-                  ],
-
-                  const SizedBox(height: 32),
-                  _SectionHeader(
-                    title: "Desafios Ativos",
-                    onViewAll: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AllChallengesScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  FutureBuilder<List<dynamic>>(
-                    future: _fetchDesafiosAtivos(usuario?.id ?? 1),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20.0),
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF06B6D4),
-                            ),
-                          ),
-                        );
-                      }
-
-                      final activeChallenges = snapshot.data ?? [];
-
-                      if (activeChallenges.isEmpty) {
-                        return Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1A1A1A),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.05),
-                            ),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              "Nenhum desafio ativo.\nExplore o Lab para aceitar novos desafios!",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white38),
-                            ),
-                          ),
-                        );
-                      }
-
-                      return Column(
-                        children: activeChallenges
-                            .take(3)
-                            .map(
-                              (c) => Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: ChallengeCard(
-                                  challenge: c as Map<String, dynamic>,
-                                ),
-                              ),
+      // 👇 ADICIONADO REFRESH INDICATOR PARA RECARREGAR A MENTORIA 👇
+      body: RefreshIndicator(
+        color: const Color(0xFF06B6D4),
+        backgroundColor: const Color(0xFF1A1A1A),
+        onRefresh: () async {
+          await _fetchMentoriaAtiva();
+          await _fetchExperimentoAtivo();
+        },
+        child: CustomScrollView(
+          physics:
+              const AlwaysScrollableScrollPhysics(), // Garante que dê pra puxar
+          slivers: [
+            _buildSliverAppBar(usuario?.streak ?? 0),
+            const SliverToBoxAdapter(child: _PageIntroText()),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isTreinador) ...[
+                      const CoachDashboard(),
+                    ] else ...[
+                      const _SectionHeader(
+                        title: "Cérebro FitLab",
+                        subtitle: "Inteligência Artificial",
+                      ),
+                      const SizedBox(height: 16),
+                      _hasGeneratedAIWorkout
+                          ? AITrainingResultCard(
+                              data: aiRequestData,
+                              onStart: () => debugPrint("Iniciando GPS..."),
                             )
-                            .toList(),
-                      );
-                    },
-                  ),
+                          : FitLabAICard(onGenerate: _aoGerarTreinoIA),
+                      const SizedBox(height: 32),
+                      const _SectionHeader(title: "Configurar Experimento"),
+                      const SizedBox(height: 16),
 
-                  if (!isTreinador) ...[
+                      if (_isLoadingExperimento)
+                        const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF06B6D4),
+                          ),
+                        )
+                      else if (_experimentoAtivo != null)
+                        _buildActiveExperimentCard()
+                      else
+                        LabGoalsCard(onIniciar: _iniciarExperimento),
+                    ],
+
                     const SizedBox(height: 32),
-                    const _SectionHeader(
-                      title: "Área de Testes",
-                      subtitle: "Acompanhamento de Especialistas",
+                    _SectionHeader(
+                      title: "Desafios Ativos",
+                      onViewAll: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AllChallengesScreen(),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 16),
-                    _buildMentorTestingArea(isElite),
-                  ],
 
-                  const SizedBox(height: 80),
-                ],
+                    FutureBuilder<List<dynamic>>(
+                      future: _fetchDesafiosAtivos(usuario?.id ?? 1),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20.0),
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF06B6D4),
+                              ),
+                            ),
+                          );
+                        }
+
+                        final activeChallenges = snapshot.data ?? [];
+
+                        if (activeChallenges.isEmpty) {
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A1A1A),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.05),
+                              ),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                "Nenhum desafio ativo.\nExplore o Lab para aceitar novos desafios!",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white38),
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          children: activeChallenges
+                              .take(3)
+                              .map(
+                                (c) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: ChallengeCard(
+                                    challenge: c as Map<String, dynamic>,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        );
+                      },
+                    ),
+
+                    if (!isTreinador) ...[
+                      const SizedBox(height: 32),
+                      const _SectionHeader(
+                        title: "Área de Testes",
+                        subtitle: "Acompanhamento de Especialistas",
+                      ),
+                      const SizedBox(height: 16),
+                      _buildMentorTestingArea(isElite),
+                    ],
+
+                    const SizedBox(height: 80),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   // 👇 PAINEL DE MENTORIA ATUALIZADO 👇
   Widget _buildMentorTestingArea(bool isElite) {
-    // 1. Cadeado se não for Elite
-    if (!isElite) {
+    // 1. Loading da Mentoria
+    if (_isLoadingMentoria) {
+      return Container(
+        height: 160,
+        alignment: Alignment.center,
+        child: const CircularProgressIndicator(color: Color(0xFF06B6D4)),
+      );
+    }
+
+    // 2. Se NÃO é Elite E NÃO tem mentoria ativa (Não usou código) -> Mostra Cadeado
+    if (!isElite && _mentoriaAtiva == null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: Stack(
@@ -505,22 +525,13 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                 ),
               ),
             ),
-            _buildLockOverlayElite(),
+            _buildLockOverlayElite(), // O cadeado do paywall
           ],
         ),
       );
     }
 
-    // 2. Loading da Mentoria
-    if (_isLoadingMentoria) {
-      return Container(
-        height: 160,
-        alignment: Alignment.center,
-        child: const CircularProgressIndicator(color: Color(0xFF06B6D4)),
-      );
-    }
-
-    // 3. Se for Elite mas não contratou ninguém
+    // 3. Se for Elite mas AINDA não contratou ninguém (Pode procurar um coach)
     if (_mentoriaAtiva == null) {
       return Container(
         width: double.infinity,
@@ -557,7 +568,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
       );
     }
 
-    // 4. Se for Elite e TEM treinador! Calcula os dias restantes.
+    // 4. Se TEM treinador! (Ou porque é Elite e contratou, ou porque usou código)
     final nomeTreinador =
         _mentoriaAtiva!['treinadorNome'] ??
         _mentoriaAtiva!['treinador_nome'] ??

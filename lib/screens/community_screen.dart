@@ -16,7 +16,6 @@ class CommunityScreen extends StatefulWidget {
 }
 
 class _CommunityScreenState extends State<CommunityScreen> {
-  // 👇 AGORA CONTROLAMOS OS DOIS ESTADOS 👇
   int? _treinadorVinculadoId;
   int? _treinadorPendenteId;
 
@@ -24,11 +23,20 @@ class _CommunityScreenState extends State<CommunityScreen> {
   List<dynamic> _pendentes = [];
   bool _isLoadingAmigos = true;
 
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+
   @override
   void initState() {
     super.initState();
-    _checkMentoriaStatus(); // Chama a nova função
+    _checkMentoriaStatus();
     _carregarAmizades();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _abrirPerfilPublico(BuildContext context, Map<String, dynamic> usuario) {
@@ -60,7 +68,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  // 👇 NOVA FUNÇÃO QUE VERIFICA O STATUS EXATO (PENDENTE OU ACEITO) 👇
   Future<void> _checkMentoriaStatus() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final atletaId = userProvider.usuarioLogado?.id;
@@ -84,7 +91,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
           }
         });
       } else {
-        // Não tem nenhum vínculo
         setState(() {
           _treinadorVinculadoId = null;
           _treinadorPendenteId = null;
@@ -160,6 +166,62 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
+  // 👇 NOVA LÓGICA: ENVIAR CÓDIGO DO TREINADOR 👇
+  Future<void> _usarCodigoTreinador(String codigo) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final atletaId = userProvider.usuarioLogado?.id;
+    if (atletaId == null) return;
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/mentorias/vincular/codigo');
+    final payload = {"atleta_id": atletaId, "codigo": codigo};
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(payload),
+      );
+
+      if (context.mounted && Navigator.canPop(context)) {
+        Navigator.pop(context); // Fecha o modal
+      }
+
+      if (response.statusCode == 200) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                response.body,
+              ), // Traz a mensagem de sucesso do Java
+              backgroundColor: const Color(0xFF06B6D4),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          // Recarrega o status para o card atualizar na hora!
+          _checkMentoriaStatus();
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.body),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("O sistema está offline no momento."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _responderConvite(int idAmizade, bool aceitar) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idLogado = userProvider.usuarioLogado?.id;
@@ -231,8 +293,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       if (response.statusCode == 200) {
         if (context.mounted) {
           setState(() {
-            _treinadorPendenteId =
-                treinadorId; // 👇 AGORA FICA PENDENTE EM VEZ DE ATIVO!
+            _treinadorPendenteId = treinadorId;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -291,7 +352,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return FutureBuilder<http.Response>(
           future: http.get(
             Uri.parse('${ApiConstants.baseUrl}/usuarios/$treinadorId/perfil'),
@@ -302,6 +363,18 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 padding: EdgeInsets.all(60.0),
                 child: Center(
                   child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return const Padding(
+                padding: EdgeInsets.all(60.0),
+                child: Center(
+                  child: Text(
+                    "Erro ao carregar perfil do treinador.",
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
                 ),
               );
             }
@@ -323,10 +396,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 treinadorFull['bio'] ??
                 treinadorFull['biografia'] ??
                 'Olá! Estou aqui para otimizar a sua performance.';
-            final avatar =
-                treinadorFull['avatar'] ??
-                treinadorFull['fotoPerfil'] ??
-                '👨‍🏫';
+
+            final avatar = treinadorFull['avatar'] == '🧪'
+                ? '👨‍🏫'
+                : (treinadorFull['avatar'] ??
+                      treinadorFull['fotoPerfil'] ??
+                      '👨‍🏫');
 
             final double rating = treinadorFull['rating'] != null
                 ? (treinadorFull['rating'] as num).toDouble()
@@ -343,10 +418,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 treinadorFull['plano']?['nome'] ??
                 'Coach Start';
 
-            final String statusCref =
-                treinadorFull['statusCref'] ??
-                treinadorFull['status_cref'] ??
-                'SEM_CREF';
+            final String statusCref = treinadorFull['statusCref'] ?? 'SEM_CREF';
 
             String anoFiliacao = "2026";
             if (treinadorFull['dataCriacao'] != null) {
@@ -358,7 +430,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             bool isRequesting = false;
 
             return StatefulBuilder(
-              builder: (context, setStateSheet) {
+              builder: (statefulContext, setStateSheet) {
                 return Padding(
                   padding: const EdgeInsets.all(32.0),
                   child: Column(
@@ -383,7 +455,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
                         ),
                       ),
 
-                      // 👇 SELO DINÂMICO DE CREF 👇
                       const SizedBox(height: 8),
                       _buildCrefBadge(statusCref),
 
@@ -554,11 +625,12 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                 onPressed: () async {
                                   setStateSheet(() => isRequesting = true);
                                   await _vincularTreinador(
-                                    context,
+                                    statefulContext,
                                     treinadorId,
                                   );
-                                  if (context.mounted)
+                                  if (statefulContext.mounted) {
                                     setStateSheet(() => isRequesting = false);
+                                  }
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF06B6D4),
@@ -750,6 +822,103 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
+  // 👇 NOVO MODAL PARA O ATLETA DIGITAR O CÓDIGO DO COACH 👇
+  void _mostrarModalCodigoTreinador() {
+    final TextEditingController codigoController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          top: 32,
+          left: 32,
+          right: 32,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.qr_code_scanner_rounded,
+              color: Color(0xFF06B6D4),
+              size: 48,
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              "CÓDIGO DE ASSESSORIA",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Insira o código fornecido pelo seu treinador para liberar o acesso à assessoria dele no FitLab.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: codigoController,
+              textCapitalization: TextCapitalization.characters,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+              decoration: InputDecoration(
+                hintText: "EX: FIT-COACH99",
+                hintStyle: const TextStyle(
+                  color: Colors.white24,
+                  letterSpacing: 2,
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  if (codigoController.text.isNotEmpty) {
+                    _usarCodigoTreinador(codigoController.text.trim());
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF06B6D4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "ATIVAR VÍNCULO",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -850,14 +1019,39 @@ class _CommunityScreenState extends State<CommunityScreen> {
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
-      child: const TextField(
-        style: TextStyle(color: Colors.white),
+      child: TextField(
+        controller: _searchController,
+        style: const TextStyle(color: Colors.white),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value.toLowerCase();
+          });
+        },
         decoration: InputDecoration(
           hintText: "Buscar atletas ou treinadores...",
-          hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
-          prefixIcon: Icon(Icons.search, color: Color(0xFF06B6D4), size: 20),
+          hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+          prefixIcon: const Icon(
+            Icons.search,
+            color: Color(0xFF06B6D4),
+            size: 20,
+          ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(
+                    Icons.clear,
+                    color: Colors.white38,
+                    size: 18,
+                  ),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = "";
+                    });
+                  },
+                )
+              : null,
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 15),
+          contentPadding: const EdgeInsets.symmetric(vertical: 15),
         ),
       ),
     );
@@ -925,22 +1119,32 @@ class _CommunityScreenState extends State<CommunityScreen> {
             child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
           );
         }
-        if (snapshot.hasError)
+        if (snapshot.hasError) {
           return const Center(
             child: Text(
               "Erro ao carregar o ranking.",
               style: TextStyle(color: Colors.white54),
             ),
           );
+        }
 
         final atletas = snapshot.data ?? [];
-        if (atletas.isEmpty)
+
+        final atletasFiltrados = _searchQuery.isEmpty
+            ? atletas
+            : atletas.where((a) {
+                final nome = (a['nome'] ?? '').toString().toLowerCase();
+                return nome.contains(_searchQuery);
+              }).toList();
+
+        if (atletas.isEmpty) {
           return const Center(
             child: Text(
               "O Laboratório está vazio.",
               style: TextStyle(color: Colors.white54),
             ),
           );
+        }
 
         return ListView.builder(
           padding: const EdgeInsets.only(
@@ -949,11 +1153,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
             top: 24,
             bottom: 120,
           ),
-          itemCount: atletas.length,
+          itemCount: atletasFiltrados.length,
           itemBuilder: (context, index) {
-            final atleta = atletas[index];
+            final atleta = atletasFiltrados[index];
+            final rankReal = atletas.indexOf(
+              atleta,
+            ); // 👈 Preserva a medalha/número original!
+
             return _RankingTile(
-              index: index,
+              index: rankReal,
               name: atleta['nome'] ?? "Atleta",
               avatar: atleta['avatar'] ?? "🧪",
               pontos: atleta['fitPoints'] ?? 0,
@@ -1081,17 +1289,43 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   ),
                 )
               else
-                ..._amigos.map((a) {
-                  int index = _amigos.indexOf(a);
-                  return _RankingTile(
-                    index: index,
-                    name: a['nome'] ?? "Amigo",
-                    avatar: a['avatar'] ?? "🧪",
-                    pontos: a['fitPoints'] ?? 0,
-                    patente: a['patente'] ?? "Atleta",
-                    onTap: () => _abrirPerfilPublico(context, a),
-                  );
-                }),
+                ...() {
+                  // 👇 APLICA O FILTRO DA SEARCH BAR 👇
+                  final amigosFiltrados = _searchQuery.isEmpty
+                      ? _amigos
+                      : _amigos.where((a) {
+                          final nome = (a['nome'] ?? '')
+                              .toString()
+                              .toLowerCase();
+                          return nome.contains(_searchQuery);
+                        }).toList();
+
+                  if (amigosFiltrados.isEmpty) {
+                    return [
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text(
+                            "Nenhum parceiro encontrado na busca.",
+                            style: TextStyle(color: Colors.white38),
+                          ),
+                        ),
+                      ),
+                    ];
+                  }
+
+                  return amigosFiltrados.map((a) {
+                    int index = _amigos.indexOf(a); // Mantém o índice original
+                    return _RankingTile(
+                      index: index,
+                      name: a['nome'] ?? "Amigo",
+                      avatar: a['avatar'] ?? "🧪",
+                      pontos: a['fitPoints'] ?? 0,
+                      patente: a['patente'] ?? "Atleta",
+                      onTap: () => _abrirPerfilPublico(context, a),
+                    );
+                  }).toList();
+                }(),
             ],
           ),
         ),
@@ -1176,6 +1410,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
+  // 👇 ATUALIZAÇÃO: ABA DOS TREINADORES COM O BOTÃO DE CÓDIGO 👇
   Widget _buildTrainersTab(BuildContext context) {
     return FutureBuilder<List<dynamic>>(
       future: _fetchTreinadores(),
@@ -1194,6 +1429,31 @@ class _CommunityScreenState extends State<CommunityScreen> {
             bottom: 120,
           ),
           children: [
+            // 👇 NOVO BOTÃO DE CÓDIGO DE ASSESSORIA 👇
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: _mostrarModalCodigoTreinador,
+                icon: const Icon(Icons.key, size: 18),
+                label: const Text(
+                  "USAR CÓDIGO DO TREINADOR",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF06B6D4),
+                  side: const BorderSide(color: Color(0xFF06B6D4)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1232,28 +1492,53 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 ),
               )
             else
-              ...treinadores.map((t) {
-                int index = treinadores.indexOf(t);
-                // 👇 PUXA OS DADOS REAIS OU DEFAULT DA LISTA 👇
-                final double rating = t['rating'] != null
-                    ? (t['rating'] as num).toDouble()
-                    : 5.0;
-                final int qtdAlunos = t['qtdAlunos'] ?? 0;
-                final String statusCref =
-                    t['statusCref'] ?? t['status_cref'] ?? 'SEM_CREF';
+              ...() {
+                // 👇 APLICA O FILTRO DA SEARCH BAR 👇
+                final treinadoresFiltrados = _searchQuery.isEmpty
+                    ? treinadores
+                    : treinadores.where((t) {
+                        final nome = (t['nome'] ?? '').toString().toLowerCase();
+                        return nome.contains(_searchQuery);
+                      }).toList();
 
-                return _RankingTile(
-                  index: index,
-                  name: t['nome'] ?? "Treinador",
-                  avatar: t['avatar'] ?? "👨‍🏫",
-                  isTrainer: true,
-                  specialty: t['nomePatente'] ?? "Performance",
-                  rating: rating,
-                  students: qtdAlunos,
-                  statusCref: statusCref, // 👈 PASSAMOS O STATUS PRO CARD!
-                  onTap: () => _abrirPerfilTreinador(context, t),
-                );
-              }),
+                if (treinadoresFiltrados.isEmpty) {
+                  return [
+                    const Padding(
+                      padding: EdgeInsets.all(20.0),
+                      child: Center(
+                        child: Text(
+                          "Nenhum treinador encontrado na busca.",
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                      ),
+                    ),
+                  ];
+                }
+
+                return treinadoresFiltrados.map((t) {
+                  int index = treinadores.indexOf(
+                    t,
+                  ); // Mantém o índice original
+                  final double rating = t['rating'] != null
+                      ? (t['rating'] as num).toDouble()
+                      : 5.0;
+                  final int qtdAlunos = t['qtdAlunos'] ?? 0;
+                  final String statusCref =
+                      t['statusCref'] ?? t['status_cref'] ?? 'SEM_CREF';
+
+                  return _RankingTile(
+                    index: index,
+                    name: t['nome'] ?? "Treinador",
+                    avatar: t['avatar'] ?? "👨‍🏫",
+                    isTrainer: true,
+                    specialty: t['nomePatente'] ?? "Performance",
+                    rating: rating,
+                    students: qtdAlunos,
+                    statusCref: statusCref,
+                    onTap: () => _abrirPerfilTreinador(context, t),
+                  );
+                }).toList();
+              }(),
           ],
         );
       },
@@ -1403,19 +1688,37 @@ class _RankingTile extends StatelessWidget {
                       ),
                       if (isTrainer) ...[
                         const SizedBox(width: 4),
-                        _buildMiniCrefBadge(
-                          statusCref,
-                        ), // 👈 CHAMA O ÍCONE COLORIDO AQUI!
+                        _buildMiniCrefBadge(statusCref),
                       ],
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    isTrainer
-                        ? (specialty ?? "Consultoria")
-                        : (patente ?? "Atleta FitLab"),
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
+                  isTrainer
+                      ? Row(
+                          children: [
+                            const Icon(
+                              Icons.workspace_premium,
+                              color: Color(0xFF06B6D4),
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              specialty ?? "Treinador Oficial",
+                              style: const TextStyle(
+                                color: Color(0xFF06B6D4),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          patente ?? "Atleta FitLab",
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 12,
+                          ),
+                        ),
                   if (isTrainer) ...[
                     const SizedBox(height: 8),
                     Row(
