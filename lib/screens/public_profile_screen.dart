@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // 👇 IMPORT PARA COPIAR PARA A ÁREA DE TRANSFERÊNCIA
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -24,8 +25,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _checkFollowStatus(); // Checa se já segue
-    _perfilFuture = _carregarPerfil(); // Busca os dados completos da API
+    _checkFollowStatus();
+    _perfilFuture = _carregarPerfil();
   }
 
   Future<Map<String, dynamic>> _carregarPerfil() async {
@@ -85,14 +86,11 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           _isFollowing = !_isFollowing;
           _isLoadingFollowAction = false;
 
-          // A matemática que atualiza o número instantaneamente
           if (_seguidoresTempoReal != null) {
             if (_isFollowing) {
-              _seguidoresTempoReal =
-                  _seguidoresTempoReal! + 1; // Ganhou seguidor
+              _seguidoresTempoReal = _seguidoresTempoReal! + 1;
             } else {
-              _seguidoresTempoReal =
-                  _seguidoresTempoReal! - 1; // Perdeu seguidor
+              _seguidoresTempoReal = _seguidoresTempoReal! - 1;
             }
           }
         });
@@ -135,10 +133,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
           final perfilAPI = snapshot.data!;
 
-          // Define o número inicial do banco apenas na primeira renderização
           _seguidoresTempoReal ??= perfilAPI['seguidores'] ?? 0;
 
-          // Extraindo os dados da API (Single Source of Truth)
           final nome =
               perfilAPI['nome'] ?? widget.usuarioAlvo['nome'] ?? 'Usuário';
           final avatar =
@@ -149,24 +145,25 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               perfilAPI['bio'] ??
               "Sem biografia cadastrada.";
 
+          // 👇 RESGATA O CÓDIGO DA API
+          final String codigoAmigo =
+              perfilAPI['codigoAmizade'] ?? perfilAPI['codigo_amizade'] ?? "";
+
           final int nivelAtual = perfilAPI['nivel']?['levelAtual'] ?? 1;
           final int rankAtual = perfilAPI['ranking'] ?? 0;
           final int qtdTreinos = (perfilAPI['historico'] as List?)?.length ?? 0;
 
-          // 👇 EXTRAINDO CONQUISTAS (Máx 5) E POSTS DA API 👇
           final List<dynamic> conquistasRaw = perfilAPI['conquistas'] ?? [];
-          final List<dynamic> conquistas = conquistasRaw
-              .take(5)
-              .toList(); // Limita a 5
+          final List<dynamic> conquistas = conquistasRaw.take(5).toList();
 
           final List<dynamic> publicacoes = perfilAPI['publicacoes'] ?? [];
 
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // CABEÇALHO DO PERFIL
               SliverAppBar(
-                expandedHeight: 280.0,
+                expandedHeight:
+                    290.0, // Aumentei um pouquinho pra caber o código
                 floating: false,
                 pinned: true,
                 backgroundColor: const Color(0xFF1A1A1A),
@@ -228,6 +225,59 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                             ),
                           ),
                         ),
+                        // 👇 NOVA PÍLULA COPIÁVEL COM O CÓDIGO DE AMIZADE 👇
+                        if (codigoAmigo.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: () {
+                              Clipboard.setData(
+                                ClipboardData(text: codigoAmigo),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Código $codigoAmigo copiado!"),
+                                  backgroundColor: const Color(0xFF06B6D4),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white24,
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.copy,
+                                    color: Colors.white54,
+                                    size: 12,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    codigoAmigo,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -241,7 +291,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // BOTÃO DE SEGUIR
                       Center(
                         child: _isLoadingStatus
                             ? const CircularProgressIndicator(
@@ -292,7 +341,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
                       const SizedBox(height: 32),
 
-                      // ESTATÍSTICAS REAIS
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -314,7 +362,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
                       const SizedBox(height: 32),
 
-                      // BIOGRAFIA REAL
                       const Text(
                         "BIOGRAFIA",
                         style: TextStyle(
@@ -336,7 +383,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
                       const SizedBox(height: 32),
 
-                      // CONQUISTAS DINÂMICAS DA API (Max 5)
                       const Text(
                         "TOP CONQUISTAS",
                         style: TextStyle(
@@ -371,7 +417,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
                       const SizedBox(height: 32),
 
-                      // FEED DE PUBLICAÇÕES DINÂMICAS
                       const Text(
                         "FEED RECENTE",
                         style: TextStyle(
@@ -395,15 +440,14 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                       else
                         ListView.builder(
                           shrinkWrap: true,
-                          physics:
-                              const NeverScrollableScrollPhysics(), // Evita erro de scroll aninhado
+                          physics: const NeverScrollableScrollPhysics(),
                           itemCount: publicacoes.length,
                           itemBuilder: (context, index) {
                             return _buildPostCard(publicacoes[index]);
                           },
                         ),
 
-                      const SizedBox(height: 80), // Espaço pro final da tela
+                      const SizedBox(height: 80),
                     ],
                   ),
                 ),
@@ -414,8 +458,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       ),
     );
   }
-
-  // --- WIDGETS AUXILIARES ---
 
   Widget _buildStatColumn(String value, String label) {
     return Column(

@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../providers/user_provider.dart';
 import '../config/api_constants.dart';
-import 'subscription_screen.dart'; // Importe a tela de assinaturas
+import 'subscription_screen.dart';
+import 'public_profile_screen.dart'; // 👇 IMPORT DA TELA DE PERFIL PÚBLICO
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -17,10 +18,48 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen> {
   int? _treinadorVinculadoId;
 
+  // Variáveis do sistema de amizades
+  List<dynamic> _amigos = [];
+  List<dynamic> _pendentes = [];
+  bool _isLoadingAmigos = true;
+
   @override
   void initState() {
     super.initState();
     _checkMentoriaAtiva();
+    _carregarAmizades();
+  }
+
+  // 👇 NOVA FUNÇÃO: Roteia para o Perfil Público 👇
+  void _abrirPerfilPublico(BuildContext context, Map<String, dynamic> usuario) {
+    // Normaliza o ID, pois o Global chama de 'idUsuario' e Amigos de 'idAmigo'
+    final targetId =
+        usuario['idUsuario'] ?? usuario['idAmigo'] ?? usuario['id'];
+
+    if (targetId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Erro ao localizar perfil do atleta."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // Monta o pacote básico para o PublicProfileScreen
+    final usuarioAlvo = {
+      'id': targetId,
+      'nome': usuario['nome'] ?? 'Atleta',
+      'avatar': usuario['avatar'] ?? '🧪',
+      'role': usuario['patente'] ?? usuario['nomePatente'] ?? 'Atleta',
+    };
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PublicProfileScreen(usuarioAlvo: usuarioAlvo),
+      ),
+    );
   }
 
   Future<void> _checkMentoriaAtiva() async {
@@ -36,7 +75,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         final data = json.decode(utf8.decode(response.bodyBytes));
         setState(() {
-          // Salva o ID do treinador que o Java acabou de nos mandar
           _treinadorVinculadoId = data['treinadorId'];
         });
       }
@@ -45,7 +83,92 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
-  // Chamada de API para buscar o ranking
+  Future<void> _carregarAmizades() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idLogado = userProvider.usuarioLogado?.id;
+    if (idLogado == null) return;
+
+    setState(() => _isLoadingAmigos = true);
+
+    try {
+      final resAmigos = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/amizades/$idLogado/lista'),
+      );
+      final resPendentes = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/amizades/$idLogado/pendentes'),
+      );
+
+      if (resAmigos.statusCode == 200 && resPendentes.statusCode == 200) {
+        setState(() {
+          _amigos = json.decode(utf8.decode(resAmigos.bodyBytes));
+          _pendentes = json.decode(utf8.decode(resPendentes.bodyBytes));
+          _isLoadingAmigos = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao carregar amizades: $e");
+      setState(() => _isLoadingAmigos = false);
+    }
+  }
+
+  Future<void> _enviarConvite(String codigo) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idLogado = userProvider.usuarioLogado?.id;
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/amizades/$idLogado/solicitar/$codigo',
+    );
+
+    try {
+      final response = await http.post(url);
+      final body = json.decode(utf8.decode(response.bodyBytes));
+
+      if (response.statusCode == 200) {
+        if (context.mounted) {
+          Navigator.pop(context); // Fecha o modal
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(body['mensagem']),
+              backgroundColor: const Color(0xFF06B6D4),
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(body['erro'] ?? "Erro ao enviar convite"),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Erro ao enviar convite: $e");
+    }
+  }
+
+  Future<void> _responderConvite(int idAmizade, bool aceitar) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idLogado = userProvider.usuarioLogado?.id;
+
+    final urlAcao = aceitar
+        ? '${ApiConstants.baseUrl}/amizades/$idLogado/aceitar/$idAmizade'
+        : '${ApiConstants.baseUrl}/amizades/$idLogado/remover/$idAmizade';
+
+    try {
+      final response = aceitar
+          ? await http.put(Uri.parse(urlAcao))
+          : await http.delete(Uri.parse(urlAcao));
+
+      if (response.statusCode == 200) {
+        _carregarAmizades(); // Recarrega as listas automaticamente
+      }
+    } catch (e) {
+      debugPrint("Erro ao responder convite: $e");
+    }
+  }
+
   Future<List<dynamic>> _fetchRankingGlobal() async {
     final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/ranking');
     try {
@@ -74,21 +197,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
-  // 👇 LÓGICA DE REQUISIÇÃO COM LOGS APRIMORADOS 👇
   Future<void> _vincularTreinador(BuildContext context, int treinadorId) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final atletaId = userProvider.usuarioLogado?.id;
 
-    if (atletaId == null) {
-      debugPrint("❌ ERRO: Atleta ID está nulo (Usuário não logado?)");
-      return;
-    }
+    if (atletaId == null) return;
 
     final url = Uri.parse('${ApiConstants.baseUrl}/mentorias/vincular');
-
-    // MONTANDO O PACOTE
     final payload = {"atleta_id": atletaId, "treinador_id": treinadorId};
-    debugPrint("📦 ENVIANDO PAYLOAD PARA O JAVA: $payload");
 
     try {
       final response = await http.post(
@@ -97,11 +213,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
         body: json.encode(payload),
       );
 
-      debugPrint(
-        "📥 RESPOSTA DO JAVA: Status ${response.statusCode} | Body: ${response.body}",
-      );
-
-      // Fecha o Modal do Perfil do Treinador se ainda estiver aberto
       if (context.mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -111,10 +222,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
           setState(() {
             _treinadorVinculadoId = treinadorId;
           });
-
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Mentoria ativada com sucesso por 30 dias!"),
+              content: Text("Mentoria ativada com sucesso!"),
               backgroundColor: Color(0xFF06B6D4),
             ),
           );
@@ -133,7 +243,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
         }
       }
     } catch (e) {
-      debugPrint("❌ ERRO HTTP: $e");
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -149,33 +258,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
     BuildContext context,
     Map<String, dynamic> treinador,
   ) {
-    debugPrint(
-      "🔍 DADOS BRUTOS DO TREINADOR RECEBIDOS DA API: $treinador",
-    ); // <-- OLHE ISSO NO CONSOLE!
-
-    // Extração à prova de falhas: procura por vários nomes de chaves comuns do JPA
     dynamic rawId =
         treinador['id'] ?? treinador['idUsuario'] ?? treinador['id_user'];
+    int treinadorId = rawId != null ? (int.tryParse(rawId.toString()) ?? 0) : 0;
 
-    int treinadorId = 0;
-    if (rawId != null) {
-      treinadorId = int.tryParse(rawId.toString()) ?? 0;
-    }
-
-    debugPrint("🎯 ID EXTRAÍDO E CONVERTIDO: $treinadorId");
-
-    // Trava de segurança no app
-    if (treinadorId == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Erro: ID do treinador inválido ou não enviado pela API.",
-          ),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return; // Nem tenta enviar para o Java!
-    }
+    if (treinadorId == 0) return;
 
     final nome = treinador['nome'] ?? 'Treinador Especialista';
     final bio =
@@ -194,7 +281,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
       ),
       builder: (context) {
         bool isLoading = false;
-
         return StatefulBuilder(
           builder: (context, setStateSheet) {
             return Padding(
@@ -267,7 +353,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-
                   isLoading
                       ? const CircularProgressIndicator(
                           color: Color(0xFF06B6D4),
@@ -277,9 +362,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
                           width: double.infinity,
                           height: 52,
                           child: ElevatedButton.icon(
-                            onPressed: null, // Bloqueia o botão
+                            onPressed: null,
                             icon: Icon(
-                              // Se for o Zidane, mostra check. Se for outro, mostra bloqueio
                               _treinadorVinculadoId == treinadorId
                                   ? Icons.check_circle
                                   : Icons.block,
@@ -298,11 +382,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
                             style: ElevatedButton.styleFrom(
                               disabledBackgroundColor:
                                   _treinadorVinculadoId == treinadorId
-                                  ? Colors.green.withOpacity(
-                                      0.4,
-                                    ) // Verde pro seu treinador
-                                  : Colors
-                                        .white10, // Cinza escuro para os outros
+                                  ? Colors.green.withOpacity(0.4)
+                                  : Colors.white10,
                               disabledForegroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -346,7 +427,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  // 👇 PAYWALL EXCLUSIVO PARA O PLANO ELITE 👇
   void _mostrarPaywallMentoria(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -402,6 +482,101 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 ),
                 child: const Text(
                   "CONHECER O PLANO ELITE",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _mostrarModalAdicionarAmigo() {
+    final TextEditingController codigoController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          top: 32,
+          left: 32,
+          right: 32,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.person_add_alt_1,
+              color: Color(0xFF06B6D4),
+              size: 48,
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              "NOVO PARCEIRO DE TREINO",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Digite o código de amizade do atleta.",
+              style: TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: codigoController,
+              textCapitalization: TextCapitalization.characters,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+              decoration: InputDecoration(
+                hintText: "EX: FIT-X9K2A",
+                hintStyle: const TextStyle(
+                  color: Colors.white24,
+                  letterSpacing: 2,
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  if (codigoController.text.isNotEmpty) {
+                    _enviarConvite(codigoController.text.trim());
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF06B6D4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "ENVIAR CONVITE",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
@@ -541,14 +716,28 @@ class _CommunityScreenState extends State<CommunityScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "MINHA POSIÇÃO",
-            style: TextStyle(
-              color: Color(0xFF06B6D4),
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "MINHA POSIÇÃO",
+                style: TextStyle(
+                  color: Color(0xFF06B6D4),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              Text(
+                "MEU CÓDIGO: ${user?.codigoAmizade ?? 'GERANDO...'}",
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Row(
@@ -576,23 +765,23 @@ class _CommunityScreenState extends State<CommunityScreen> {
             child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
           );
         }
-        if (snapshot.hasError) {
+        if (snapshot.hasError)
           return const Center(
             child: Text(
-              "Erro ao carregar o ranking. Tente novamente.",
+              "Erro ao carregar o ranking.",
               style: TextStyle(color: Colors.white54),
             ),
           );
-        }
+
         final atletas = snapshot.data ?? [];
-        if (atletas.isEmpty) {
+        if (atletas.isEmpty)
           return const Center(
             child: Text(
               "O Laboratório está vazio.",
               style: TextStyle(color: Colors.white54),
             ),
           );
-        }
+
         return ListView.builder(
           padding: const EdgeInsets.only(
             left: 24,
@@ -609,6 +798,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
               avatar: atleta['avatar'] ?? "🧪",
               pontos: atleta['fitPoints'] ?? 0,
               patente: atleta['nomePatente'] ?? "Recruta",
+              // 👇 ADICIONADO O CLIQUE PARA O GLOBAL 👇
+              onTap: () => _abrirPerfilPublico(context, atleta),
             );
           },
         );
@@ -617,16 +808,81 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Widget _buildFriendsTab() {
+    if (_isLoadingAmigos) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+      );
+    }
+
     return Column(
       children: [
         Expanded(
-          child: ListView.builder(
+          child: ListView(
             padding: const EdgeInsets.all(24),
-            itemCount: 4,
-            itemBuilder: (context, index) =>
-                _RankingTile(index: index, name: "Amigo Atleta"),
+            children: [
+              if (_pendentes.isNotEmpty) ...[
+                const Text(
+                  "CONVITES RECEBIDOS",
+                  style: TextStyle(
+                    color: Colors.orangeAccent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ..._pendentes.map((p) => _buildPendingTile(p)),
+                const SizedBox(height: 24),
+                const Divider(color: Colors.white10),
+                const SizedBox(height: 24),
+              ],
+
+              const Text(
+                "MEU ESQUADRÃO",
+                style: TextStyle(
+                  color: Color(0xFF06B6D4),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_amigos.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.02),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      "Você ainda não adicionou nenhum parceiro de treino. Use o botão abaixo!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ..._amigos.map((a) {
+                  int index = _amigos.indexOf(a);
+                  return _RankingTile(
+                    index: index,
+                    name: a['nome'] ?? "Amigo",
+                    avatar: a['avatar'] ?? "🧪",
+                    pontos: a['fitPoints'] ?? 0,
+                    patente: a['patente'] ?? "Atleta",
+                    // 👇 ADICIONADO O CLIQUE PARA OS AMIGOS 👇
+                    onTap: () => _abrirPerfilPublico(context, a),
+                  );
+                }),
+            ],
           ),
         ),
+
         Padding(
           padding: const EdgeInsets.only(
             left: 24,
@@ -638,7 +894,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             width: double.infinity,
             height: 50,
             child: OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: _mostrarModalAdicionarAmigo,
               icon: const Icon(Icons.person_add_alt_1, size: 18),
               label: const Text(
                 "ADICIONAR AMIGOS",
@@ -658,6 +914,55 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
+  Widget _buildPendingTile(Map<String, dynamic> pendente) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orangeAccent.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.white10,
+            child: Text(
+              pendente['avatar'] ?? "🏃‍♂️",
+              style: const TextStyle(fontSize: 18),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              pendente['nome'] ?? "Atleta",
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white38),
+            onPressed: () => _responderConvite(pendente['idAmizade'], false),
+          ),
+          Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF06B6D4),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.check, color: Colors.black, size: 20),
+              onPressed: () => _responderConvite(pendente['idAmizade'], true),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTrainersTab(BuildContext context) {
     return FutureBuilder<List<dynamic>>(
       future: _fetchTreinadores(),
@@ -667,9 +972,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
           );
         }
-
         final treinadores = snapshot.data ?? [];
-
         return ListView(
           padding: const EdgeInsets.only(
             left: 24,
@@ -726,7 +1029,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   specialty: t['nomePatente'] ?? "Performance",
                   rating: 5.0,
                   students: 0,
-                  // 👇 AQUI PASSAMOS O MAP INTEIRO DO TREINADOR E A AÇÃO DE CLIQUE 👇
                   onTap: () => _abrirPerfilTreinador(context, t),
                 );
               }),
@@ -770,7 +1072,7 @@ class _RankingTile extends StatelessWidget {
   final String? specialty;
   final double rating;
   final int students;
-  final VoidCallback? onTap; // Adicionado para receber o clique externamente
+  final VoidCallback? onTap;
 
   const _RankingTile({
     super.key,
@@ -815,7 +1117,6 @@ class _RankingTile extends StatelessWidget {
     }
 
     return GestureDetector(
-      // 👇 Chama a função passada pelo pai (que abre o perfil)
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),

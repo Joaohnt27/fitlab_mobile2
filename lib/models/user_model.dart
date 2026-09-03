@@ -25,6 +25,7 @@ class UserModel {
   final Map<String, dynamic>? experimento;
   final int? totalTreinos;
   final int? fitpoints;
+  final String? codigoAmizade;
 
   UserModel({
     this.id,
@@ -54,6 +55,7 @@ class UserModel {
     this.ultimoLogin,
     this.totalTreinos,
     this.fitpoints,
+    this.codigoAmizade, 
   });
 
   UserModel copyWith({
@@ -81,6 +83,7 @@ class UserModel {
     DateTime? ultimoLogin,
     int? totalTreinos,
     int? fitpoints,
+    String? codigoAmizade, // 👇 INCLUÍDO NO COPYWITH
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -107,6 +110,7 @@ class UserModel {
       ultimoLogin: ultimoLogin ?? this.ultimoLogin,
       totalTreinos: totalTreinos ?? this.totalTreinos,
       fitpoints: fitpoints ?? this.fitpoints,
+      codigoAmizade: codigoAmizade ?? this.codigoAmizade, // 👇 ATUALIZADO AQUI
     );
   }
 
@@ -126,6 +130,7 @@ class UserModel {
       "role": role,
       "plano": plano,
       "cref": cref,
+      "codigoAmizade": codigoAmizade, 
     };
   }
 
@@ -159,6 +164,7 @@ class UserModel {
       streak: json['streak'] ?? 0,
       totalTreinos: json['totalTreinos'] ?? 0,
       ranking: json['ranking'] ?? 0,
+      codigoAmizade: json['codigoAmizade'] ?? json['codigo_amizade'],
     );
   }
 }
