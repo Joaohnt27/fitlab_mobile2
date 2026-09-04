@@ -4,9 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../config/api_constants.dart';
-import '../utils/plan_permissions.dart'; 
+import '../utils/plan_permissions.dart';
 import 'prescription_history_screen.dart';
-import 'subscription_screen.dart'; 
+import 'subscription_screen.dart';
 
 class PrescribeTrainingScreen extends StatefulWidget {
   const PrescribeTrainingScreen({super.key});
@@ -19,12 +19,12 @@ class PrescribeTrainingScreen extends StatefulWidget {
 class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
   int _targetType = 0; // 0 para Individual, 1 para Turma
   String? _selectedTargetId;
-
   List<Map<String, dynamic>> _meusAlunos = [];
+  List<Map<String, dynamic>> _minhasTurmas = []; 
   bool _isLoadingAlunos = true;
+  bool _isLoadingTurmas = true; 
   bool _isSavingTemplate = false;
 
-  // Controladores dos campos de texto
   final TextEditingController _tituloController = TextEditingController();
   final TextEditingController _volumeController = TextEditingController();
   final TextEditingController _protocoloController = TextEditingController();
@@ -33,6 +33,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
   void initState() {
     super.initState();
     _buscarMeusAlunos();
+    _buscarMinhasTurmas(); 
   }
 
   @override
@@ -43,7 +44,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     super.dispose();
   }
 
-  // BUSCA OS ALUNOS VINCULADOS AO TREINADOR
   Future<void> _buscarMeusAlunos() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idCoach = userProvider.usuarioLogado?.id;
@@ -72,7 +72,38 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     }
   }
 
-  // SALVA O TEMPLATE NA BIBLIOTECA 
+  Future<void> _buscarMinhasTurmas() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idCoach = userProvider.usuarioLogado?.id;
+    if (idCoach == null) return;
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/turmas/treinador/$idCoach');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> dados = json.decode(
+          utf8.decode(response.bodyBytes),
+        );
+        setState(() {
+          _minhasTurmas = dados
+              .map(
+                (t) => {
+                  "id": t['id'].toString(),
+                  "nome": t['nome'],
+                  "count": t['count'],
+                },
+              )
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar turmas: $e");
+    } finally {
+      setState(() => _isLoadingTurmas = false);
+    }
+  }
+
   Future<void> _salvarComoTemplate() async {
     if (_tituloController.text.trim().isEmpty ||
         _volumeController.text.trim().isEmpty ||
@@ -80,7 +111,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       _showError("Preencha todos os parâmetros técnicos para salvar o molde.");
       return;
     }
-
     setState(() => _isSavingTemplate = true);
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -100,17 +130,15 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
         body: json.encode(payload),
       );
 
-      if (response.statusCode == 200) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Template salvo na biblioteca! 📂"),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+      if (response.statusCode == 200 && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Template salvo na biblioteca! 📂"),
+            backgroundColor: Colors.green,
+          ),
+        );
       } else {
-        _showError("Erro ao salvar template: ${response.body}");
+        _showError("Erro ao salvar template.");
       }
     } catch (e) {
       _showError("Falha de conexão com a biblioteca.");
@@ -119,7 +147,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     }
   }
 
-  // ABRE A BIBLIOTECA DE TREINOS 
   Future<void> _abrirBiblioteca() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idTreinador = userProvider.usuarioLogado?.id;
@@ -137,8 +164,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/templates/treinador/$idTreinador'),
       );
-
-      if (context.mounted) Navigator.pop(context); // Fecha loading
+      if (context.mounted) Navigator.pop(context);
 
       if (response.statusCode == 200) {
         final List<dynamic> templates = json.decode(
@@ -154,7 +180,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     }
   }
 
-  // DELETA UM TEMPLATE DA BIBLIOTECA 
   Future<void> _deletarTemplate(
     int idTemplate,
     StateSetter setModalState,
@@ -206,7 +231,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
                     style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                   const SizedBox(height: 24),
-
                   if (templates.isEmpty)
                     const Expanded(
                       child: Center(
@@ -226,17 +250,14 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
                           return Container(
                             margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
-                              // A cor foi removida daqui!
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: Colors.white.withOpacity(0.05),
                               ),
                             ),
-                            clipBehavior: Clip
-                                .antiAlias, 
+                            clipBehavior: Clip.antiAlias,
                             child: Material(
-                              color:
-                                  Colors.black,
+                              color: Colors.black,
                               child: ListTile(
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16,
@@ -297,7 +318,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     );
   }
 
-  // MODAL DE PAYWALL SE O TREINADOR FOR "START" 
   void _mostrarPaywallBiblioteca() {
     showModalBottomSheet(
       context: context,
@@ -327,7 +347,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              "A Biblioteca de Treinos é uma ferramenta exclusiva dos planos PRO e ELITE para escalar o seu negócio.",
+              "A Biblioteca de Treinos é exclusiva dos planos PRO e ELITE.",
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white70,
@@ -370,18 +390,14 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     );
   }
 
-  // ENVIA O TREINO PARA O BACK-END
   Future<void> _dispararProtocolo() async {
-    if (_selectedTargetId == null && _targetType == 0) {
-      _showError("Selecione um aluno alvo.");
+    if (_selectedTargetId == null) {
+      _showError("Selecione o receptor do treino.");
       return;
     }
-    if (_tituloController.text.trim().isEmpty) {
-      _showError("Dê um nome para a identificação do treino.");
-      return;
-    }
-    if (_volumeController.text.trim().isEmpty) {
-      _showError("Insira a carga do treino.");
+    if (_tituloController.text.trim().isEmpty ||
+        _volumeController.text.trim().isEmpty) {
+      _showError("Preencha o título e o volume do treino.");
       return;
     }
 
@@ -390,7 +406,9 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
 
     final payload = {
       "treinadorId": idTreinador,
-      "alvoId": int.parse(_selectedTargetId!),
+      "alvoId": int.parse(
+        _selectedTargetId!,
+      ), // Pode ser ID do Atleta ou ID da Turma!
       "tipoAlvo": _targetType == 0 ? "INDIVIDUAL" : "TURMA",
       "titulo": _tituloController.text.trim(),
       "volume": _volumeController.text.trim(),
@@ -405,11 +423,9 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       ),
     );
 
-    final url = Uri.parse('${ApiConstants.baseUrl}/treinos/prescrever');
-
     try {
       final response = await http.post(
-        url,
+        Uri.parse('${ApiConstants.baseUrl}/treinos/prescrever'),
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
         body: json.encode(payload),
       );
@@ -451,7 +467,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
             Icon(Icons.check_circle, color: Colors.black),
             SizedBox(width: 12),
             Text(
-              "Treino enviado ao laboratório do atleta!",
+              "Treino enviado com sucesso!",
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.bold,
@@ -465,7 +481,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // CARREGA O PLANO PARA A FEATURE FLAG 
     final userProvider = Provider.of<UserProvider>(context);
     final planoObj = userProvider.usuarioLogado?.plano;
     final permissions = PlanPermissions(planoObj?['nome'] ?? "START");
@@ -500,14 +515,12 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
               color: Color(0xFF06B6D4),
               size: 26,
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const PrescriptionHistoryScreen(),
-                ),
-              );
-            },
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PrescriptionHistoryScreen(),
+              ),
+            ),
           ),
           const SizedBox(width: 8),
         ],
@@ -532,7 +545,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
               child: Divider(color: Colors.white10, thickness: 1),
             ),
 
-            // CABEÇALHO COM BOTÃO DE IMPORTAR 
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -601,9 +613,8 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
 
             const SizedBox(height: 48),
             _buildSubmitButton(),
-
-            // BOTÃO SECUNDÁRIO PARA SALVAR NA BIBLIOTECA 
             const SizedBox(height: 16),
+
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -648,7 +659,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 40),
           ],
         ),
@@ -726,49 +736,58 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
   }
 
   Widget _buildTargetDropdown() {
-    if (_isLoadingAlunos && _targetType == 0) {
+    if ((_isLoadingAlunos && _targetType == 0) ||
+        (_isLoadingTurmas && _targetType == 1)) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
       );
     }
 
     if (_targetType == 1) {
-      List<String> turmas = [
-        "Elite Sprint",
-        "Maratonistas Z2",
-        "Iniciantes Lab",
-        "Triathlon Team",
-      ];
+      if (_minhasTurmas.isEmpty) {
+        return _buildEmptyBox("Você ainda não criou nenhuma turma.");
+      }
       return _renderDropdown(
-        items: turmas
-            .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+        items: _minhasTurmas
+            .map(
+              (t) => DropdownMenuItem<String>(
+                value: t["id"],
+                child: Text(
+                  "${t["nome"]} (${t["count"]} alunos)",
+                ), // Mostra o nome e a qtd de alunos
+              ),
+            )
             .toList(),
         hint: "Escolher Turma...",
       );
     }
 
     if (_targetType == 0 && _meusAlunos.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Text(
-          "Você ainda não tem alunos ativos.",
-          style: TextStyle(color: Colors.white38),
-        ),
-      );
+      return _buildEmptyBox("Você ainda não tem alunos ativos.");
     }
 
     return _renderDropdown(
-      items: _meusAlunos.map((aluno) {
-        return DropdownMenuItem<String>(
-          value: aluno["id"],
-          child: Text(aluno["nome"]),
-        );
-      }).toList(),
+      items: _meusAlunos
+          .map(
+            (aluno) => DropdownMenuItem<String>(
+              value: aluno["id"],
+              child: Text(aluno["nome"]),
+            ),
+          )
+          .toList(),
       hint: "Escolher Aluno...",
+    );
+  }
+
+  Widget _buildEmptyBox(String text) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(text, style: const TextStyle(color: Colors.white38)),
     );
   }
 

@@ -16,65 +16,157 @@ class StudentManagementScreen extends StatefulWidget {
 }
 
 class _StudentManagementScreenState extends State<StudentManagementScreen> {
-  // Lista de Turmas fake para exemplo (Será real no futuro)
-  final List<Map<String, dynamic>> groups = [];
-
-  // 👇 DADOS REAIS DO BACKEND 👇
   List<dynamic> _alunos = [];
+  List<dynamic> _turmas = [];
   bool _isLoading = true;
+
+  final TextEditingController _nomeTurmaController = TextEditingController();
+  final TextEditingController _descTurmaController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _carregarAlunos();
+    _carregarDados();
   }
 
-  // BUSCA OS ALUNOS VINCULADOS AO TREINADOR
-  Future<void> _carregarAlunos() async {
+  @override
+  void dispose() {
+    _nomeTurmaController.dispose();
+    _descTurmaController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _carregarDados() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idCoach = userProvider.usuarioLogado?.id;
     if (idCoach == null) return;
 
     try {
-      final url = Uri.parse(
+      final urlAlunos = Uri.parse(
         '${ApiConstants.baseUrl}/mentorias/treinador/$idCoach/alunos',
       );
-      final response = await http.get(url);
+      final urlTurmas = Uri.parse(
+        '${ApiConstants.baseUrl}/turmas/treinador/$idCoach',
+      );
 
-      if (response.statusCode == 200) {
+      final responseAlunos = await http.get(urlAlunos);
+      final responseTurmas = await http.get(urlTurmas);
+
+      if (mounted) {
         setState(() {
-          _alunos = json.decode(utf8.decode(response.bodyBytes));
+          if (responseAlunos.statusCode == 200) {
+            _alunos = json.decode(utf8.decode(responseAlunos.bodyBytes));
+          }
+          if (responseTurmas.statusCode == 200) {
+            _turmas = json.decode(utf8.decode(responseTurmas.bodyBytes));
+          }
           _isLoading = false;
         });
-      } else {
-        setState(() => _isLoading = false);
       }
     } catch (e) {
-      debugPrint("Erro ao carregar alunos: $e");
-      setState(() => _isLoading = false);
+      debugPrint("Erro ao carregar dados: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // FUNÇÃO DE REMOVER O VÍNCULO DO ALUNO
+  // 👇 SALVAR TURMA AGORA ACEITA ID (PARA SABER SE É PUT OU POST) 👇
+  Future<void> _salvarTurma(
+    List<int> atletasSelecionados, {
+    int? idTurmaExistente,
+  }) async {
+    if (_nomeTurmaController.text.trim().isEmpty) return;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idCoach = userProvider.usuarioLogado?.id;
+
+    final payload = {
+      "nome": _nomeTurmaController.text.trim(),
+      "descricao": _descTurmaController.text.trim(),
+      "treinadorId": idCoach,
+      "atletasIds": atletasSelecionados,
+    };
+
+    Navigator.pop(context); // Fecha o modal
+
+    try {
+      http.Response response;
+
+      // SE TEM ID, É UMA EDIÇÃO (PUT)
+      if (idTurmaExistente != null) {
+        response = await http.put(
+          Uri.parse('${ApiConstants.baseUrl}/turmas/$idTurmaExistente'),
+          headers: {'Content-Type': 'application/json; charset=UTF-8'},
+          body: json.encode(payload),
+        );
+      } else {
+        // SE NÃO TEM ID, É CRIAÇÃO (POST)
+        response = await http.post(
+          Uri.parse('${ApiConstants.baseUrl}/turmas'),
+          headers: {'Content-Type': 'application/json; charset=UTF-8'},
+          body: json.encode(payload),
+        );
+      }
+
+      if (response.statusCode == 200) {
+        _nomeTurmaController.clear();
+        _descTurmaController.clear();
+        _carregarDados();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                idTurmaExistente == null
+                    ? "Turma sintetizada com sucesso!"
+                    : "Turma atualizada!",
+              ),
+              backgroundColor: const Color(0xFF06B6D4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Erro ao salvar turma: $e");
+    }
+  }
+
+  Future<void> _excluirTurma(int idTurma) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConstants.baseUrl}/turmas/$idTurma'),
+      );
+      if (response.statusCode == 200) {
+        _carregarDados();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Turma excluída."),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Erro ao excluir turma: $e");
+    }
+  }
+
   Future<void> _removerAluno(int idVinculo, String nomeAluno) async {
     try {
       final url = Uri.parse(
         '${ApiConstants.baseUrl}/mentorias/$idVinculo/recusar',
-      ); // ou /remover dependendo do seu java
+      );
       final response = await http.delete(url);
 
       if (response.statusCode == 200) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("$nomeAluno foi removido da sua assessoria."),
+              content: Text("$nomeAluno foi removido."),
               backgroundColor: const Color(0xFF06B6D4),
             ),
           );
         }
-        _carregarAlunos(); // Recarrega a lista
-
-        // Atualiza os dados do Treinador no App (Saldo, contagens, etc)
+        _carregarDados();
         if (context.mounted) {
           await Provider.of<UserProvider>(
             context,
@@ -107,7 +199,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
       body: RefreshIndicator(
         color: const Color(0xFF06B6D4),
         backgroundColor: const Color(0xFF1A1A1A),
-        onRefresh: _carregarAlunos,
+        onRefresh: _carregarDados,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
@@ -119,7 +211,14 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
 
               _buildSectionHeader("TURMAS ATIVAS", Icons.group_work_rounded),
               const SizedBox(height: 16),
-              _buildGroupsList(),
+
+              _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF06B6D4),
+                      ),
+                    )
+                  : _buildGroupsList(),
 
               const SizedBox(height: 32),
               Row(
@@ -129,7 +228,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                     "TODAS AS COBAIAS (${_alunos.length})",
                     Icons.person_search_rounded,
                   ),
-                  // BOTÃO ADICIONAR ALUNO (GERAR LINK)
                   TextButton.icon(
                     onPressed: () => _showInviteLinkDialog(context),
                     icon: const Icon(
@@ -162,7 +260,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showGroupModal(context),
+        onPressed: () => _showGroupModal(context), // Abre vazio (Criação)
         backgroundColor: const Color(0xFF06B6D4),
         icon: const Icon(Icons.add, color: Colors.black),
         label: const Text(
@@ -185,7 +283,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         style: TextStyle(color: Colors.white),
         decoration: InputDecoration(
           icon: Icon(Icons.search, color: Color(0xFF06B6D4)),
-          hintText: "Buscar aluno por nome ou ID...",
+          hintText: "Buscar aluno...",
           hintStyle: TextStyle(color: Colors.white24, fontSize: 14),
           border: InputBorder.none,
         ),
@@ -212,13 +310,29 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
   }
 
   Widget _buildGroupsList() {
+    if (_turmas.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withOpacity(0.02)),
+        ),
+        child: const Text(
+          "Nenhuma turma ativa.",
+          style: TextStyle(color: Colors.white38),
+        ),
+      );
+    }
+
     return SizedBox(
       height: 140,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: groups.length,
+        itemCount: _turmas.length,
         itemBuilder: (context, index) {
-          final group = groups[index];
+          final group = _turmas[index];
           return GestureDetector(
             onLongPress: () => _showEditDeleteGroupOptions(context, group),
             child: Container(
@@ -241,7 +355,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          group['name'],
+                          group['nome'],
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -253,7 +367,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                         onPressed: () =>
                             _showEditDeleteGroupOptions(context, group),
                         icon: const Icon(
-                          Icons.edit_note,
+                          Icons.more_vert,
                           color: Colors.white24,
                           size: 20,
                         ),
@@ -263,7 +377,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                     ],
                   ),
                   Text(
-                    group['desc'],
+                    group['descricao'] ?? "",
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white38, fontSize: 11),
@@ -285,7 +399,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
-  // 👇 LISTA DE ALUNOS REAIS COM IDENTIFICAÇÃO DE ELITE VS ASSESSORIA 👇
   Widget _buildAllStudentsList() {
     if (_alunos.isEmpty) {
       return Container(
@@ -325,7 +438,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
             color: const Color(0xFF1A1A1A),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              // Destaca a borda se for Elite App
               color: isElite
                   ? Colors.amber.withOpacity(0.3)
                   : Colors.white.withOpacity(0.02),
@@ -339,18 +451,12 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                 style: const TextStyle(fontSize: 20),
               ),
             ),
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    aluno['nome'] ?? "Atleta",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            title: Text(
+              aluno['nome'] ?? "Atleta",
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             subtitle: Row(
               children: [
@@ -379,21 +485,18 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                       color: Colors.amber,
                       size: 20,
                     ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "Contrato Ativo: Atletas Elite não podem ser removidos durante os 30 dias de vigência.",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Atletas Elite não podem ser removidos durante a vigência.",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
                           ),
-                          backgroundColor: Colors.amber,
-                          duration: Duration(seconds: 3),
                         ),
-                      );
-                    },
+                        backgroundColor: Colors.amber,
+                      ),
+                    ),
                   )
                 : PopupMenuButton(
                     icon: const Icon(Icons.more_vert, color: Colors.white24),
@@ -412,13 +515,12 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                       ),
                     ],
                     onSelected: (val) {
-                      if (val == 'remove') {
+                      if (val == 'remove')
                         _confirmDelete(
                           context,
                           aluno['idVinculo'],
                           aluno['nome'],
                         );
-                      }
                     },
                   ),
           ),
@@ -427,12 +529,10 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
-  // DIÁLOGO PARA GERAR LINK DE CONVITE (Será real no futuro)
   void _showInviteLinkDialog(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final String coachCode =
         userProvider.usuarioLogado?.codigoAmizade ?? "ERROR";
-    final String inviteLink = "$coachCode";
 
     showDialog(
       context: context,
@@ -451,7 +551,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              "Seu aluno da vida real pode ingressar sem pagar a assinatura da Mentoria. Compartilhe seu código com ele:",
+              "Compartilhe seu código com seu aluno real:",
               style: TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const SizedBox(height: 20),
@@ -476,14 +576,14 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: inviteLink));
+              Clipboard.setData(ClipboardData(text: coachCode));
               Navigator.pop(context);
               ScaffoldMessenger.of(
                 context,
-              ).showSnackBar(const SnackBar(content: Text("Link copiado!")));
+              ).showSnackBar(const SnackBar(content: Text("Código copiado!")));
             },
             child: const Text(
-              "COPIAR LINK",
+              "COPIAR",
               style: TextStyle(
                 color: Color(0xFF06B6D4),
                 fontWeight: FontWeight.bold,
@@ -495,6 +595,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
+  // 👇 OPÇÕES DA TURMA: AGORA COM "EDITAR" 👇
   void _showEditDeleteGroupOptions(BuildContext context, Map group) {
     showModalBottomSheet(
       context: context,
@@ -507,13 +608,16 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.edit, color: Colors.white70),
-            title: Text(
-              "Editar ${group['name']}",
-              style: const TextStyle(color: Colors.white),
+            title: const Text(
+              "Editar Turma",
+              style: TextStyle(color: Colors.white),
             ),
             onTap: () {
               Navigator.pop(context);
-              _showGroupModal(context, existingGroup: group);
+              _showGroupModal(
+                context,
+                existingGroup: group,
+              ); // 👈 Abre o modal passando a turma!
             },
           ),
           ListTile(
@@ -524,7 +628,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
             ),
             onTap: () {
               Navigator.pop(context);
-              // Lógica de exclusão de turma no futuro
+              _excluirTurma(group['id']);
             },
           ),
           const SizedBox(height: 20),
@@ -533,7 +637,22 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
+  // 👇 MODAL DE CRIAÇÃO/EDIÇÃO INTELIGENTE 👇
   void _showGroupModal(BuildContext context, {Map? existingGroup}) {
+    // Se for edição, preenche com os dados da turma. Se não, limpa tudo.
+    if (existingGroup != null) {
+      _nomeTurmaController.text = existingGroup['nome'] ?? "";
+      _descTurmaController.text = existingGroup['descricao'] ?? "";
+    } else {
+      _nomeTurmaController.clear();
+      _descTurmaController.clear();
+    }
+
+    // Pega os IDs que vieram do banco (agora o Java manda!)
+    List<int> selecionados = existingGroup != null
+        ? List<int>.from(existingGroup['atletasIds'] ?? [])
+        : [];
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -541,62 +660,139 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          top: 24,
-          left: 24,
-          right: 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              existingGroup == null ? "NOVA TURMA" : "EDITAR TURMA",
-              style: const TextStyle(
-                color: Color(0xFF06B6D4),
-                fontWeight: FontWeight.bold,
+      builder: (context) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              top: 24,
+              left: 24,
+              right: 24,
+            ),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.8,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    existingGroup == null
+                        ? "NOVA TURMA"
+                        : "EDITAR TURMA", // 👈 Título Dinâmico
+                    style: const TextStyle(
+                      color: Color(0xFF06B6D4),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  _buildField(
+                    "Nome da Turma",
+                    "Ex: Velocistas 2026",
+                    _nomeTurmaController,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildField(
+                    "Descrição Específica",
+                    "Descreva o objetivo...",
+                    _descTurmaController,
+                  ),
+
+                  const SizedBox(height: 24),
+                  const Text(
+                    "ADICIONAR MEMBROS",
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: _alunos.isEmpty
+                          ? const Center(
+                              child: Text(
+                                "Sem alunos na assessoria.",
+                                style: TextStyle(color: Colors.white38),
+                              ),
+                            )
+                          : ListView.builder(
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: _alunos.length,
+                              itemBuilder: (context, index) {
+                                final aluno = _alunos[index];
+                                final int idAtleta = aluno['idAtleta'];
+
+                                return CheckboxListTile(
+                                  activeColor: const Color(0xFF06B6D4),
+                                  checkColor: Colors.black,
+                                  title: Text(
+                                    aluno['nome'],
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  value: selecionados.contains(
+                                    idAtleta,
+                                  ), // 👈 Se estiver na lista, já vem marcado!
+                                  onChanged: (bool? value) {
+                                    setModalState(() {
+                                      if (value == true) {
+                                        selecionados.add(idAtleta);
+                                      } else {
+                                        selecionados.remove(idAtleta);
+                                      }
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      // 👇 Envia o ID para o método saber que é PUT, se existir 👇
+                      onPressed: () => _salvarTurma(
+                        selecionados,
+                        idTurmaExistente: existingGroup?['id'],
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF06B6D4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        existingGroup == null
+                            ? "SINTETIZAR TURMA"
+                            : "SALVAR ALTERAÇÕES",
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-            _buildField("Nome da Turma", "Ex: Velocistas 2026"),
-            const SizedBox(height: 16),
-            _buildField(
-              "Descrição Específica",
-              "Descreva o objetivo científico desta turma...",
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF06B6D4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: Text(
-                  existingGroup == null
-                      ? "SINTETIZAR TURMA"
-                      : "SALVAR ALTERAÇÕES",
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 40),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  // 👇 DIALOG ATUALIZADO PARA EXCLUIR ALUNO REAL DO BANCO 👇
   void _confirmDelete(BuildContext context, int idVinculo, String targetName) {
     showDialog(
       context: context,
@@ -611,7 +807,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
           ),
         ),
         content: Text(
-          "Deseja realmente remover '$targetName' da sua assessoria? O vínculo de treinos será quebrado.",
+          "Deseja realmente remover '$targetName' da sua assessoria?",
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -625,7 +821,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _removerAluno(idVinculo, targetName); // Chama a exclusão real
+              _removerAluno(idVinculo, targetName);
             },
             child: const Text(
               "EXCLUIR",
@@ -640,7 +836,11 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
-  Widget _buildField(String label, String hint) {
+  Widget _buildField(
+    String label,
+    String hint,
+    TextEditingController controller,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -654,6 +854,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         ),
         const SizedBox(height: 8),
         TextField(
+          controller: controller,
           style: const TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: hint,

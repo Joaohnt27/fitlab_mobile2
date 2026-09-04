@@ -1,5 +1,11 @@
-import 'package:fitlab_mobile2/screens/challenge_history_screen.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
+import '../config/api_constants.dart';
+import '../utils/plan_permissions.dart';
+import 'challenge_history_screen.dart';
 
 class CreateChallengeScreen extends StatefulWidget {
   const CreateChallengeScreen({super.key});
@@ -9,13 +15,168 @@ class CreateChallengeScreen extends StatefulWidget {
 }
 
 class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
-  int _targetType = 1; // Default para Turma (mais comum em desafios)
-  String? _selectedTarget;
+  int _targetType = 1; // Default para Turma
+  String? _selectedTargetId;
   String _selectedMetric = "Quilometragem Total";
   DateTimeRange? _selectedDateRange;
+  double _xpRecompensa = 50;
+  bool _isPublico = false;
+  List<Map<String, dynamic>> _meusAlunos = [];
+  List<Map<String, dynamic>> _minhasTurmas = [];
+  bool _isLoading = true;
+
+  final TextEditingController _tituloController = TextEditingController();
+  final TextEditingController _objetivoController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarDados();
+  }
+
+  @override
+  void dispose() {
+    _tituloController.dispose();
+    _objetivoController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _carregarDados() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idCoach = userProvider.usuarioLogado?.id;
+    if (idCoach == null) return;
+
+    try {
+      final urlAlunos = Uri.parse(
+        '${ApiConstants.baseUrl}/mentorias/treinador/$idCoach/alunos',
+      );
+      final urlTurmas = Uri.parse(
+        '${ApiConstants.baseUrl}/turmas/treinador/$idCoach',
+      );
+
+      final responseAlunos = await http.get(urlAlunos);
+      final responseTurmas = await http.get(urlTurmas);
+
+      if (mounted) {
+        setState(() {
+          if (responseAlunos.statusCode == 200) {
+            _meusAlunos = List<Map<String, dynamic>>.from(
+              json
+                  .decode(utf8.decode(responseAlunos.bodyBytes))
+                  .map(
+                    (a) => {"id": a['idAtleta'].toString(), "nome": a['nome']},
+                  ),
+            );
+          }
+          if (responseTurmas.statusCode == 200) {
+            _minhasTurmas = List<Map<String, dynamic>>.from(
+              json
+                  .decode(utf8.decode(responseTurmas.bodyBytes))
+                  .map(
+                    (t) => {
+                      "id": t['id'].toString(),
+                      "nome": t['nome'],
+                      "count": t['count'],
+                    },
+                  ),
+            );
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao carregar dados: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _dispararDesafio() async {
+    if (!_isPublico && _selectedTargetId == null) {
+      _showError("Selecione o alvo ou marque o desafio como Público.");
+      return;
+    }
+    if (_tituloController.text.trim().isEmpty ||
+        _objetivoController.text.trim().isEmpty) {
+      _showError("Preencha título e objetivo do desafio.");
+      return;
+    }
+    if (_selectedDateRange == null) {
+      _showError("Defina o prazo do desafio.");
+      return;
+    }
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idTreinador = userProvider.usuarioLogado?.id;
+
+    final payload = {
+      "titulo": _tituloController.text.trim(),
+      "descricao": _objetivoController.text.trim(),
+      "metrica": _selectedMetric,
+      "recompensaXp": _xpRecompensa.toInt(),
+      "isPublico": _isPublico,
+      "dataInicio": _selectedDateRange!.start.toIso8601String(),
+      "dataFim": _selectedDateRange!.end.toIso8601String(),
+      "tipoAlvo": _isPublico
+          ? "PUBLICO"
+          : (_targetType == 0 ? "INDIVIDUAL" : "TURMA"),
+      "alvoId": _isPublico ? null : int.parse(_selectedTargetId!),
+    };
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+      ),
+    );
+
+    try {
+      final response = await http.post(
+        Uri.parse(
+          '${ApiConstants.baseUrl}/desafios/treinador/$idTreinador/criar',
+        ),
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(payload),
+      );
+
+      if (context.mounted) Navigator.pop(context);
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Experimento Coletivo Disparado! 🏆"),
+            backgroundColor: Color(0xFF06B6D4),
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        _showError("Erro: ${response.body}");
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      _showError("Falha de conexão com a API.");
+    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final planoObj = userProvider.usuarioLogado?.plano;
+    final permissions = PlanPermissions(planoObj?['nome'] ?? "START");
+
+    // Limite de XP dinâmico: Pro = 100, Elite = 200
+    final double maxXP = permissions.isElite ? 200.0 : 100.0;
+    if (_xpRecompensa > maxXP) _xpRecompensa = maxXP;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       appBar: AppBar(
@@ -37,14 +198,12 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.history_rounded, color: Color(0xFF06B6D4)),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ChallengeHistoryScreen(),
-                ),
-              );
-            },
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ChallengeHistoryScreen(),
+              ),
+            ),
           ),
           const SizedBox(width: 8),
         ],
@@ -55,16 +214,51 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionLabel("CANAL DE DISPARO"),
-            const SizedBox(height: 16),
-            _buildTypeSelector(),
-            const SizedBox(height: 20),
-            _buildTargetDropdown(),
+            if (permissions.canCreatePublicChallenges) ...[
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                ),
+                child: SwitchListTile(
+                  title: const Text(
+                    "Desafio Público Global",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    "Visível no Marketplace para atrair novos atletas.",
+                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                  activeColor: Colors.black,
+                  activeTrackColor: Colors.amber,
+                  value: _isPublico,
+                  onChanged: (val) => setState(() {
+                    _isPublico = val;
+                    if (val)
+                      _selectedTargetId = null; // Zera o alvo se ficar público
+                  }),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
 
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Divider(color: Colors.white10),
-            ),
+            if (!_isPublico) ...[
+              _buildSectionLabel("CANAL DE DISPARO"),
+              const SizedBox(height: 16),
+              _buildTypeSelector(),
+              const SizedBox(height: 20),
+              _buildTargetDropdown(),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Divider(color: Colors.white10),
+              ),
+            ],
 
             _buildSectionLabel("IDENTIFICAÇÃO DO EXPERIMENTO"),
             const SizedBox(height: 20),
@@ -72,6 +266,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
               "Título do Desafio",
               "Ex: Sprint de Outono",
               Icons.emoji_events_outlined,
+              controller: _tituloController,
             ),
             const SizedBox(height: 20),
             _buildInputField(
@@ -79,6 +274,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
               "Ex: Testar resistência em subida...",
               Icons.biotech_outlined,
               maxLines: 3,
+              controller: _objetivoController,
             ),
 
             const SizedBox(height: 32),
@@ -89,9 +285,80 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
             _buildDatePicker(context),
 
             const SizedBox(height: 32),
-            _buildSectionLabel("RECOMPENSA"),
+            _buildSectionLabel("RECOMPENSA DE EXPERIÊNCIA"),
             const SizedBox(height: 16),
-            _buildRewardCard(),
+
+            // SLIDER DE XP DINÂMICO 
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.05)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.stars_rounded, color: Color(0xFF06B6D4)),
+                          SizedBox(width: 8),
+                          Text(
+                            "XP Distribuído",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        "${_xpRecompensa.toInt()} XP",
+                        style: const TextStyle(
+                          color: Color(0xFF06B6D4),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Slider(
+                    value: _xpRecompensa,
+                    min: 10,
+                    max: maxXP, 
+                    divisions: (maxXP / 10).toInt() - 1,
+                    activeColor: const Color(0xFF06B6D4),
+                    inactiveColor: Colors.white10,
+                    label: "${_xpRecompensa.toInt()}",
+                    onChanged: (val) => setState(() => _xpRecompensa = val),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Min: 10 XP",
+                        style: TextStyle(color: Colors.white38, fontSize: 10),
+                      ),
+                      Text(
+                        permissions.isElite
+                            ? "Max: 200 XP (Elite)"
+                            : "Max: 100 XP (Pro)",
+                        style: TextStyle(
+                          color: permissions.isElite
+                              ? Colors.amber
+                              : const Color(0xFF06B6D4),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 48),
             _buildLaunchButton(),
@@ -130,7 +397,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
       child: GestureDetector(
         onTap: () => setState(() {
           _targetType = index;
-          _selectedTarget = null;
+          _selectedTargetId = null;
         }),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -170,40 +437,81 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   }
 
   Widget _buildTargetDropdown() {
-    List<String> items = _targetType == 0
-        ? ["Arthur Fontana", "João Henrique", "Maria Cobaia", "Todos os Alunos"]
-        : [
-            "Elite Sprint",
-            "Maratonistas Z2",
-            "Iniciantes Lab",
-            "Todas as Turmas",
-          ];
+    if (_isLoading)
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+      );
 
+    if (_targetType == 1) {
+      if (_minhasTurmas.isEmpty) return _buildEmptyBox("Nenhuma turma criada.");
+      return _renderDropdown(
+        items: _minhasTurmas
+            .map(
+              (t) => DropdownMenuItem<String>(
+                value: t["id"],
+                child: Text("${t["nome"]} (${t["count"]})"),
+              ),
+            )
+            .toList(),
+        hint: "Escolher Turma...",
+      );
+    }
+
+    if (_targetType == 0 && _meusAlunos.isEmpty)
+      return _buildEmptyBox("Nenhum aluno ativo.");
+    return _renderDropdown(
+      items: _meusAlunos
+          .map(
+            (aluno) => DropdownMenuItem<String>(
+              value: aluno["id"],
+              child: Text(aluno["nome"]),
+            ),
+          )
+          .toList(),
+      hint: "Escolher Aluno...",
+    );
+  }
+
+  Widget _buildEmptyBox(String text) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(text, style: const TextStyle(color: Colors.white38)),
+    );
+  }
+
+  Widget _renderDropdown({
+    required List<DropdownMenuItem<String>> items,
+    required String hint,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedTarget,
+          value: _selectedTargetId,
           hint: Text(
-            _targetType == 0 ? "Escolher Atleta..." : "Escolher Turma...",
+            hint,
             style: const TextStyle(color: Colors.white24, fontSize: 14),
           ),
           dropdownColor: const Color(0xFF1A1A1A),
           isExpanded: true,
           icon: const Icon(Icons.expand_more_rounded, color: Color(0xFF06B6D4)),
-          items: items
-              .map(
-                (m) => DropdownMenuItem(
-                  value: m,
-                  child: Text(m, style: const TextStyle(color: Colors.white)),
-                ),
-              )
-              .toList(),
-          onChanged: (val) => setState(() => _selectedTarget = val),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+          items: items,
+          onChanged: (val) => setState(() => _selectedTargetId = val),
         ),
       ),
     );
@@ -214,8 +522,10 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     String hint,
     IconData icon, {
     int maxLines = 1,
+    required TextEditingController controller,
   }) {
     return TextField(
+      controller: controller,
       maxLines: maxLines,
       style: const TextStyle(color: Colors.white, fontSize: 15),
       decoration: InputDecoration(
@@ -330,51 +640,6 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     );
   }
 
-  Widget _buildRewardCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.workspace_premium_rounded,
-            color: Color(0xFF06B6D4),
-            size: 30,
-          ),
-          const SizedBox(width: 16),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "RECOMPENSA DE MÉRITO",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
-                  "Badge exclusivo + 500 XP",
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: true,
-            onChanged: (v) {},
-            activeColor: const Color(0xFF06B6D4),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildLaunchButton() {
     return Container(
       width: double.infinity,
@@ -393,15 +658,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         ),
       ),
       child: ElevatedButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Experimento Coletivo Disparado!"),
-              backgroundColor: Color(0xFF06B6D4),
-            ),
-          );
-          Navigator.pop(context);
-        },
+        onPressed: _dispararDesafio,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,

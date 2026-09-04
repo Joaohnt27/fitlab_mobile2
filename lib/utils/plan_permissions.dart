@@ -18,6 +18,8 @@ class PlanPermissions {
 
   bool get canCreateChallenge => isPro || isElite;
 
+  bool get canCreatePublicChallenges => isElite;
+
   // Retorna a string visual do limite
   String get limitStudents {
     if (isStart) return "20";
