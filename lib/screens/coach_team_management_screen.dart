@@ -70,7 +70,7 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
     }
   }
 
-  // FUNÇÃO PARA DESVINCULAR STAFF 
+  // FUNÇÃO PARA DESVINCULAR STAFF
   Future<void> _desvincularStaff(int idStaff) async {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/equipes/staff/$idStaff');
@@ -88,13 +88,23 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
           );
         }
         _carregarEquipe();
+      } else {
+        debugPrint("Erro do back-end: ${response.body}");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.body),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint("Erro ao desvincular staff: $e");
     }
   }
 
-  // FUNÇÃO PARA SALVAR TRANSFERÊNCIA DE ALUNOS 
+  // FUNÇÃO PARA SALVAR TRANSFERÊNCIA DE ALUNOS
   Future<void> _transferirAlunos(int idStaff, List<int> vinculosIds) async {
     Navigator.pop(context); // Fecha o modal
     setState(() => _isLoading = true);
@@ -324,7 +334,7 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
     );
   }
 
-  // MODAL PARA ATRIBUIR ALUNOS AO STAFF 
+  // MODAL PARA ATRIBUIR ALUNOS AO STAFF
   void _showAssignStudentsModal(
     BuildContext context,
     int idStaff,
