@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-
 import '../providers/user_provider.dart';
 import '../config/api_constants.dart';
+import '../utils/plan_permissions.dart'; 
 import 'prescription_history_screen.dart';
+import 'subscription_screen.dart'; 
 
 class PrescribeTrainingScreen extends StatefulWidget {
   const PrescribeTrainingScreen({super.key});
@@ -21,6 +22,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
 
   List<Map<String, dynamic>> _meusAlunos = [];
   bool _isLoadingAlunos = true;
+  bool _isSavingTemplate = false;
 
   // Controladores dos campos de texto
   final TextEditingController _tituloController = TextEditingController();
@@ -70,10 +72,306 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     }
   }
 
-  // ENVIA O TREINO PARA O BACK-END
+  // SALVA O TEMPLATE NA BIBLIOTECA 
+  Future<void> _salvarComoTemplate() async {
+    if (_tituloController.text.trim().isEmpty ||
+        _volumeController.text.trim().isEmpty ||
+        _protocoloController.text.trim().isEmpty) {
+      _showError("Preencha todos os parâmetros técnicos para salvar o molde.");
+      return;
+    }
+
+    setState(() => _isSavingTemplate = true);
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idTreinador = userProvider.usuarioLogado?.id;
+
+    final payload = {
+      "titulo": _tituloController.text.trim(),
+      "volume": _volumeController.text.trim(),
+      "descricao": _protocoloController.text.trim(),
+      "treinadorId": idTreinador,
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConstants.baseUrl}/templates'),
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Template salvo na biblioteca! 📂"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        _showError("Erro ao salvar template: ${response.body}");
+      }
+    } catch (e) {
+      _showError("Falha de conexão com a biblioteca.");
+    } finally {
+      setState(() => _isSavingTemplate = false);
+    }
+  }
+
+  // ABRE A BIBLIOTECA DE TREINOS 
+  Future<void> _abrirBiblioteca() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idTreinador = userProvider.usuarioLogado?.id;
+    if (idTreinador == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
+      ),
+    );
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/templates/treinador/$idTreinador'),
+      );
+
+      if (context.mounted) Navigator.pop(context); // Fecha loading
+
+      if (response.statusCode == 200) {
+        final List<dynamic> templates = json.decode(
+          utf8.decode(response.bodyBytes),
+        );
+        _mostrarModalBiblioteca(templates);
+      } else {
+        _showError("Erro ao buscar biblioteca.");
+      }
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      _showError("Falha de conexão.");
+    }
+  }
+
+  // DELETA UM TEMPLATE DA BIBLIOTECA 
+  Future<void> _deletarTemplate(
+    int idTemplate,
+    StateSetter setModalState,
+    List<dynamic> templates,
+  ) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('${ApiConstants.baseUrl}/templates/$idTemplate'),
+      );
+      if (response.statusCode == 200) {
+        setModalState(() {
+          templates.removeWhere((t) => t['id'] == idTemplate);
+        });
+      }
+    } catch (e) {
+      debugPrint("Erro ao deletar: $e");
+    }
+  }
+
+  void _mostrarModalBiblioteca(List<dynamic> templates) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.only(top: 24, left: 24, right: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "BIBLIOTECA DE TREINOS",
+                    style: TextStyle(
+                      color: Color(0xFF06B6D4),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Selecione um molde salvo para autopreencher os campos.",
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 24),
+
+                  if (templates.isEmpty)
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          "Sua biblioteca está vazia.",
+                          style: TextStyle(color: Colors.white38),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: templates.length,
+                        itemBuilder: (context, index) {
+                          final t = templates[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              // A cor foi removida daqui!
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.05),
+                              ),
+                            ),
+                            clipBehavior: Clip
+                                .antiAlias, 
+                            child: Material(
+                              color:
+                                  Colors.black,
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                title: Text(
+                                  t['titulo'],
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  "Volume: ${t['volume']}",
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                onTap: () {
+                                  setState(() {
+                                    _tituloController.text = t['titulo'];
+                                    _volumeController.text = t['volume'];
+                                    _protocoloController.text = t['descricao'];
+                                  });
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text("Template carregado!"),
+                                      backgroundColor: Color(0xFF06B6D4),
+                                    ),
+                                  );
+                                },
+                                trailing: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _deletarTemplate(
+                                    t['id'],
+                                    setModalState,
+                                    templates,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // MODAL DE PAYWALL SE O TREINADOR FOR "START" 
+  void _mostrarPaywallBiblioteca() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.folder_off_outlined,
+              color: Colors.amber,
+              size: 56,
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              "FUNCIONALIDADE FECHADA",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "A Biblioteca de Treinos é uma ferramenta exclusiva dos planos PRO e ELITE para escalar o seu negócio.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SubscriptionScreen(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  "CONHECER PLANOS",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ENVIA O TREINO PARA O BACK-END
   Future<void> _dispararProtocolo() async {
-    // 1. Validações Básicas
     if (_selectedTargetId == null && _targetType == 0) {
       _showError("Selecione um aluno alvo.");
       return;
@@ -90,19 +388,15 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idTreinador = userProvider.usuarioLogado?.id;
 
-    // 2. Construindo o Payload para casar com o DTO do Java
     final payload = {
       "treinadorId": idTreinador,
-      "alvoId": int.parse(
-        _selectedTargetId!,
-      ), // Converte a String do Dropdown para int
+      "alvoId": int.parse(_selectedTargetId!),
       "tipoAlvo": _targetType == 0 ? "INDIVIDUAL" : "TURMA",
       "titulo": _tituloController.text.trim(),
       "volume": _volumeController.text.trim(),
       "descricao": _protocoloController.text.trim(),
     };
 
-    // Abre o loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -111,7 +405,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       ),
     );
 
-    // 3. Disparo HTTP para o Spring Boot
     final url = Uri.parse('${ApiConstants.baseUrl}/treinos/prescrever');
 
     try {
@@ -121,12 +414,10 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
         body: json.encode(payload),
       );
 
-      if (context.mounted) Navigator.pop(context); // Fecha o loading
+      if (context.mounted) Navigator.pop(context);
 
       if (response.statusCode == 200) {
         _showSuccessFeedback();
-
-        // Volta para o Dashboard após 2 segundos
         Future.delayed(const Duration(seconds: 2), () {
           if (context.mounted) Navigator.pop(context);
         });
@@ -174,6 +465,11 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // CARREGA O PLANO PARA A FEATURE FLAG 
+    final userProvider = Provider.of<UserProvider>(context);
+    final planoObj = userProvider.usuarioLogado?.plano;
+    final permissions = PlanPermissions(planoObj?['nome'] ?? "START");
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       appBar: AppBar(
@@ -236,8 +532,51 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
               child: Divider(color: Colors.white10, thickness: 1),
             ),
 
-            _buildLabel("PARÂMETROS TÉCNICOS"),
+            // CABEÇALHO COM BOTÃO DE IMPORTAR 
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildLabel("PARÂMETROS TÉCNICOS"),
+                InkWell(
+                  onTap: permissions.canUseLibrary
+                      ? _abrirBiblioteca
+                      : _mostrarPaywallBiblioteca,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          permissions.canUseLibrary
+                              ? Icons.folder_open_rounded
+                              : Icons.lock_outline,
+                          color: permissions.canUseLibrary
+                              ? const Color(0xFF06B6D4)
+                              : Colors.amber,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "IMPORTAR",
+                          style: TextStyle(
+                            color: permissions.canUseLibrary
+                                ? const Color(0xFF06B6D4)
+                                : Colors.amber,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 20),
+
             _buildInputField(
               "Identificação do Treino",
               "Ex: Sprint de Explosão",
@@ -262,6 +601,54 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
 
             const SizedBox(height: 48),
             _buildSubmitButton(),
+
+            // BOTÃO SECUNDÁRIO PARA SALVAR NA BIBLIOTECA 
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: OutlinedButton.icon(
+                onPressed: _isSavingTemplate
+                    ? null
+                    : (permissions.canUseLibrary
+                          ? _salvarComoTemplate
+                          : _mostrarPaywallBiblioteca),
+                icon: _isSavingTemplate
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white54,
+                        ),
+                      )
+                    : Icon(
+                        permissions.canUseLibrary
+                            ? Icons.bookmark_add_outlined
+                            : Icons.lock_outline,
+                        size: 18,
+                      ),
+                label: Text(
+                  permissions.canUseLibrary
+                      ? "SALVAR COMO TEMPLATE"
+                      : "BIBLIOTECA BLOQUEADA",
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: permissions.canUseLibrary
+                      ? Colors.white54
+                      : Colors.amber,
+                  side: BorderSide(
+                    color: permissions.canUseLibrary
+                        ? Colors.white10
+                        : Colors.amber.withOpacity(0.5),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ),
+
             const SizedBox(height: 40),
           ],
         ),
@@ -297,8 +684,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       child: GestureDetector(
         onTap: () => setState(() {
           _targetType = index;
-          _selectedTargetId =
-              null; // Reseta o aluno selecionado ao trocar de aba
+          _selectedTargetId = null;
         }),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
@@ -346,7 +732,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       );
     }
 
-    // Se for Turma (Mockado por enquanto)
     if (_targetType == 1) {
       List<String> turmas = [
         "Elite Sprint",
@@ -362,7 +747,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       );
     }
 
-    // Se for Atleta Individual e não tiver nenhum aluno
     if (_targetType == 0 && _meusAlunos.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -377,7 +761,6 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
       );
     }
 
-    // Dropdown Real puxando da API
     return _renderDropdown(
       items: _meusAlunos.map((aluno) {
         return DropdownMenuItem<String>(

@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-
 import 'package:fitlab_mobile2/providers/user_provider.dart';
 import 'package:fitlab_mobile2/config/api_constants.dart';
+import 'package:fitlab_mobile2/utils/plan_permissions.dart'; 
 import 'package:fitlab_mobile2/screens/chat_central_screen.dart';
 import 'package:fitlab_mobile2/screens/coach_ai_training_screen.dart';
 import 'package:fitlab_mobile2/screens/coach_team_management_screen.dart';
@@ -22,7 +22,7 @@ class CoachDashboard extends StatefulWidget {
 
 class _CoachDashboardState extends State<CoachDashboard> {
   double _ratingCoach = 5.0;
-  int _alunosAtivos = 0; // 👇 NOVA VARIÁVEL PARA O CARD
+  int _alunosAtivos = 0;
   List<dynamic> _solicitacoesPendentes = [];
   bool _isLoading = false;
 
@@ -32,7 +32,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
     _carregarDadosDashboard();
   }
 
-  // 👇 BUSCA PENDENTES E A QUANTIDADE DE ALUNOS REAIS 👇
   Future<void> _carregarDadosDashboard() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idCoach = userProvider.usuarioLogado?.id;
@@ -59,7 +58,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
         }
 
         if (responseContagem.statusCode == 200) {
-          // Atualiza a quantidade real de alunos que veio do Java!
           _alunosAtivos = int.tryParse(responseContagem.body) ?? 0;
         }
 
@@ -103,7 +101,7 @@ class _CoachDashboardState extends State<CoachDashboard> {
           await userProvider.recarregarUsuario();
         }
 
-        _carregarDadosDashboard(); // Recarrega a lista e a quantidade de alunos
+        _carregarDadosDashboard();
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -123,18 +121,10 @@ class _CoachDashboardState extends State<CoachDashboard> {
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
     final planoObj = userProvider.usuarioLogado?.plano;
-    final String nomePlanoAtual = planoObj?['nome'] ?? "Coach Start";
-    final bool canUseIA =
-        nomePlanoAtual == 'Coach Pro' || nomePlanoAtual == 'Coach Elite';
-    final bool isElite = nomePlanoAtual == 'Coach Elite';
-
-    // 👇 Resgata o status do usuário (Treinador) atual 👇
+    final String nomePlanoAtual = planoObj?['nome'] ?? "START";
+    final permissions = PlanPermissions(nomePlanoAtual);
     final String statusCref =
         userProvider.usuarioLogado?.statusCref ?? "SEM_CREF";
-
-    final String limiteAlunos = nomePlanoAtual == 'Coach Start'
-        ? "20"
-        : (nomePlanoAtual == 'Coach Pro' ? "60" : "∞");
 
     if (_isLoading) {
       return const Center(
@@ -142,12 +132,10 @@ class _CoachDashboardState extends State<CoachDashboard> {
       );
     }
 
-    // 👇 ADICIONADO REFRESH INDICATOR E SCROLL VIEW 👇
     return RefreshIndicator(
       color: const Color(0xFF06B6D4),
       backgroundColor: const Color(0xFF1A1A1A),
       onRefresh: () async {
-        // Recarrega o perfil do treinador e os dados do dashboard ao puxar a tela
         await Provider.of<UserProvider>(
           context,
           listen: false,
@@ -160,7 +148,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 👇 PLANO, BADGE DO CREF E RATING AQUI 👇
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -168,7 +155,7 @@ class _CoachDashboardState extends State<CoachDashboard> {
                   children: [
                     _buildCoachPlanBadge(nomePlanoAtual.toUpperCase()),
                     const SizedBox(width: 8),
-                    _buildCrefBadge(statusCref), // Utiliza a nova função visual
+                    _buildCrefBadge(statusCref),
                   ],
                 ),
                 _buildRatingBadge(_ratingCoach),
@@ -180,8 +167,8 @@ class _CoachDashboardState extends State<CoachDashboard> {
               children: [
                 _StatMiniCard(
                   label: "ALUNOS ATIVOS",
-                  // 👇 AGORA EXIBE A VARIÁVEL REAL QUE VEIO DO BANCO 👇
-                  value: "$_alunosAtivos/$limiteAlunos",
+                  value:
+                      "$_alunosAtivos/${permissions.limitStudents}", // Limite dinâmico
                   color: Colors.greenAccent,
                   icon: Icons.people_alt_rounded,
                 ),
@@ -220,7 +207,7 @@ class _CoachDashboardState extends State<CoachDashboard> {
               ),
             ),
             const SizedBox(height: 8),
-            _buildQuickActionsGrid(context, canUseIA, isElite),
+            _buildQuickActionsGrid(context, permissions),
 
             const SizedBox(height: 24),
 
@@ -228,7 +215,7 @@ class _CoachDashboardState extends State<CoachDashboard> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _DashboardSectionHeader(
-                  title: isElite
+                  title: permissions.isElite
                       ? "RANKING DE EQUIPES"
                       : "RANKING DE PRODUTIVIDADE",
                   subtitle: "Líderes de volume e frequência",
@@ -314,7 +301,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
           ],
         ),
@@ -323,7 +309,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
   }
 
   // --- WIDGETS AUXILIARES ---
-
   Widget _buildCoachPlanBadge(String planName) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -381,7 +366,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
     );
   }
 
-  // 👇 Mapeia a string do status para o selo correspondente 👇
   Widget _buildCrefBadge(String status) {
     Color color;
     IconData icon;
@@ -502,8 +486,7 @@ class _CoachDashboardState extends State<CoachDashboard> {
 
   Widget _buildQuickActionsGrid(
     BuildContext context,
-    bool canUseIA,
-    bool isElite,
+    PlanPermissions permissions,
   ) {
     return GridView.count(
       shrinkWrap: true,
@@ -530,14 +513,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
             ),
           );
         }),
-        _buildActionCard(Icons.emoji_events_rounded, "Criar Desafio", () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreateChallengeScreen(),
-            ),
-          );
-        }),
         _buildActionCard(Icons.forum_rounded, "Central de Chat", () {
           Navigator.push(
             context,
@@ -545,9 +520,25 @@ class _CoachDashboardState extends State<CoachDashboard> {
           );
         }),
         _buildActionCard(
+          Icons.emoji_events_rounded,
+          "Criar Desafio",
+          permissions.canCreateChallenge
+              ? () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CreateChallengeScreen(),
+                    ),
+                  );
+                }
+              : null,
+          isLocked: !permissions.canCreateChallenge,
+        ),
+        // IA Bloqueada para START 
+        _buildActionCard(
           Icons.psychology_rounded,
           "IA de Treino",
-          canUseIA
+          permissions.canUseAI
               ? () {
                   Navigator.push(
                     context,
@@ -557,9 +548,10 @@ class _CoachDashboardState extends State<CoachDashboard> {
                   );
                 }
               : null,
-          isLocked: !canUseIA,
+          isLocked: !permissions.canUseAI,
         ),
-        if (isElite)
+        // Gestão de Equipe liberada SÓ para ELITE
+        if (permissions.canManageTeam)
           _buildActionCard(
             Icons.manage_accounts_rounded,
             "Gestão de Equipe",
