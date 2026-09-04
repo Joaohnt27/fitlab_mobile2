@@ -6,6 +6,7 @@ import 'dart:convert';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../config/api_constants.dart';
+import 'package:fitlab_mobile2/screens/register_staff_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -496,6 +497,32 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterStaffScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.shield_outlined,
+                    color: Colors.amber,
+                    size: 16,
+                  ),
+                  label: const Text(
+                    "Fui convidado por uma Assessoria",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+
                 SizedBox(height: screenHeight * 0.05),
               ],
             ),
