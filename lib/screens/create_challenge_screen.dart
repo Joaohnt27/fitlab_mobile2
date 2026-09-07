@@ -17,7 +17,7 @@ class CreateChallengeScreen extends StatefulWidget {
 class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   int _targetType = 1; // Default para Turma
   String? _selectedTargetId;
-  String _selectedMetric = "Quilometragem Total";
+  String _selectedMetric = "Corrida";
   DateTimeRange? _selectedDateRange;
   double _xpRecompensa = 50;
   bool _isPublico = false;
@@ -598,13 +598,11 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
 
   Widget _buildMetricSelector() {
     final metrics = [
-      "Quilometragem Total",
-      "Maior Velocidade",
-      "Consistência (Dias)",
-      "Melhor Pace Médio",
+      "Corrida",
+      "Caminhada",
     ];
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(20),

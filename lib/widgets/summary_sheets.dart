@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart'; // 👇 NOVO PACOTE AQUI 👇
 import '../providers/user_provider.dart';
 import '../config/api_constants.dart';
 
@@ -57,6 +58,34 @@ class _SummarySheetState extends State<SummarySheet>
     super.dispose();
   }
 
+  // 👇 Função para Gerar o Texto de Compartilhamento Externo 👇
+  String _gerarTextoCompartilhamento() {
+    final minutos = widget.duration ~/ 60;
+    final segundos = widget.duration % 60;
+    final tempoFormatado =
+        '${minutos.toString().padLeft(2, '0')}:${segundos.toString().padLeft(2, '0')}';
+    final nomeAtividade = widget.tipoAtividade.toLowerCase();
+    final iconeAtividade = nomeAtividade == "corrida" ? "🏃‍♂️" : "🚶‍♂️";
+
+    return """
+🧪 Experimento FitLab Concluído! 🧪
+$iconeAtividade Acabei de bater ${widget.distance.toStringAsFixed(2)} km de $nomeAtividade!
+
+⏱️ Tempo: $tempoFormatado
+⚡ Pace: ${widget.pace}/km
+📈 Ganhei +${widget.xp} XP no meu perfil.
+
+Baixe o FitLab e venha pro laboratório também! 🧬
+""";
+  }
+
+  // 👇 Compartilhar via Share Plus (WhatsApp, Insta, etc) 👇
+  void _compartilharExterno() {
+    Navigator.pop(context); // Fecha a BottomSheet
+    final texto = _gerarTextoCompartilhamento();
+    Share.share(texto);
+  }
+
   Future<void> _postarNoFeed(BuildContext context) async {
     setState(() => _isPosting = true);
 
@@ -78,8 +107,8 @@ class _SummarySheetState extends State<SummarySheet>
     final tempoFormatado =
         '${minutos.toString().padLeft(2, '0')}:${segundos.toString().padLeft(2, '0')}';
 
-    final String nomeAtividade = widget.tipoAtividade.toLowerCase(); 
-    final String iconeAtividade = nomeAtividade == "corrida" ? "🏃‍♂️" : "🚶‍♂️"; 
+    final String nomeAtividade = widget.tipoAtividade.toLowerCase();
+    final String iconeAtividade = nomeAtividade == "corrida" ? "🏃‍♂️" : "🚶‍♂️";
 
     final payload = {
       "titulo":
@@ -106,15 +135,13 @@ class _SummarySheetState extends State<SummarySheet>
             backgroundColor: Color(0xFF06B6D4),
           ),
         );
-      } else if (response.statusCode == 400) {
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response.body),
+            content: Text("Erro ao publicar: ${response.statusCode}"),
             backgroundColor: Colors.orange,
           ),
         );
-      } else {
-        throw Exception("Erro no servidor");
       }
     } catch (e) {
       debugPrint("Erro ao postar: $e");
@@ -134,58 +161,96 @@ class _SummarySheetState extends State<SummarySheet>
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
+          padding: const EdgeInsets.only(bottom: 32, top: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Tracinho no topo do Modal
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
               const Text(
                 "COMPARTILHAR RESULTADO",
                 style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 20),
-              ListTile(
-                leading: const Icon(
-                  Icons.dynamic_feed_rounded,
                   color: Color(0xFF06B6D4),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
                 ),
-                title: const Text(
-                  "Postar no Feed FitLab",
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: _isPosting ? null : () => _postarNoFeed(context),
               ),
-              ListTile(
-                leading: Icon(Icons.message, color: const Color(0xFF25D366)),
-                title: const Text(
-                  "Enviar via WhatsApp",
-                  style: TextStyle(color: Colors.white),
+              const SizedBox(height: 24),
+              
+              // 👇 NOVO VISUAL DOS BOTÕES 👇
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    // Botão FEED
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _isPosting ? null : () => _postarNoFeed(context),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF06B6D4).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: const Color(0xFF06B6D4).withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            children: const [
+                              Icon(Icons.dynamic_feed_rounded,
+                                  color: Color(0xFF06B6D4), size: 32),
+                              SizedBox(height: 12),
+                              Text("FitLab Feed",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Botão OUTROS APPS (Usa o Share Plus)
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _compartilharExterno,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.1)),
+                          ),
+                          child: Column(
+                            children: const [
+                              Icon(Icons.ios_share_rounded,
+                                  color: Colors.white, size: 32),
+                              SizedBox(height: 12),
+                              Text("Outros Apps",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                },
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.camera_alt_outlined,
-                  color: Color(0xFFE4405F),
-                ),
-                title: const Text(
-                  "Stories do Instagram",
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-              const SizedBox(height: 20),
             ],
           ),
         );
@@ -193,7 +258,6 @@ class _SummarySheetState extends State<SummarySheet>
     );
   }
 
-  // 👇 FILTRO DE CORES DARK MODE QUE VAMOS REUTILIZAR 👇
   Widget _buildDarkTileLayer() {
     return TileLayer(
       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -226,7 +290,6 @@ class _SummarySheetState extends State<SummarySheet>
       ),
       child: Stack(
         children: [
-          // 1. Mapa de Fundo Gigante
           Positioned.fill(
             child: Opacity(
               opacity: 0.15,
@@ -239,12 +302,11 @@ class _SummarySheetState extends State<SummarySheet>
                   ),
                 ),
                 children: [
-                  _buildDarkTileLayer(), 
+                  _buildDarkTileLayer(),
                 ],
               ),
             ),
           ),
-
           Column(
             children: [
               const SizedBox(height: 12),
@@ -277,10 +339,7 @@ class _SummarySheetState extends State<SummarySheet>
                 "Sua biometria evoluiu no Lab.",
                 style: TextStyle(color: Colors.white70, fontSize: 13),
               ),
-
               const Spacer(),
-
-              // 2. Mini mapa centralizado
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Container(
@@ -301,7 +360,7 @@ class _SummarySheetState extends State<SummarySheet>
                         ),
                       ),
                       children: [
-                        _buildDarkTileLayer(), 
+                        _buildDarkTileLayer(),
                         if (widget.route.isNotEmpty)
                           PolylineLayer(
                             polylines: [
@@ -317,10 +376,7 @@ class _SummarySheetState extends State<SummarySheet>
                   ),
                 ),
               ),
-
               const Spacer(),
-
-              // 3. Grid de Estatísticas
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Row(
@@ -335,10 +391,7 @@ class _SummarySheetState extends State<SummarySheet>
                   ],
                 ),
               ),
-
               const Spacer(),
-
-              // Botões Finais
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Row(
@@ -371,7 +424,7 @@ class _SummarySheetState extends State<SummarySheet>
                         child: const Text(
                           "FECHAR",
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Colors.black, // 👇 Ajustei para contraste
                             fontWeight: FontWeight.bold,
                           ),
                         ),

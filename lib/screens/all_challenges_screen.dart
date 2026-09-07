@@ -19,11 +19,13 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
 
     try {
+      debugPrint("📡 Buscando desafios para o usuário ID: $idUsuario");
+      
       final resGlobais = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/desafios'),
+        Uri.parse('${ApiConstants.baseUrl}/desafios/feed/$idUsuario'),
       );
       final resAtivos = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/desafios'),
+        Uri.parse('${ApiConstants.baseUrl}/feed/inscricoes-ativas/$idUsuario'),
       );
       final resBadges = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/badges'),
@@ -33,12 +35,21 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
       List<dynamic> ativos = [];
       List<dynamic> badges = [];
 
-      if (resGlobais.statusCode == 200)
+      if (resGlobais.statusCode == 200) {
         globais = json.decode(utf8.decode(resGlobais.bodyBytes));
-      if (resAtivos.statusCode == 200)
+        debugPrint("🔥 DESAFIOS NO FEED RECEBIDOS: ${globais.length}");
+      } else {
+        debugPrint("❌ ERRO API GLOBAIS: ${resGlobais.statusCode} - ${resGlobais.body}");
+      }
+      
+      if (resAtivos.statusCode == 200) {
         ativos = json.decode(utf8.decode(resAtivos.bodyBytes));
-      if (resBadges.statusCode == 200)
+        debugPrint("🏃 ATIVOS RECEBIDOS: ${ativos.length}");
+      }
+      
+      if (resBadges.statusCode == 200) {
         badges = json.decode(utf8.decode(resBadges.bodyBytes));
+      }
 
       List<Map<String, dynamic>> mappedList = [];
 
@@ -46,7 +57,6 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
         final id = desafio['id'];
         final nomeBadgeExclusiva = desafio['badgeExclusiva']?.toString().trim();
 
-        // 1. Verifica se já concluiu (Tem a insígnia)
         bool isConcluido = badges.any(
           (b) =>
               b['unlocked'] == true &&
@@ -54,7 +64,6 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
               b['name'].toString().trim() == nomeBadgeExclusiva,
         );
 
-        // 2. Verifica se está em andamento
         var ativoData = ativos.firstWhere(
           (a) =>
               (a['id'] == id ||
@@ -64,29 +73,24 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
 
         bool isEmAndamento = ativoData != null;
         double progress = 0.0;
-        double total = (desafio['objetivoKm'] ?? desafio['total'] ?? 1)
-            .toDouble();
+        double total = (desafio['objetivoKm'] ?? desafio['total'] ?? 1).toDouble();
 
         if (isConcluido) {
-          progress = total; // Força 100% se já fechou
+          progress = total;
         } else if (isEmAndamento) {
-          progress = (ativoData['progressoAtual'] ?? ativoData['progress'] ?? 0)
-              .toDouble();
+          progress = (ativoData['progressoAtual'] ?? ativoData['progress'] ?? 0).toDouble();
         }
 
-        // Mapeando um emoji legal baseado no ícone do banco de dados
         String iconeVisual = "🏆";
         if (desafio['imagem'] == 'bolt') iconeVisual = "⚡";
         if (desafio['imagem'] == 'nightlight_round') iconeVisual = "🌃";
         if (desafio['imagem'] == 'map') iconeVisual = "🗺️";
 
         mappedList.add({
-          "rawData":
-              desafio, // Guarda o dado original para passar pra próxima tela
+          "rawData": desafio,
           "title": desafio['titulo'] ?? desafio['title'] ?? 'Desafio',
           "theme": desafio['modalidadeAlvo'] ?? 'Laboratório',
-          "desc":
-              desafio['descricao'] ?? desafio['desc'] ?? 'Supere seus limites',
+          "desc": desafio['descricao'] ?? desafio['desc'] ?? 'Supere seus limites',
           "icon": iconeVisual,
           "progress": progress,
           "total": total,
@@ -94,9 +98,12 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
           "isEmAndamento": isEmAndamento,
         });
       }
+      
+      debugPrint("✅ DESAFIOS MAPEADOS E PRONTOS PRA TELA: ${mappedList.length}");
       return mappedList;
+      
     } catch (e) {
-      debugPrint("Erro ao carregar desafios: $e");
+      debugPrint("❌ CRASH AO CARREGAR DESAFIOS: $e");
       return [];
     }
   }
