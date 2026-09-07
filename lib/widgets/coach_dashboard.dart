@@ -24,6 +24,8 @@ class _CoachDashboardState extends State<CoachDashboard> {
   double _ratingCoach = 5.0;
   int _alunosAtivos = 0;
   List<dynamic> _solicitacoesPendentes = [];
+  List<dynamic> _topAlunos = []; // Nova lista para o Ranking
+  List<dynamic> _meusDesafios = []; // Nova lista para os Desafios
   bool _isLoading = false;
 
   @override
@@ -46,19 +48,37 @@ class _CoachDashboardState extends State<CoachDashboard> {
       final urlContagem = Uri.parse(
         '${ApiConstants.baseUrl}/mentorias/treinador/$idCoach/alunos/count',
       );
+      // 👇 NOVAS ROTAS (Crie essas rotas no seu Spring Boot!) 👇
+      final urlRanking = Uri.parse(
+        '${ApiConstants.baseUrl}/gamificacao/treinador/$idCoach/ranking-alunos/top10',
+      );
+      final urlDesafios = Uri.parse(
+        '${ApiConstants.baseUrl}/desafios/treinador/$idCoach',
+      );
 
-      final responsePendentes = await http.get(urlPendentes);
-      final responseContagem = await http.get(urlContagem);
+      // Usando Future.wait para executar todas as chamadas em paralelo
+      final responses = await Future.wait([
+        http.get(urlPendentes),
+        http.get(urlContagem),
+        http.get(urlRanking),
+        http.get(urlDesafios),
+      ]);
 
       setState(() {
-        if (responsePendentes.statusCode == 200) {
-          _solicitacoesPendentes = json.decode(
-            utf8.decode(responsePendentes.bodyBytes),
-          );
+        if (responses[0].statusCode == 200) {
+          _solicitacoesPendentes = json.decode(utf8.decode(responses[0].bodyBytes));
         }
 
-        if (responseContagem.statusCode == 200) {
-          _alunosAtivos = int.tryParse(responseContagem.body) ?? 0;
+        if (responses[1].statusCode == 200) {
+          _alunosAtivos = int.tryParse(responses[1].body) ?? 0;
+        }
+
+        if (responses[2].statusCode == 200) {
+          _topAlunos = json.decode(utf8.decode(responses[2].bodyBytes));
+        }
+
+        if (responses[3].statusCode == 200) {
+          _meusDesafios = json.decode(utf8.decode(responses[3].bodyBytes));
         }
 
         _isLoading = false;
@@ -144,7 +164,7 @@ class _CoachDashboardState extends State<CoachDashboard> {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 40),
+        padding: const EdgeInsets.only(bottom: 40, left: 24, right: 24, top: 24), // Adicionado padding global
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -168,7 +188,7 @@ class _CoachDashboardState extends State<CoachDashboard> {
                 _StatMiniCard(
                   label: "ALUNOS ATIVOS",
                   value:
-                      "$_alunosAtivos/${permissions.limitStudents}", // Limite dinâmico
+                      "$_alunosAtivos/${permissions.limitStudents}",
                   color: Colors.greenAccent,
                   icon: Icons.people_alt_rounded,
                 ),
@@ -211,44 +231,19 @@ class _CoachDashboardState extends State<CoachDashboard> {
 
             const SizedBox(height: 24),
 
+            // 👇 Seção de Ranking Atualizada 👇
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _DashboardSectionHeader(
-                  title: permissions.isElite
-                      ? "RANKING DE EQUIPES"
-                      : "RANKING DE PRODUTIVIDADE",
-                  subtitle: "Líderes de volume e frequência",
+                const _DashboardSectionHeader(
+                  title: "RANKING DE ALUNOS",
+                  subtitle: "Top 10 por volume de treinos",
                 ),
                 _buildBadgeCounter("MÊS ATUAL", Icons.calendar_today_rounded),
               ],
             ),
-
             const SizedBox(height: 12),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.02)),
-              ),
-              child: const Column(
-                children: [
-                  Icon(
-                    Icons.emoji_events_outlined,
-                    color: Colors.white24,
-                    size: 48,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    "Nenhum aluno cadastrado para ranquear",
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
+            _buildRankingList(),
 
             const SizedBox(height: 12),
 
@@ -276,35 +271,193 @@ class _CoachDashboardState extends State<CoachDashboard> {
 
             const SizedBox(height: 24),
 
+            // 👇 Seção de Desafios Atualizada 👇
             const _DashboardSectionHeader(
               title: "MEUS DESAFIOS ATIVOS",
               subtitle: "Gestão de engajamento",
             ),
             const SizedBox(height: 12),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.02)),
-              ),
-              child: const Column(
-                children: [
-                  Icon(Icons.flag_outlined, color: Colors.white24, size: 32),
-                  SizedBox(height: 12),
-                  Text(
-                    "Nenhum desafio ativo no momento",
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
+            _buildDesafiosList(),
+            
             const SizedBox(height: 20),
           ],
         ),
       ),
+    );
+  }
+
+  // --- NOVOS WIDGETS DE LISTAGEM ---
+
+  Widget _buildRankingList() {
+    if (_topAlunos.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.02)),
+        ),
+        child: const Column(
+          children: [
+            Icon(
+              Icons.emoji_events_outlined,
+              color: Colors.white24,
+              size: 48,
+            ),
+            SizedBox(height: 16),
+            Text(
+              "Nenhum aluno com treinos registrados ainda.",
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _topAlunos.length > 10 ? 10 : _topAlunos.length, // Limita a 10
+        separatorBuilder: (context, index) => Divider(color: Colors.white.withOpacity(0.05), height: 1),
+        itemBuilder: (context, index) {
+          final aluno = _topAlunos[index];
+          // Lógica simples para cores do pódio
+          Color positionColor = Colors.white54;
+          if (index == 0) positionColor = Colors.amber;
+          if (index == 1) positionColor = Colors.grey[400]!;
+          if (index == 2) positionColor = Colors.brown[300]!;
+
+          return ListTile(
+            leading: CircleAvatar(
+              backgroundColor: positionColor.withOpacity(0.2),
+              child: Text(
+                "#${index + 1}",
+                style: TextStyle(color: positionColor, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
+            title: Text(
+              aluno['nome'] ?? 'Atleta',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  "${aluno['totalTreinos'] ?? 0}",
+                  style: const TextStyle(color: Color(0xFF06B6D4), fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const Text(
+                  "treinos",
+                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDesafiosList() {
+    if (_meusDesafios.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.02)),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.flag_outlined, color: Colors.white24, size: 32),
+            SizedBox(height: 12),
+            Text(
+              "Nenhum desafio ativo no momento",
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _meusDesafios.length,
+      itemBuilder: (context, index) {
+        final desafio = _meusDesafios[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.2)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF1A1A1A),
+                const Color(0xFF06B6D4).withOpacity(0.05),
+              ],
+            )
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF06B6D4).withOpacity(0.5))
+                ),
+                child: const Icon(Icons.emoji_events_rounded, color: Colors.amber, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      desafio['nome'] ?? 'Desafio',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      desafio['descricao'] ?? 'Descrição do desafio',
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    // Opcional: mostrar progresso ou quantidade de inscritos
+                    Row(
+                      children: [
+                        const Icon(Icons.group, color: Color(0xFF06B6D4), size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          "${desafio['qtdInscritos'] ?? 0} atletas",
+                          style: const TextStyle(color: Color(0xFF06B6D4), fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Colors.white38),
+            ],
+          ),
+        );
+      },
     );
   }
 

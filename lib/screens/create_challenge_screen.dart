@@ -27,6 +27,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
 
   final TextEditingController _tituloController = TextEditingController();
   final TextEditingController _objetivoController = TextEditingController();
+  final TextEditingController _metaKmController = TextEditingController(); // Novo controller para KM
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   void dispose() {
     _tituloController.dispose();
     _objetivoController.dispose();
+    _metaKmController.dispose(); // Descartando o novo controller
     super.dispose();
   }
 
@@ -91,6 +93,17 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   }
 
   Future<void> _dispararDesafio() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final planoObj = userProvider.usuarioLogado?.plano;
+    final permissions = PlanPermissions(planoObj?['nome'] ?? "START");
+    final idTreinador = userProvider.usuarioLogado?.id;
+
+    // 👇 TRAVA DE SEGURANÇA 1: Impede o envio se o Pro tiver burlado a interface
+    if (_isPublico && !permissions.isElite) {
+      _showError("PAYWALL: Apenas treinadores ELITE podem lançar Desafios Públicos.");
+      return;
+    }
+
     if (!_isPublico && _selectedTargetId == null) {
       _showError("Selecione o alvo ou marque o desafio como Público.");
       return;
@@ -100,18 +113,20 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
       _showError("Preencha título e objetivo do desafio.");
       return;
     }
+    if (_metaKmController.text.trim().isEmpty) {
+      _showError("Defina a quilometragem da meta do desafio.");
+      return;
+    }
     if (_selectedDateRange == null) {
       _showError("Defina o prazo do desafio.");
       return;
     }
 
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final idTreinador = userProvider.usuarioLogado?.id;
-
     final payload = {
       "titulo": _tituloController.text.trim(),
       "descricao": _objetivoController.text.trim(),
       "metrica": _selectedMetric,
+      "objetivoKm": double.tryParse(_metaKmController.text.replaceAll(',', '.')) ?? 0.0, 
       "recompensaXp": _xpRecompensa.toInt(),
       "isPublico": _isPublico,
       "dataInicio": _selectedDateRange!.start.toIso8601String(),
@@ -214,39 +229,54 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (permissions.canCreatePublicChallenges) ...[
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1A1A),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.amber.withOpacity(0.3)),
-                ),
-                child: SwitchListTile(
-                  title: const Text(
-                    "Desafio Público Global",
-                    style: TextStyle(
-                      color: Colors.amber,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  subtitle: const Text(
-                    "Visível no Marketplace para atrair novos atletas.",
-                    style: TextStyle(color: Colors.white54, fontSize: 11),
-                  ),
-                  activeColor: Colors.black,
-                  activeTrackColor: Colors.amber,
-                  value: _isPublico,
-                  onChanged: (val) => setState(() {
-                    _isPublico = val;
-                    if (val)
-                      _selectedTargetId = null; // Zera o alvo se ficar público
-                  }),
-                ),
+            
+            // 👇 ESTRATÉGIA DE UPSELL: O botão sempre aparece, mas bloqueia o PRO no 'onChanged' 👇
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.amber.withOpacity(0.3)),
               ),
-              const SizedBox(height: 24),
-            ],
+              child: SwitchListTile(
+                title: Row(
+                  children: [
+                    const Text(
+                      "Desafio Público Global",
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (!permissions.isElite) ...[
+                      const SizedBox(width: 8),
+                      const Icon(Icons.lock, color: Colors.amber, size: 14),
+                    ]
+                  ],
+                ),
+                subtitle: const Text(
+                  "Visível no Marketplace para atrair novos atletas.",
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+                activeColor: Colors.black,
+                activeTrackColor: Colors.amber,
+                value: _isPublico,
+                onChanged: (val) {
+                  // 👇 TRAVA DE SEGURANÇA 2: Impede o clique visualmente
+                  if (val && !permissions.isElite) {
+                    _showError("Funcionalidade exclusiva do plano ELITE. Faça upgrade para atrair alunos globais!");
+                    return; // Retorna sem alterar o Switch
+                  }
+                  
+                  setState(() {
+                    _isPublico = val;
+                    if (val) _selectedTargetId = null; // Zera o alvo se ficar público
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
 
             if (!_isPublico) ...[
               _buildSectionLabel("CANAL DE DISPARO"),
@@ -282,13 +312,22 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
             const SizedBox(height: 20),
             _buildMetricSelector(),
             const SizedBox(height: 20),
+            
+            _buildInputField(
+              "Meta do Desafio (em KM)",
+              "Ex: 21.5",
+              Icons.directions_run_rounded,
+              controller: _metaKmController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+            
+            const SizedBox(height: 20),
             _buildDatePicker(context),
 
             const SizedBox(height: 32),
             _buildSectionLabel("RECOMPENSA DE EXPERIÊNCIA"),
             const SizedBox(height: 16),
 
-            // SLIDER DE XP DINÂMICO 
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -437,10 +476,11 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   }
 
   Widget _buildTargetDropdown() {
-    if (_isLoading)
+    if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF06B6D4)),
       );
+    }
 
     if (_targetType == 1) {
       if (_minhasTurmas.isEmpty) return _buildEmptyBox("Nenhuma turma criada.");
@@ -457,8 +497,10 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
       );
     }
 
-    if (_targetType == 0 && _meusAlunos.isEmpty)
+    if (_targetType == 0 && _meusAlunos.isEmpty) {
       return _buildEmptyBox("Nenhum aluno ativo.");
+    }
+    
     return _renderDropdown(
       items: _meusAlunos
           .map(
@@ -523,10 +565,12 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     IconData icon, {
     int maxLines = 1,
     required TextEditingController controller,
+    TextInputType keyboardType = TextInputType.text,
   }) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
+      keyboardType: keyboardType, 
       style: const TextStyle(color: Colors.white, fontSize: 15),
       decoration: InputDecoration(
         labelText: label,
