@@ -13,7 +13,7 @@ class SummarySheet extends StatefulWidget {
   final int duration;
   final int xp;
   final String pace;
-  final String tipoAtividade; // <-- ADICIONADO AQUI
+  final String tipoAtividade;
   final VoidCallback onClose;
 
   const SummarySheet({
@@ -23,7 +23,7 @@ class SummarySheet extends StatefulWidget {
     required this.duration,
     required this.xp,
     required this.pace,
-    required this.tipoAtividade, // <-- ADICIONADO AQUI
+    required this.tipoAtividade,
     required this.onClose,
   });
 
@@ -78,12 +78,8 @@ class _SummarySheetState extends State<SummarySheet>
     final tempoFormatado =
         '${minutos.toString().padLeft(2, '0')}:${segundos.toString().padLeft(2, '0')}';
 
-    // --- LÓGICA DE MENSAGEM PADRONIZADA ---
-    final String nomeAtividade = widget.tipoAtividade
-        .toLowerCase(); // "corrida" ou "caminhada"
-    final String iconeAtividade = nomeAtividade == "corrida"
-        ? "🏃‍♂️"
-        : "🚶‍♂️"; // Ícone dinâmico!
+    final String nomeAtividade = widget.tipoAtividade.toLowerCase(); 
+    final String iconeAtividade = nomeAtividade == "corrida" ? "🏃‍♂️" : "🚶‍♂️"; 
 
     final payload = {
       "titulo":
@@ -197,6 +193,25 @@ class _SummarySheetState extends State<SummarySheet>
     );
   }
 
+  // 👇 FILTRO DE CORES DARK MODE QUE VAMOS REUTILIZAR 👇
+  Widget _buildDarkTileLayer() {
+    return TileLayer(
+      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      userAgentPackageName: 'com.fitlab.app',
+      tileBuilder: (context, widget, tile) {
+        return ColorFiltered(
+          colorFilter: const ColorFilter.matrix([
+            -0.2126, -0.7152, -0.0722, 0, 255,
+            -0.2126, -0.7152, -0.0722, 0, 255,
+            -0.2126, -0.7152, -0.0722, 0, 255,
+            0,       0,       0,       1, 0,
+          ]),
+          child: widget,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     LatLng mapCenter = widget.route.isNotEmpty
@@ -211,7 +226,7 @@ class _SummarySheetState extends State<SummarySheet>
       ),
       child: Stack(
         children: [
-          // 1. Mapa de Fundo
+          // 1. Mapa de Fundo Gigante
           Positioned.fill(
             child: Opacity(
               opacity: 0.15,
@@ -224,10 +239,7 @@ class _SummarySheetState extends State<SummarySheet>
                   ),
                 ),
                 children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                  ),
+                  _buildDarkTileLayer(), 
                 ],
               ),
             ),
@@ -289,10 +301,7 @@ class _SummarySheetState extends State<SummarySheet>
                         ),
                       ),
                       children: [
-                        TileLayer(
-                          urlTemplate:
-                              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                        ),
+                        _buildDarkTileLayer(), 
                         if (widget.route.isNotEmpty)
                           PolylineLayer(
                             polylines: [

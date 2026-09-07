@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' show pi; 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
 import '../providers/user_provider.dart';
 import '../widgets/summary_sheets.dart';
 import '../widgets/countdown_overlay.dart';
@@ -34,11 +35,15 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
   String selectedGoalType = "Distância";
   double targetValue = 3.0;
 
-  LatLng currentPosition = const LatLng(-21.1767, -47.8208);
+  LatLng currentPosition = const LatLng(0, 0); 
+  double currentHeading = 0.0; 
+  
   List<LatLng> route = [];
   List<Map<String, dynamic>> routeData = [];
+  
   final MapController _mapController = MapController();
   Timer? _timer;
+  StreamSubscription<Position>? _positionStream; 
 
   final List<String> goalOptions = [
     "Distância",
@@ -48,14 +53,62 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     "Ganho de Elevação",
     "Sem Metas",
   ];
-  final List<String> premiumGoals = ["Calorias", "Passos", "Ganho de Elevação"];
+  
   final List<String> modeOptions = [
     "Corrida",
     "Caminhada",
-    "Duelo de Territórios",
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissionsAndGetLocation(); 
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _positionStream?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkPermissionsAndGetLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Ative o GPS do celular.")),
+      );
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return; 
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return; 
+    }
+
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+
+    setState(() {
+      currentPosition = LatLng(position.latitude, position.longitude);
+      _moveCameraToPlayer();
+    });
+  }
+
   void _moveCameraToPlayer() {
+    if (currentPosition.latitude == 0 && currentPosition.longitude == 0) return;
+    
     double offset = 0.0025;
     LatLng adjustedPosition = LatLng(
       currentPosition.latitude - offset,
@@ -111,7 +164,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     setState(() {
       isRunning = true;
       isPaused = false;
-      if (route.isEmpty) {
+      if (route.isEmpty && currentPosition.latitude != 0) {
         route.add(currentPosition);
         routeData.add({
           "lat": currentPosition.latitude,
@@ -123,7 +176,6 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
     _moveCameraToPlayer();
 
-    // Instancia a calculadora de Haversine do pacote latlong2
     const distanceCalculator = Distance(
       roundResult: false,
       calculator: Haversine(),
@@ -133,48 +185,53 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       if (!isPaused) {
         setState(() {
           duration++;
-
-          // Simulador de GPS (gera o próximo ponto)
-          double randomLat = (Random().nextDouble() - 0.5) * 0.0008;
-          double randomLng = (Random().nextDouble() - 0.5) * 0.0008;
-
-          LatLng newPosition = LatLng(
-            currentPosition.latitude + randomLat,
-            currentPosition.longitude + randomLng,
-          );
-
-          // Pega a hora exata daquele passo
-          final timestamp = DateTime.now().toIso8601String();
-
-          // Salva no cofre de dados da API
-          routeData.add({
-            "lat": newPosition.latitude,
-            "lng": newPosition.longitude,
-            "timestamp": timestamp,
-          });
-
-          // 1. CALCULA A DISTÂNCIA REAL ENTRE O PONTO ANTIGO E O NOVO (em metros)
-          final double incrementMeters = distanceCalculator.distance(
-            currentPosition,
-            newPosition,
-          );
-
-          // 2. ATUALIZA A DISTÂNCIA TOTAL (convertendo para Km)
-          distance += (incrementMeters / 1000.0);
-
-          currentPosition = newPosition;
-          route.add(currentPosition);
-
-          steps += (Random().nextInt(3) + 1);
-          calories = (distance * 65).toInt();
-
           if (distance > 0) {
             double paceMinutes = (duration / 60) / distance;
             int mins = paceMinutes.floor();
             int secs = ((paceMinutes - mins) * 60).floor();
             pace = "$mins:${secs.toString().padLeft(2, '0')}";
           }
+        });
+      }
+    });
 
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 3, 
+      ),
+    ).listen((Position position) {
+      if (!isPaused) {
+        setState(() {
+          LatLng newPosition = LatLng(position.latitude, position.longitude);
+          final timestamp = DateTime.now().toIso8601String();
+
+          routeData.add({
+            "lat": newPosition.latitude,
+            "lng": newPosition.longitude,
+            "timestamp": timestamp,
+          });
+
+          if (route.isNotEmpty) {
+            final double incrementMeters = distanceCalculator.distance(
+              currentPosition,
+              newPosition,
+            );
+            
+            // Calcula a direção do deslocamento para girar o ícone
+            if (incrementMeters > 1.0) {
+              double bearing = distanceCalculator.bearing(currentPosition, newPosition);
+              currentHeading = bearing * (pi / 180.0); // Converte para radianos
+            }
+
+            distance += (incrementMeters / 1000.0);
+            
+            steps = (distance * 1300).toInt(); 
+            calories = (distance * 65).toInt();
+          }
+
+          currentPosition = newPosition;
+          route.add(currentPosition);
           _moveCameraToPlayer();
         });
       }
@@ -183,22 +240,14 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
   Future<void> _stopRun() async {
     _timer?.cancel();
+    _positionStream?.cancel(); 
 
-    // 1. Pega o ID do usuário logado
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
 
-    // 2. Converte a lista de LatLng do Flutter para a lista de CoordenadaDTO do Java
-    List<Map<String, double>> rotaFormatada = route
-        .map((p) => {"lat": p.latitude, "lng": p.longitude})
-        .toList();
-
-    // 3. Monta o pacote de dados (JSON)
     final body = jsonEncode({
       "idUsuario": idUsuario,
-      "tipoAtividade": selectedMode == "Duelo de Territórios"
-          ? "Território"
-          : selectedMode,
+      "tipoAtividade": selectedMode,
       "tempo": _formatTime(duration),
       "pace": pace,
       "calorias": calories,
@@ -208,7 +257,6 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     });
 
     try {
-      // 4. Dispara a requisição para o motor de gamificação
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/atividades/registrar'),
         headers: {"Content-Type": "application/json"},
@@ -222,22 +270,17 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
         await userProvider.recarregarUsuario();
 
-        // 👇 Guarda as badges em uma lista para enviar ao resumo 👇
         List<dynamic> badgesGanhas = [];
         if (recompensas['badgesDesbloqueadas'] != null) {
           badgesGanhas = recompensas['badgesDesbloqueadas'];
-          debugPrint(
-            "🏆 BADGES RECEBIDAS DO JAVA: $badgesGanhas",
-          ); // Para checar no console
         }
 
-        // Passa as badges para o método _showSummary
         _showSummary(xpReal, distanciaOficial, badgesGanhas);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Erro na API: ${response.statusCode}")),
         );
-        _showSummary(0, distance, []); // Manda array vazio
+        _showSummary(0, distance, []); 
       }
     } catch (e) {
       debugPrint("Erro de conexão: $e");
@@ -268,19 +311,17 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             routeData = [];
             steps = 0;
             calories = 0;
+            currentHeading = 0.0; // Zera a rotação ao finalizar
           });
 
-          // Fecha o modal de resumo primeiro
           Navigator.pop(context);
 
-          // 👇 DEPOIS DE FECHAR O MODAL, A INSÍGNIA APARECE 👇
           if (badgesGanhas.isNotEmpty) {
             final userProvider = Provider.of<UserProvider>(
               context,
               listen: false,
             );
 
-            // Um atraso de 300ms para garantir que a tela de resumo sumiu
             Future.delayed(const Duration(milliseconds: 300), () {
               if (context.mounted) {
                 for (var badge in badgesGanhas) {
@@ -304,7 +345,6 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. MAPA
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -316,9 +356,19 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             ),
             children: [
               TileLayer(
-                urlTemplate:
-                    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.fitlab.app',
+                tileBuilder: (context, widget, tile) {
+                  return ColorFiltered(
+                    colorFilter: const ColorFilter.matrix([
+                      -0.2126, -0.7152, -0.0722, 0, 255,
+                      -0.2126, -0.7152, -0.0722, 0, 255,
+                      -0.2126, -0.7152, -0.0722, 0, 255,
+                      0,       0,       0,       1, 0,
+                    ]),
+                    child: widget,
+                  );
+                },
               ),
               if (route.isNotEmpty)
                 PolylineLayer(
@@ -330,16 +380,20 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: currentPosition,
-                    width: 70,
-                    height: 70,
-                    child: _buildPlayerMarker(),
-                  ),
-                ],
-              ),
+              if (currentPosition.latitude != 0) 
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: currentPosition,
+                      width: 70,
+                      height: 70,
+                      child: Transform.rotate(
+                        angle: currentHeading,
+                        child: _buildPlayerMarker(),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
 
@@ -512,8 +566,9 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
   Widget _buildRunningHUD() {
     double progress = targetValue > 0 ? (distance / targetValue) : 0.0;
-    if (selectedGoalType == "Duração")
+    if (selectedGoalType == "Duração") {
       progress = (duration / (targetValue * 60));
+    }
 
     return Column(
       children: [
@@ -648,17 +703,6 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildPlayerMarker() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF06B6D4).withOpacity(0.2),
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF06B6D4), width: 3),
-      ),
-      child: const Icon(Icons.navigation, color: Color(0xFF06B6D4), size: 30),
-    );
-  }
-
   Widget _statItem(IconData icon, String value, String label, Color color) {
     return Column(
       children: [
@@ -719,8 +763,18 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
   IconData _getModeIcon() {
     if (selectedMode == "Caminhada") return Icons.directions_walk;
-    if (selectedMode == "Duelo de Territórios") return Icons.sports_mma;
-    return Icons.directions_run;
+    return Icons.directions_run; // Padrão
+  }
+
+  Widget _buildPlayerMarker() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF06B6D4).withOpacity(0.2),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFF06B6D4), width: 3),
+      ),
+      child: const Icon(Icons.navigation, color: Color(0xFF06B6D4), size: 30),
+    );
   }
 
   Widget _buildCircleButton(IconData icon, VoidCallback onTap) {
@@ -779,26 +833,21 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 20),
             ...options.map((opt) {
-              bool isPremium = premiumGoals.contains(opt);
               return ListTile(
                 title: Text(
                   opt,
-                  style: TextStyle(
-                    color: isPremium ? Colors.amber : Colors.white,
-                  ),
+                  style: const TextStyle(color: Colors.white),
                 ),
-                trailing: isPremium
-                    ? const Icon(Icons.star, color: Colors.amber, size: 16)
-                    : null,
                 onTap: () {
-                  if (title == "Meta")
+                  if (title == "Meta") {
                     _updateGoalValue(opt);
-                  else
+                  } else {
                     setState(() => selectedMode = opt);
+                  }
                   Navigator.pop(context);
                 },
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
