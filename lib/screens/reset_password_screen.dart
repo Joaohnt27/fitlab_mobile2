@@ -2,26 +2,31 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config/api_constants.dart';
-import 'reset_password_screen.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+class ResetPasswordScreen extends StatefulWidget {
+  final String email;
+
+  const ResetPasswordScreen({super.key, required this.email});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final _emailController = TextEditingController();
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+  final _pinController = TextEditingController();
+  final _newPasswordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
-  Future<void> _handleResetPassword() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
+  Future<void> _handleUpdatePassword() async {
+    final pin = _pinController.text.trim();
+    final newPassword = _newPasswordController.text.trim();
+
+    if (pin.isEmpty || newPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: Colors.redAccent,
-          content: Text('Por favor, insira seu e-mail.'),
+          content: Text('Preencha o PIN e a nova senha.'),
         ),
       );
       return;
@@ -29,40 +34,40 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     setState(() => _isLoading = true);
 
-    final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/esqueci-senha');
+    final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/redefinir-senha');
 
     try {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({"email": email}),
+        body: json.encode({
+          "email": widget.email,
+          "pin": pin,
+          "novaSenha": newPassword,
+        }),
       );
 
       if (mounted) {
-        // A API retorna 200 OK mesmo se o e-mail não existir (boa prática de segurança)
         if (response.statusCode == 200) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               backgroundColor: Color(0xFF06B6D4),
               content: Text(
-                'Se o e-mail estiver correto, você receberá um PIN de 6 dígitos.',
+                'Senha alterada com sucesso! Faça login.',
                 style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
               ),
             ),
           );
           
-          // Navega para a tela de digitar o PIN
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ResetPasswordScreen(email: email),
-            ),
-          );
+          // Fecha a tela de PIN e a tela de E-mail, voltando direto pro Login
+          Navigator.pop(context);
+          Navigator.pop(context); 
         } else {
+          // Exibe o erro do Back-end (Ex: PIN inválido ou expirado)
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               backgroundColor: Colors.redAccent,
-              content: Text('Erro ao solicitar recuperação. Tente novamente.'),
+              content: Text(response.body),
             ),
           );
         }
@@ -114,22 +119,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF06B6D4).withOpacity(0.1),
+                  color: const Color(0xFF25D366).withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.lock_reset_rounded,
+                  Icons.mark_email_read_rounded,
                   size: 80,
-                  color: Color(0xFF06B6D4),
+                  color: Color(0xFF25D366),
                 ),
               ),
               const SizedBox(height: 32),
               ShaderMask(
                 shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Colors.white, Color(0xFF06B6D4)],
+                  colors: [Colors.white, Color(0xFF25D366)],
                 ).createShader(bounds),
                 child: const Text(
-                  'RECUPERAR ACESSO',
+                  'CÓDIGO ENVIADO',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 26,
@@ -140,10 +145,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                "Informe seu e-mail para enviarmos o PIN de redefinição de senha.",
+              Text(
+                "Enviamos um PIN de 6 dígitos para o e-mail:\n${widget.email}",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white38, fontSize: 14, height: 1.5),
+                style: const TextStyle(color: Colors.white38, fontSize: 14, height: 1.5),
               ),
               const SizedBox(height: 48),
               Container(
@@ -164,17 +169,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: Column(
                   children: [
                     _buildSportyTextField(
-                      controller: _emailController,
-                      label: 'E-MAIL CADASTRADO',
-                      hint: 'seu@email.com',
-                      icon: Icons.alternate_email_rounded,
+                      controller: _pinController,
+                      label: 'PIN DE SEGURANÇA',
+                      hint: '000000',
+                      icon: Icons.numbers_rounded,
+                      isNumeric: true,
+                    ),
+                    const SizedBox(height: 24),
+                    _buildSportyTextField(
+                      controller: _newPasswordController,
+                      label: 'NOVA SENHA',
+                      hint: '••••••••',
+                      icon: Icons.lock_outline,
+                      isPassword: true,
                     ),
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
                       height: 55,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleResetPassword,
+                        onPressed: _isLoading ? null : _handleUpdatePassword,
                         style: ElevatedButton.styleFrom(
                           padding: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
@@ -184,7 +198,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         child: Ink(
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
+                              colors: [Color(0xFF06B6D4), Color(0xFF25D366)],
                             ),
                             borderRadius: BorderRadius.circular(15),
                           ),
@@ -200,9 +214,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                     ),
                                   )
                                 : const Text(
-                                    'ENVIAR CÓDIGO',
+                                    'ATUALIZAR SENHA',
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: Colors.black,
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 1.5,
@@ -227,6 +241,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     required String label,
     required String hint,
     required IconData icon,
+    bool isPassword = false,
+    bool isNumeric = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,11 +258,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         TextField(
           controller: controller,
+          obscureText: isPassword ? _obscurePassword : false,
+          keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.white12),
             prefixIcon: Icon(icon, color: Colors.white38, size: 20),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.white38,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  )
+                : null,
             enabledBorder: const UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.white10),
             ),

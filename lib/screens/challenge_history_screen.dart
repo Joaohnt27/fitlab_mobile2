@@ -16,22 +16,35 @@ class ChallengeHistoryScreen extends StatefulWidget {
 class _ChallengeHistoryScreenState extends State<ChallengeHistoryScreen> {
   int _activeFilter = 0; // 0: Todos, 1: Ativos, 2: Finalizados
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   Future<List<Map<String, dynamic>>> _fetchMappedChallenges() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
 
     try {
-      // 1. Busca Catálogo de Desafios Global
+      // 1. Busca Catálogo de Desafios Global (👇 COM O TOKEN)
       final resGlobais = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/desafios'),
+        headers: _getAuthHeaders(), 
       );
-      // 2. Busca Desafios que o usuário aceitou (Em andamento)
+      // 2. Busca Desafios que o usuário aceitou (👇 COM O TOKEN)
       final resAtivos = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/desafios'),
+        headers: _getAuthHeaders(),
       );
-      // 3. Busca Badges (Para saber quais ele já fechou)
+      // 3. Busca Badges (👇 COM O TOKEN)
       final resBadges = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/badges'),
+        headers: _getAuthHeaders(),
       );
 
       List<dynamic> globais = [];

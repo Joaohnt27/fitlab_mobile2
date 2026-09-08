@@ -27,6 +27,16 @@ class _BadgesScreenState extends State<BadgesScreen> {
     'LEGENDARY',
   ];
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -39,7 +49,9 @@ class _BadgesScreenState extends State<BadgesScreen> {
     final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/badges');
 
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO O HEADER COM O TOKEN AQUI 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
+      
       if (response.statusCode == 200) {
         setState(() {
           _badges = json.decode(utf8.decode(response.bodyBytes));
@@ -98,7 +110,6 @@ class _BadgesScreenState extends State<BadgesScreen> {
   void _showBadgeDetails(BuildContext context, Map<String, dynamic> badge) {
     final nome = badge['name'] ?? 'Insígnia Misteriosa';
     final icone = badge['icon'] ?? '🏅';
-    // 👇 Usa o tradutor aqui!
     final raridade = _traduzirRaridade(
       (badge['rarity'] ?? 'COMMON').toString(),
     ).toUpperCase();
@@ -150,7 +161,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                raridade, // Vai aparecer "COMUM", "RARA", etc.
+                raridade, 
                 style: const TextStyle(
                   color: Colors.white38,
                   fontSize: 10,
@@ -294,7 +305,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
                         ? "Raridade"
                         : _traduzirRaridade(
                             _selectedRarity,
-                          ), // Exibe traduzido no botão
+                          ), 
                     style: TextStyle(
                       color: _selectedRarity != 'Todas'
                           ? const Color(0xFF06B6D4)
@@ -316,7 +327,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
               return PopupMenuItem(
                 value: r,
                 child: Text(
-                  _traduzirRaridade(r), // Exibe traduzido na lista
+                  _traduzirRaridade(r), 
                   style: TextStyle(
                     color: _selectedRarity == r
                         ? const Color(0xFF06B6D4)

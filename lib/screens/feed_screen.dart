@@ -34,7 +34,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Map<String, dynamic>? _meuNivelData;
 
-  // 👇 Variáveis para o Experimento Ativo 👇
+  // Variáveis para o Experimento Ativo 
   Map<String, dynamic>? _experimentoAtivo;
   bool _isLoadingExperimento = true;
 
@@ -42,6 +42,15 @@ class _FeedScreenState extends State<FeedScreen> {
   int _page = 0;
   bool _hasMore = true;
   bool _isLoadingMore = false;
+
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 
   @override
   void initState() {
@@ -52,11 +61,10 @@ class _FeedScreenState extends State<FeedScreen> {
       _fetchDesafios();
       _fetchFeed(isRefresh: true);
       _fetchMeuNivel();
-      _fetchExperimentoAtivo(); // 👈 Inicia a busca do experimento ao abrir o feed!
+      _fetchExperimentoAtivo(); 
     });
   }
 
-  // 👇 NOVA FUNÇÃO: Busca o experimento real no banco 👇
   Future<void> _fetchExperimentoAtivo() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
@@ -66,7 +74,7 @@ class _FeedScreenState extends State<FeedScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         if (mounted) {
           setState(() {
@@ -94,7 +102,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/$userId/perfil');
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         final dados = json.decode(utf8.decode(response.bodyBytes));
         setState(() {
@@ -112,7 +120,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final url = Uri.parse('${ApiConstants.baseUrl}/feed/sugestoes/$userId');
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         setState(() {
           _sugestoesDb = json.decode(utf8.decode(response.bodyBytes));
@@ -130,7 +138,7 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _fetchDesafios() async {
     final url = Uri.parse('${ApiConstants.baseUrl}/feed/desafios-em-alta');
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         setState(() {
           _desafiosDb = json.decode(utf8.decode(response.bodyBytes));
@@ -162,7 +170,7 @@ class _FeedScreenState extends State<FeedScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         final List novosPosts = json.decode(utf8.decode(response.bodyBytes));
 

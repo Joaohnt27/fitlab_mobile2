@@ -26,6 +26,16 @@ class _CommunityScreenState extends State<CommunityScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -78,7 +88,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO TOKEN AQUI 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         final data = json.decode(utf8.decode(response.bodyBytes));
         setState(() {
@@ -109,11 +120,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
     setState(() => _isLoadingAmigos = true);
 
     try {
+      // 👇 INJETANDO TOKEN AQUI 👇
       final resAmigos = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/amizades/$idLogado/lista'),
+        headers: _getAuthHeaders(),
       );
+      // 👇 INJETANDO TOKEN AQUI 👇
       final resPendentes = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/amizades/$idLogado/pendentes'),
+        headers: _getAuthHeaders(),
       );
 
       if (resAmigos.statusCode == 200 && resPendentes.statusCode == 200) {
@@ -122,6 +137,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
           _pendentes = json.decode(utf8.decode(resPendentes.bodyBytes));
           _isLoadingAmigos = false;
         });
+      } else {
+         setState(() => _isLoadingAmigos = false);
       }
     } catch (e) {
       debugPrint("Erro ao carregar amizades: $e");
@@ -138,7 +155,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
 
     try {
-      final response = await http.post(url);
+      // 👇 INJETANDO TOKEN NO POST AQUI 👇
+      final response = await http.post(url, headers: _getAuthHeaders());
       final body = json.decode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200) {
@@ -166,7 +184,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
-  // 👇 NOVA LÓGICA: ENVIAR CÓDIGO DO TREINADOR 👇
   Future<void> _usarCodigoTreinador(String codigo) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final atletaId = userProvider.usuarioLogado?.id;
@@ -176,28 +193,26 @@ class _CommunityScreenState extends State<CommunityScreen> {
     final payload = {"atleta_id": atletaId, "codigo": codigo};
 
     try {
+      // 👇 INJETANDO TOKEN NO POST AQUI 👇
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(),
         body: json.encode(payload),
       );
 
       if (context.mounted && Navigator.canPop(context)) {
-        Navigator.pop(context); // Fecha o modal
+        Navigator.pop(context); 
       }
 
       if (response.statusCode == 200) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                response.body,
-              ), // Traz a mensagem de sucesso do Java
+              content: Text(response.body), 
               backgroundColor: const Color(0xFF06B6D4),
               duration: const Duration(seconds: 4),
             ),
           );
-          // Recarrega o status para o card atualizar na hora!
           _checkMentoriaStatus();
         }
       } else {
@@ -231,9 +246,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
         : '${ApiConstants.baseUrl}/amizades/$idLogado/remover/$idAmizade';
 
     try {
+      // 👇 INJETANDO TOKEN NO PUT/DELETE AQUI 👇
       final response = aceitar
-          ? await http.put(Uri.parse(urlAcao))
-          : await http.delete(Uri.parse(urlAcao));
+          ? await http.put(Uri.parse(urlAcao), headers: _getAuthHeaders())
+          : await http.delete(Uri.parse(urlAcao), headers: _getAuthHeaders());
+          
       if (response.statusCode == 200) {
         _carregarAmizades();
       }
@@ -245,7 +262,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Future<List<dynamic>> _fetchRankingGlobal() async {
     final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/ranking');
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO TOKEN AQUI 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         return json.decode(utf8.decode(response.bodyBytes)) as List<dynamic>;
       } else {
@@ -259,7 +277,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Future<List<dynamic>> _fetchTreinadores() async {
     final url = Uri.parse('${ApiConstants.baseUrl}/usuarios/treinadores');
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO TOKEN AQUI 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         return json.decode(utf8.decode(response.bodyBytes)) as List<dynamic>;
       } else {
@@ -280,9 +299,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
     final payload = {"atleta_id": atletaId, "treinador_id": treinadorId};
 
     try {
+      // 👇 INJETANDO TOKEN NO POST AQUI 👇
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(),
         body: json.encode(payload),
       );
 
@@ -353,9 +373,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
+        // 👇 AQUI TEM UM GET QUE PRECISA DO TOKEN 👇
         return FutureBuilder<http.Response>(
           future: http.get(
             Uri.parse('${ApiConstants.baseUrl}/usuarios/$treinadorId/perfil'),
+            headers: _getAuthHeaders(), // 👈 INJETADO AQUI
           ),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -822,7 +844,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  // 👇 NOVO MODAL PARA O ATLETA DIGITAR O CÓDIGO DO COACH 👇
   void _mostrarModalCodigoTreinador() {
     final TextEditingController codigoController = TextEditingController();
 
@@ -1158,7 +1179,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
             final atleta = atletasFiltrados[index];
             final rankReal = atletas.indexOf(
               atleta,
-            ); // 👈 Preserva a medalha/número original!
+            ); 
 
             return _RankingTile(
               index: rankReal,
@@ -1290,7 +1311,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 )
               else
                 ...() {
-                  // 👇 APLICA O FILTRO DA SEARCH BAR 👇
                   final amigosFiltrados = _searchQuery.isEmpty
                       ? _amigos
                       : _amigos.where((a) {
@@ -1315,7 +1335,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   }
 
                   return amigosFiltrados.map((a) {
-                    int index = _amigos.indexOf(a); // Mantém o índice original
+                    int index = _amigos.indexOf(a); 
                     return _RankingTile(
                       index: index,
                       name: a['nome'] ?? "Amigo",
@@ -1410,7 +1430,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  // 👇 ATUALIZAÇÃO: ABA DOS TREINADORES COM O BOTÃO DE CÓDIGO 👇
   Widget _buildTrainersTab(BuildContext context) {
     return FutureBuilder<List<dynamic>>(
       future: _fetchTreinadores(),
@@ -1429,7 +1448,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
             bottom: 120,
           ),
           children: [
-            // 👇 NOVO BOTÃO DE CÓDIGO DE ASSESSORIA 👇
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -1493,7 +1511,6 @@ class _CommunityScreenState extends State<CommunityScreen> {
               )
             else
               ...() {
-                // 👇 APLICA O FILTRO DA SEARCH BAR 👇
                 final treinadoresFiltrados = _searchQuery.isEmpty
                     ? treinadores
                     : treinadores.where((t) {
@@ -1518,7 +1535,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 return treinadoresFiltrados.map((t) {
                   int index = treinadores.indexOf(
                     t,
-                  ); // Mantém o índice original
+                  ); 
                   final double rating = t['rating'] != null
                       ? (t['rating'] as num).toDouble()
                       : 5.0;

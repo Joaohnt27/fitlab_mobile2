@@ -31,6 +31,16 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   Map<String, dynamic>? _mentoriaAtiva;
   bool _isLoadingMentoria = true;
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +57,8 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO O TOKEN NO GET 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         setState(() {
           _experimentoAtivo = json.decode(utf8.decode(response.bodyBytes));
@@ -76,7 +87,8 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO O TOKEN NO GET 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         setState(() {
           _mentoriaAtiva = json.decode(utf8.decode(response.bodyBytes));
@@ -94,7 +106,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
-  // 👇 BUSCA O TREINO ATUAL DO ATLETA 👇
   Future<void> _buscarMeuTreino() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idAtleta = userProvider.usuarioLogado?.id;
@@ -107,25 +118,22 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           const Center(child: CircularProgressIndicator(color: Colors.amber)),
     );
 
-    // Mudamos a rota para /atual
     final url = Uri.parse(
       '${ApiConstants.baseUrl}/treinos/atleta/$idAtleta/atual',
     );
 
     try {
-      final response = await http.get(url);
-      if (context.mounted) Navigator.pop(context); // Fecha o loading
+      // 👇 INJETANDO O TOKEN NO GET 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
+      if (context.mounted) Navigator.pop(context); 
 
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         final treino = json.decode(utf8.decode(response.bodyBytes));
 
-        // Verifica qual modal abrir baseado no status do backend
         if (treino['status'] == 'PENDENTE') {
           _mostrarModalTreinoPendente(treino);
         } else if (treino['status'] == 'ACEITO') {
-          _mostrarModalTreinoAtivo(
-            treino,
-          ); // Abre o treino para leitura/conclusão!
+          _mostrarModalTreinoAtivo(treino); 
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -145,7 +153,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     }
   }
 
-  // 👇 NOVO MODAL PARA LER E CONCLUIR O TREINO ACEITO 👇
   void _mostrarModalTreinoAtivo(Map<String, dynamic> treino) {
     showModalBottomSheet(
       context: context,
@@ -213,8 +220,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.pop(context), // Apenas fecha pra ler depois
+                      onPressed: () => Navigator.pop(context), 
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white54,
                         side: const BorderSide(color: Colors.white24),
@@ -232,7 +238,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
-                      // Envia "CONCLUIDO" para o Java!
                       onPressed: () =>
                           _responderTreino(treino['id'], "CONCLUIDO", ""),
                       style: ElevatedButton.styleFrom(
@@ -260,7 +265,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  // 👇 MODAL PARA O ATLETA AVALIAR O TREINO 👇
   void _mostrarModalTreinoPendente(Map<String, dynamic> treino) {
     final TextEditingController motivoController = TextEditingController();
     bool isRecusando = false;
@@ -449,16 +453,16 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
 
     try {
+      // 👇 INJETANDO O TOKEN NO PUT 👇
       await http.put(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(),
         body: json.encode({"status": status, "motivo": motivo}),
       );
 
       if (context.mounted) {
-        Navigator.pop(context); // Fecha o modal
+        Navigator.pop(context); 
 
-        // 👇 CORREÇÃO: Tratando os 3 status diferentes com cores próprias! 👇
         String mensagem = "";
         Color corFundo = Colors.grey;
 
@@ -467,7 +471,7 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           corFundo = Colors.greenAccent;
         } else if (status == "CONCLUIDO") {
           mensagem = "Parabéns! Treino concluído com sucesso! 🏆";
-          corFundo = const Color(0xFF06B6D4); // Azul Cyan do FitLab
+          corFundo = const Color(0xFF06B6D4);
         } else {
           mensagem = "Treino recusado e treinador notificado.";
           corFundo = Colors.redAccent;
@@ -505,7 +509,8 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     setState(() => _isLoadingExperimento = true);
 
     try {
-      final response = await http.delete(url);
+      // 👇 INJETANDO O TOKEN NO DELETE 👇
+      final response = await http.delete(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -528,7 +533,8 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
       '${ApiConstants.baseUrl}/usuarios/$idUsuario/desafios',
     );
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO O TOKEN NO GET 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         return json.decode(utf8.decode(response.bodyBytes)) as List<dynamic>;
       } else {
@@ -617,9 +623,10 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     };
 
     try {
+      // 👇 INJETANDO O TOKEN NO POST DA IA 👇
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(),
         body: json.encode(payload),
       );
 
@@ -981,13 +988,12 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
       } catch (e) {}
     }
 
-    // 👇 O NOVO LAYOUT DA ÁREA DE MENTORIA PREMIUM 👇
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: const Color(
           0xFF1D4ED8,
-        ).withOpacity(0.05), // Fundo azul bem suave
+        ).withOpacity(0.05), 
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFF1D4ED8).withOpacity(0.3)),
       ),
@@ -1038,7 +1044,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
           const SizedBox(height: 24),
           Row(
             children: [
-              // CARD 1: CHAT
               _buildActionTile(
                 icon: Icons.chat_bubble_rounded,
                 title: "Mensagens",
@@ -1060,7 +1065,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
                         ),
                       ),
                     ).then((_) {
-                      // Atualiza a tela ao voltar para zerar a bolinha caso tenha lido
                       _fetchMentoriaAtiva();
                     });
                   }
@@ -1068,14 +1072,13 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
               ),
               const SizedBox(width: 16),
 
-              // CARD 2: TREINO / AVALIAÇÃO
               _buildActionTile(
                 icon: Icons.assignment_rounded,
                 title: "Meu Treino",
                 subtitle: "Ver prescrição",
                 color: Colors.amber,
                 unreadCount: 0,
-                onTap: _buscarMeuTreino, // 👈 Chama a nova função!
+                onTap: _buscarMeuTreino, 
               ),
             ],
           ),
@@ -1084,7 +1087,6 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
     );
   }
 
-  // 👇 O NOVO COMPONENTE DE CARD DE AÇÃO (ACTION TILE) 👇
   Widget _buildActionTile({
     required IconData icon,
     required String title,

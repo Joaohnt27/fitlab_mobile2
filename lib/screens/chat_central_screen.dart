@@ -19,6 +19,16 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
   bool _isLoading = true;
   StompClient? _stompClient;
 
+  // 👇 1. Helper para pegar o Header com Token
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -44,7 +54,8 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
         final url = Uri.parse(
           '${ApiConstants.baseUrl}/mentorias/treinador/${usuario.id}/alunos',
         );
-        final response = await http.get(url);
+        // 👇 2. Injetando Header com Token AQUI!
+        final response = await http.get(url, headers: _getAuthHeaders());
 
         if (response.statusCode == 200) {
           final List<dynamic> alunos = json.decode(
@@ -62,7 +73,6 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
                         .toString()
                         .toUpperCase()
                         .contains('ELITE'),
-                    // 👇 PREPARANDO OS CAMPOS DE MENSAGEM 👇
                     "unread": a['mensagensNaoLidas'] ?? 0,
                     "lastMsg":
                         a['ultimaMensagem'] ?? "Toque para abrir a conversa...",
@@ -76,7 +86,8 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
         final url = Uri.parse(
           '${ApiConstants.baseUrl}/mentorias/atleta/${usuario.id}/ativa',
         );
-        final response = await http.get(url);
+        // 👇 3. Injetando Header com Token AQUI!
+        final response = await http.get(url, headers: _getAuthHeaders());
 
         if (response.statusCode == 200 && response.body.isNotEmpty) {
           final mentoria = json.decode(utf8.decode(response.bodyBytes));
@@ -91,7 +102,6 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
                 "avatar": "👨‍🏫",
                 "subtitle": "Treinador Oficial",
                 "isPro": true,
-                // 👇 PREPARANDO OS CAMPOS DE MENSAGEM 👇
                 "unread": mentoria['mensagensNaoLidas'] ?? 0,
                 "lastMsg":
                     mentoria['ultimaMensagem'] ??
@@ -109,7 +119,6 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
     }
   }
 
-  // 👇 NOVO MÉTODO PARA ESCUTAR MENSAGENS EM TEMPO REAL NA CENTRAL 👇
   void _conectarWebSocketGlobal() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final meuId = userProvider.usuarioLogado?.id;
@@ -129,12 +138,9 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
       config: StompConfig(
         url: wsUrl,
         onConnect: (StompFrame frame) {
-          // Se inscreve no SEU canal pessoal
           _stompClient!.subscribe(
             destination: '/user/$meuId/queue/mensagens',
             callback: (StompFrame frame) {
-              // Quando bater QUALQUER mensagem aqui, nós simplesmente pedimos pro Java
-              // recarregar a lista. Assim a bolinha azul acende e o texto atualiza na hora!
               _carregarContatos();
             },
           );
@@ -223,7 +229,7 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
                           width: 12,
                           height: 12,
                           decoration: BoxDecoration(
-                            color: Colors.greenAccent, // Fica online!
+                            color: Colors.greenAccent, 
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: const Color(0xFF0D0D0D),
@@ -236,9 +242,7 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    (c['nome'] as String)
-                        .split(' ')
-                        .first, // Só o primeiro nome
+                    (c['nome'] as String).split(' ').first,
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 10,
@@ -269,13 +273,11 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
       itemCount: _contatos.length,
       itemBuilder: (context, index) {
         final contato = _contatos[index];
-        // 👇 LÓGICA DE NOTIFICAÇÃO 👇
         final bool hasUnread = (contato['unread'] as int? ?? 0) > 0;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            // A cor foi removida daqui! Deixamos apenas as bordas e o arredondamento.
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: hasUnread
@@ -283,10 +285,8 @@ class _ChatCentralScreenState extends State<ChatCentralScreen> {
                   : Colors.white.withOpacity(0.05),
             ),
           ),
-          clipBehavior: Clip
-              .antiAlias, // 👈 Garante que o clique não vaze pelas bordas arredondadas
+          clipBehavior: Clip.antiAlias, 
           child: Material(
-            // 👇 A cor dinâmica agora fica no Material, garantindo a animação do clique!
             color: hasUnread
                 ? const Color(0xFF06B6D4).withOpacity(0.05)
                 : Colors.transparent,

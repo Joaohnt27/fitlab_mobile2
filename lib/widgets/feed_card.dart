@@ -20,17 +20,25 @@ class _FeedCardState extends State<FeedCard> {
   late int _likesCount;
   bool _isLoadingLike = false;
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
-    // Inicializa a contagem de likes baseada no que veio do banco
     _likesCount = widget.post['likes'] ?? 0;
-
     _isLiked = widget.post['curtidoPorMim'] ?? false;
   }
 
   Future<void> _toggleLike() async {
-    if (_isLoadingLike) return; // Evita duplo clique rápido
+    if (_isLoadingLike) return; 
 
     setState(() => _isLoadingLike = true);
 
@@ -43,11 +51,11 @@ class _FeedCardState extends State<FeedCard> {
     );
 
     try {
-      final response = await http.post(url);
+      // 👇 INJETANDO O TOKEN NO POST AQUI 👇
+      final response = await http.post(url, headers: _getAuthHeaders());
 
       if (response.statusCode == 200) {
         setState(() {
-          // A API devolve essas strings exatas no FeedController
           if (response.body == "Postagem curtida") {
             _isLiked = true;
             _likesCount++;
@@ -79,11 +87,10 @@ class _FeedCardState extends State<FeedCard> {
           ).viewInsets.bottom, 
         ),
         child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6, // Ocupa 60% da tela
+          height: MediaQuery.of(context).size.height * 0.6, 
           child: CommentsSheet(
             idPost: widget.post['id'] ?? 0,
             onComentarioAdicionado: () {
-              // Atualiza o contador de comentários na tela instantaneamente
               setState(() {
                 widget.post['comentarios'] =
                     (int.parse(widget.post['comentarios']?.toString() ?? '0') +
@@ -99,6 +106,7 @@ class _FeedCardState extends State<FeedCard> {
 
   @override
   Widget build(BuildContext context) {
+    // (Restante do build permanece exatamente igual)
     final nome = widget.post['nomeUsuario'] ?? 'Atleta FitLab';
     final avatar =
         widget.post['avatarUsuario'] ?? (nome.isNotEmpty ? nome[0] : 'F');
@@ -126,7 +134,6 @@ class _FeedCardState extends State<FeedCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Avatar + Nome + Badge de Tipo
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -169,8 +176,6 @@ class _FeedCardState extends State<FeedCard> {
               ],
             ),
           ),
-
-          // Conteúdo: Título e Descrição
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
@@ -195,17 +200,13 @@ class _FeedCardState extends State<FeedCard> {
               ],
             ),
           ),
-
           if (tipo == 'CONQUISTA') _buildBadgeAward(titulo),
           if (tipo == 'TERRITORIO') _buildStatsRow(),
-
-          // Like e Comentário
           const Divider(color: Colors.white10, height: 32),
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
             child: Row(
               children: [
-                // Botão de Curtir Interativo
                 _buildInteractiveActionButton(
                   icon: _isLiked ? Icons.thumb_up : Icons.thumb_up_off_alt,
                   count: _likesCount.toString(),
@@ -213,7 +214,6 @@ class _FeedCardState extends State<FeedCard> {
                   onTap: _toggleLike,
                 ),
                 const SizedBox(width: 24),
-                // Botão de Comentário Interativo
                 _buildInteractiveActionButton(
                   icon: Icons.chat_bubble_outline,
                   count: comentarios,

@@ -28,6 +28,16 @@ class _StudentsRankingScreenState extends State<StudentsRankingScreen> {
     Colors.yellowAccent,
   ];
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -44,7 +54,9 @@ class _StudentsRankingScreenState extends State<StudentsRankingScreen> {
     try {
       final url = Uri.parse(
           '${ApiConstants.baseUrl}/gamificacao/treinador/$idCoach/ranking-alunos/completo');
-      final response = await http.get(url);
+      
+      // 👇 INJETANDO TOKEN AQUI 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
 
       if (response.statusCode == 200) {
         if (mounted) {

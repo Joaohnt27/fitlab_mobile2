@@ -8,12 +8,24 @@ import '../config/api_constants.dart';
 class RunHistoryScreen extends StatelessWidget {
   const RunHistoryScreen({super.key});
 
+  // 👇 1. Helper para pegar o Header com Token
+  Map<String, String> _getAuthHeaders(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   Future<List<dynamic>> _buscarHistorico(BuildContext context) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
 
+    // 👇 2. Injetando Token AQUI!
     final response = await http.get(
       Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/perfil'),
+      headers: _getAuthHeaders(context), 
     );
 
     if (response.statusCode == 200) {
@@ -60,9 +72,10 @@ class RunHistoryScreen extends StatelessWidget {
         ),
       );
 
+      // 👇 3. Injetando Token no POST AQUI!
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(context),
         body: json.encode(payload),
       );
 

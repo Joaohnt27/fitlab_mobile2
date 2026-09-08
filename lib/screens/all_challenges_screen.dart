@@ -14,6 +14,16 @@ class AllChallengesScreen extends StatefulWidget {
 }
 
 class _AllChallengesScreenState extends State<AllChallengesScreen> {
+  // 👇 1. MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   Future<List<Map<String, dynamic>>> _fetchMappedChallenges() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
@@ -21,14 +31,18 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
     try {
       debugPrint("📡 Buscando desafios para o usuário ID: $idUsuario");
       
+      // 👇 2. INJETANDO O TOKEN NAS TRÊS CHAMADAS 👇
       final resGlobais = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/desafios/feed/$idUsuario'),
+        headers: _getAuthHeaders(), // 👈 AQUI
       );
       final resAtivos = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/feed/inscricoes-ativas/$idUsuario'),
+        headers: _getAuthHeaders(), // 👈 AQUI
       );
       final resBadges = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/badges'),
+        headers: _getAuthHeaders(), // 👈 AQUI
       );
 
       List<dynamic> globais = [];
@@ -171,7 +185,6 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
                 padding: const EdgeInsets.only(bottom: 16),
                 child: GestureDetector(
                   onTap: () async {
-                    // 👇 Agora navega para a tela de detalhes que construímos!
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -179,7 +192,6 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
                             ChallengeDetailsScreen(desafio: c['rawData']),
                       ),
                     );
-                    // Força o reload da tela ao voltar, caso o status tenha mudado
                     setState(() {});
                   },
                   child: _buildPremiumTile(c),
@@ -212,7 +224,6 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
         color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          // 👇 Borda verde se concluiu, Ciano se aceitou, invisível se não aceitou
           color: isConcluido
               ? Colors.green.withOpacity(0.3)
               : (isEmAndamento
@@ -242,7 +253,6 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
                 Text(
                   theme.toUpperCase(),
                   style: TextStyle(
-                    // 👇 Título verde se concluído
                     color: isConcluido ? Colors.green : const Color(0xFF06B6D4),
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
@@ -264,7 +274,6 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
                   style: const TextStyle(color: Colors.white38, fontSize: 12),
                 ),
                 const SizedBox(height: 12),
-                // 👇 Barra de progresso visível sempre (ajuda a dar vontade de fazer)
                 LinearProgressIndicator(
                   value: progressPercent,
                   backgroundColor: Colors.white10,

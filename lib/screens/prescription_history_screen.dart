@@ -19,6 +19,16 @@ class _PrescriptionHistoryScreenState extends State<PrescriptionHistoryScreen> {
   List<dynamic> _historico = [];
   bool _isLoading = true;
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -35,7 +45,8 @@ class _PrescriptionHistoryScreenState extends State<PrescriptionHistoryScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO O TOKEN AQUI 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         setState(() {
           _historico = json.decode(utf8.decode(response.bodyBytes));

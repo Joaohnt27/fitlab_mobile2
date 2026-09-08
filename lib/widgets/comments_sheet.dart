@@ -25,6 +25,17 @@ class _CommentsSheetState extends State<CommentsSheet> {
   bool _isSending = false;
   final TextEditingController _commentController = TextEditingController();
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders({bool isPlainText = false}) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      // Como o comentário é enviado como String pura, garantimos o Content-Type correto
+      'Content-Type': isPlainText ? 'text/plain; charset=UTF-8' : 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -36,7 +47,8 @@ class _CommentsSheetState extends State<CommentsSheet> {
       '${ApiConstants.baseUrl}/feed/postagens/${widget.idPost}/comentarios',
     );
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO O TOKEN NO GET 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         setState(() {
           _comentarios = json.decode(utf8.decode(response.bodyBytes));
@@ -62,7 +74,13 @@ class _CommentsSheetState extends State<CommentsSheet> {
     );
 
     try {
-      final response = await http.post(url, body: texto);
+      // 👇 INJETANDO O TOKEN NO POST (Avisando que é texto puro) 👇
+      final response = await http.post(
+        url, 
+        headers: _getAuthHeaders(isPlainText: true),
+        body: texto,
+      );
+      
       if (response.statusCode == 200) {
         _commentController.clear();
         widget.onComentarioAdicionado(); // Atualiza contador externo

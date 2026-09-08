@@ -29,6 +29,16 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   final TextEditingController _objetivoController = TextEditingController();
   final TextEditingController _metaKmController = TextEditingController(); // Novo controller para KM
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -39,7 +49,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   void dispose() {
     _tituloController.dispose();
     _objetivoController.dispose();
-    _metaKmController.dispose(); // Descartando o novo controller
+    _metaKmController.dispose(); 
     super.dispose();
   }
 
@@ -56,8 +66,9 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         '${ApiConstants.baseUrl}/turmas/treinador/$idCoach',
       );
 
-      final responseAlunos = await http.get(urlAlunos);
-      final responseTurmas = await http.get(urlTurmas);
+      // 👇 INJETANDO O TOKEN NAS CHAMADAS DE GET 👇
+      final responseAlunos = await http.get(urlAlunos, headers: _getAuthHeaders());
+      final responseTurmas = await http.get(urlTurmas, headers: _getAuthHeaders());
 
       if (mounted) {
         setState(() {
@@ -98,7 +109,6 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     final permissions = PlanPermissions(planoObj?['nome'] ?? "START");
     final idTreinador = userProvider.usuarioLogado?.id;
 
-    // 👇 TRAVA DE SEGURANÇA 1: Impede o envio se o Pro tiver burlado a interface
     if (_isPublico && !permissions.isElite) {
       _showError("PAYWALL: Apenas treinadores ELITE podem lançar Desafios Públicos.");
       return;
@@ -146,11 +156,12 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     );
 
     try {
+      // 👇 INJETANDO O TOKEN NO POST 👇
       final response = await http.post(
         Uri.parse(
           '${ApiConstants.baseUrl}/desafios/treinador/$idTreinador/criar',
         ),
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(),
         body: json.encode(payload),
       );
 
@@ -188,7 +199,6 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     final planoObj = userProvider.usuarioLogado?.plano;
     final permissions = PlanPermissions(planoObj?['nome'] ?? "START");
 
-    // Limite de XP dinâmico: Pro = 100, Elite = 200
     final double maxXP = permissions.isElite ? 200.0 : 100.0;
     if (_xpRecompensa > maxXP) _xpRecompensa = maxXP;
 
@@ -230,7 +240,6 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             
-            // 👇 ESTRATÉGIA DE UPSELL: O botão sempre aparece, mas bloqueia o PRO no 'onChanged' 👇
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -263,15 +272,14 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
                 activeTrackColor: Colors.amber,
                 value: _isPublico,
                 onChanged: (val) {
-                  // 👇 TRAVA DE SEGURANÇA 2: Impede o clique visualmente
                   if (val && !permissions.isElite) {
                     _showError("Funcionalidade exclusiva do plano ELITE. Faça upgrade para atrair alunos globais!");
-                    return; // Retorna sem alterar o Switch
+                    return; 
                   }
                   
                   setState(() {
                     _isPublico = val;
-                    if (val) _selectedTargetId = null; // Zera o alvo se ficar público
+                    if (val) _selectedTargetId = null; 
                   });
                 },
               ),

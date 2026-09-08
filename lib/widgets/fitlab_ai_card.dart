@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 
 import '../providers/user_provider.dart';
 import '../config/api_constants.dart';
-// 👇 Certifique-se de que o caminho para a tela de detalhes está correto no seu projeto
 import '../screens/ai_workout_detail_screen.dart';
 
 class FitLabAICard extends StatefulWidget {
@@ -35,6 +34,16 @@ class _FitLabAICardState extends State<FitLabAICard> {
   String _selectedPrazo = "3 meses (Foco)";
   String _selectedNivel = "Iniciante";
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -60,7 +69,9 @@ class _FitLabAICardState extends State<FitLabAICard> {
     final url = Uri.parse('${ApiConstants.baseUrl}/ia/resumo/${usuario.id}');
 
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO O TOKEN NO GET AQUI 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
+      
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
         if (mounted) {

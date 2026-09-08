@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:fitlab_mobile2/config/api_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +9,16 @@ import '../widgets/plan_card.dart';
 
 class SubscriptionScreen extends StatelessWidget {
   const SubscriptionScreen({super.key});
+
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +189,6 @@ class SubscriptionScreen extends StatelessWidget {
     ];
   }
 
-  // Gerencia se deve abrir compra ou cancelamento
   void _handlePlanAction(
     BuildContext context,
     String planoAtual,
@@ -285,7 +293,6 @@ class SubscriptionScreen extends StatelessWidget {
 
     if (usuario == null) return;
 
-    // 1. Traduz o nome do plano para o ID do banco de dados!
     int planoId = 1; // 1 = Free
     if (planoNome.contains("Pro")) {
       planoId = 2; // 2 = Pro
@@ -293,7 +300,6 @@ class SubscriptionScreen extends StatelessWidget {
       planoId = 3; // 3 = Elite
     }
 
-    // 2. Abre um loading para não deixar o usuário clicar de novo
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -302,21 +308,19 @@ class SubscriptionScreen extends StatelessWidget {
       ),
     );
 
-    // 3. Chama a NOVA API do Java para atualizar as duas tabelas!
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/planos/upgrade');
 
+      // 👇 INJETANDO O TOKEN AQUI 👇
       final response = await http.put(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(context),
         body: json.encode({"usuario_id": usuario.id, "plano_id": planoId}),
       );
 
-      // Fecha o loading de salvamento
       if (context.mounted) Navigator.pop(context);
 
       if (response.statusCode == 200) {
-        // 4. Se o banco atualizou com sucesso, atualizamos a memória do Flutter!
         provider.atualizarPerfilCompleto(
           usuario.copyWith(plano: {"nome": planoNome}),
         );
@@ -335,7 +339,7 @@ class SubscriptionScreen extends StatelessWidget {
     } catch (e) {
       debugPrint("Erro no upgrade: $e");
       if (context.mounted) {
-        Navigator.pop(context); // Fecha loading
+        Navigator.pop(context); 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("Falha ao processar pagamento. Tente novamente."),

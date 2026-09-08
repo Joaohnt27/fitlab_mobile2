@@ -24,9 +24,19 @@ class _CoachDashboardState extends State<CoachDashboard> {
   double _ratingCoach = 5.0;
   int _alunosAtivos = 0;
   List<dynamic> _solicitacoesPendentes = [];
-  List<dynamic> _topAlunos = []; // Nova lista para o Ranking
-  List<dynamic> _meusDesafios = []; // Nova lista para os Desafios
+  List<dynamic> _topAlunos = []; 
+  List<dynamic> _meusDesafios = []; 
   bool _isLoading = false;
+
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 
   @override
   void initState() {
@@ -48,7 +58,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
       final urlContagem = Uri.parse(
         '${ApiConstants.baseUrl}/mentorias/treinador/$idCoach/alunos/count',
       );
-      // 👇 NOVAS ROTAS (Crie essas rotas no seu Spring Boot!) 👇
       final urlRanking = Uri.parse(
         '${ApiConstants.baseUrl}/gamificacao/treinador/$idCoach/ranking-alunos/top10',
       );
@@ -56,12 +65,13 @@ class _CoachDashboardState extends State<CoachDashboard> {
         '${ApiConstants.baseUrl}/desafios/treinador/$idCoach',
       );
 
-      // Usando Future.wait para executar todas as chamadas em paralelo
+      // 👇 INJETANDO O TOKEN NAS 4 REQUISIÇÕES SIMULTÂNEAS 👇
+      final headers = _getAuthHeaders();
       final responses = await Future.wait([
-        http.get(urlPendentes),
-        http.get(urlContagem),
-        http.get(urlRanking),
-        http.get(urlDesafios),
+        http.get(urlPendentes, headers: headers),
+        http.get(urlContagem, headers: headers),
+        http.get(urlRanking, headers: headers),
+        http.get(urlDesafios, headers: headers),
       ]);
 
       setState(() {
@@ -95,7 +105,10 @@ class _CoachDashboardState extends State<CoachDashboard> {
         : Uri.parse('${ApiConstants.baseUrl}/mentorias/$idMentoria/recusar');
 
     try {
-      final response = aceitar ? await http.put(url) : await http.delete(url);
+      // 👇 INJETANDO O TOKEN NO PUT E NO DELETE 👇
+      final response = aceitar 
+          ? await http.put(url, headers: _getAuthHeaders()) 
+          : await http.delete(url, headers: _getAuthHeaders());
 
       if (response.statusCode == 200) {
         if (context.mounted) {
@@ -164,7 +177,7 @@ class _CoachDashboardState extends State<CoachDashboard> {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 40, left: 24, right: 24, top: 24), // Adicionado padding global
+        padding: const EdgeInsets.only(bottom: 40, left: 24, right: 24, top: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -231,7 +244,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
 
             const SizedBox(height: 24),
 
-            // 👇 Seção de Ranking Atualizada 👇
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -271,7 +283,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
 
             const SizedBox(height: 24),
 
-            // 👇 Seção de Desafios Atualizada 👇
             const _DashboardSectionHeader(
               title: "MEUS DESAFIOS ATIVOS",
               subtitle: "Gestão de engajamento",
@@ -285,8 +296,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
       ),
     );
   }
-
-  // --- NOVOS WIDGETS DE LISTAGEM ---
 
   Widget _buildRankingList() {
     if (_topAlunos.isEmpty) {
@@ -324,11 +333,10 @@ class _CoachDashboardState extends State<CoachDashboard> {
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: _topAlunos.length > 10 ? 10 : _topAlunos.length, // Limita a 10
+        itemCount: _topAlunos.length > 10 ? 10 : _topAlunos.length, 
         separatorBuilder: (context, index) => Divider(color: Colors.white.withOpacity(0.05), height: 1),
         itemBuilder: (context, index) {
           final aluno = _topAlunos[index];
-          // Lógica simples para cores do pódio
           Color positionColor = Colors.white54;
           if (index == 0) positionColor = Colors.amber;
           if (index == 1) positionColor = Colors.grey[400]!;
@@ -439,7 +447,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
-                    // Opcional: mostrar progresso ou quantidade de inscritos
                     Row(
                       children: [
                         const Icon(Icons.group, color: Color(0xFF06B6D4), size: 12),
@@ -461,7 +468,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
     );
   }
 
-  // --- WIDGETS AUXILIARES ---
   Widget _buildCoachPlanBadge(String planName) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -687,7 +693,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
               : null,
           isLocked: !permissions.canCreateChallenge,
         ),
-        // IA Bloqueada para START 
         _buildActionCard(
           Icons.psychology_rounded,
           "IA de Treino",
@@ -703,7 +708,6 @@ class _CoachDashboardState extends State<CoachDashboard> {
               : null,
           isLocked: !permissions.canUseAI,
         ),
-        // Gestão de Equipe liberada SÓ para ELITE
         if (permissions.canManageTeam)
           _buildActionCard(
             Icons.manage_accounts_rounded,

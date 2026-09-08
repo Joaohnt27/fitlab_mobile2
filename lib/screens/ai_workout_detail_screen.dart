@@ -12,15 +12,14 @@ class AIWorkoutDetailScreen extends StatelessWidget {
 
   const AIWorkoutDetailScreen({super.key, required this.data});
 
-  // 👇 NOVA LÓGICA COM MODAL DE CARREGAMENTO 👇
   Future<void> _enviarAjusteParaAPI(
     BuildContext context,
     String promptAjuste,
   ) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final usuario = userProvider.usuarioLogado;
+    final token = userProvider.token; 
 
-    // Tenta pegar o ID (Vamos precisar garantir que a tela anterior envie isso)
     final idTreino = data['id'];
 
     if (usuario == null) return;
@@ -37,10 +36,9 @@ class AIWorkoutDetailScreen extends StatelessWidget {
       return;
     }
 
-    // 1. ABRE O MODAL DE CARREGAMENTO TRAVANDO A TELA
     showDialog(
       context: context,
-      barrierDismissible: false, // Impede de fechar clicando fora
+      barrierDismissible: false, 
       builder: (BuildContext context) {
         return Dialog(
           backgroundColor: const Color(0xFF1A1A1A),
@@ -85,22 +83,22 @@ class AIWorkoutDetailScreen extends StatelessWidget {
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
         body: json.encode(payload),
       );
 
-      // 2. FECHA O MODAL DE CARREGAMENTO
       if (context.mounted) Navigator.pop(context);
 
       if (response.statusCode == 200) {
         final treinoAjustado = json.decode(utf8.decode(response.bodyBytes));
 
-        // Injeta o ID de volta no novo JSON para permitir múltiplos ajustes seguidos!
         treinoAjustado['id'] = idTreino;
         treinoAjustado['inputs_usuario'] = data['inputs_usuario'];
 
         if (context.mounted) {
-          // Fecha a tela atual e abre a nova com o treino atualizado
           Navigator.pop(context);
           Navigator.pushReplacement(
             context,
@@ -132,8 +130,7 @@ class AIWorkoutDetailScreen extends StatelessWidget {
       }
     } catch (e) {
       debugPrint("Erro ao solicitar ajuste: $e");
-      if (context.mounted)
-        Navigator.pop(context); // Garante que o loading feche no erro
+      if (context.mounted) Navigator.pop(context); 
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -146,7 +143,6 @@ class AIWorkoutDetailScreen extends StatelessWidget {
     }
   }
 
-  // 👇 MODAL DE INPUT (SEM O LOADING INLINE, APENAS COLETANDO DADOS) 👇
   void _abrirDialogoAjuste(BuildContext context) {
     final TextEditingController ajusteController = TextEditingController();
 
@@ -224,10 +220,7 @@ class AIWorkoutDetailScreen extends StatelessWidget {
             onPressed: () {
               if (ajusteController.text.trim().isEmpty) return;
 
-              // Fecha a caixa de texto
               Navigator.pop(context);
-
-              // Chama o método que vai abrir o Modal de Loading e fazer o POST
               _enviarAjusteParaAPI(context, ajusteController.text);
             },
             style: ElevatedButton.styleFrom(

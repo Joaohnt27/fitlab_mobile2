@@ -23,6 +23,16 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
   final TextEditingController _nomeTurmaController = TextEditingController();
   final TextEditingController _descTurmaController = TextEditingController();
 
+  // 👇 1. Helper para pegar o Header com Token
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -49,8 +59,9 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         '${ApiConstants.baseUrl}/turmas/treinador/$idCoach',
       );
 
-      final responseAlunos = await http.get(urlAlunos);
-      final responseTurmas = await http.get(urlTurmas);
+      // 👇 2. Injetando Token nos GETs
+      final responseAlunos = await http.get(urlAlunos, headers: _getAuthHeaders());
+      final responseTurmas = await http.get(urlTurmas, headers: _getAuthHeaders());
 
       if (mounted) {
         setState(() {
@@ -69,7 +80,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     }
   }
 
-  // 👇 SALVAR TURMA AGORA ACEITA ID (PARA SABER SE É PUT OU POST) 👇
   Future<void> _salvarTurma(
     List<int> atletasSelecionados, {
     int? idTurmaExistente,
@@ -86,23 +96,23 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
       "atletasIds": atletasSelecionados,
     };
 
-    Navigator.pop(context); // Fecha o modal
+    Navigator.pop(context); 
 
     try {
       http.Response response;
 
-      // SE TEM ID, É UMA EDIÇÃO (PUT)
       if (idTurmaExistente != null) {
+        // 👇 3. Injetando Token no PUT
         response = await http.put(
           Uri.parse('${ApiConstants.baseUrl}/turmas/$idTurmaExistente'),
-          headers: {'Content-Type': 'application/json; charset=UTF-8'},
+          headers: _getAuthHeaders(),
           body: json.encode(payload),
         );
       } else {
-        // SE NÃO TEM ID, É CRIAÇÃO (POST)
+        // 👇 4. Injetando Token no POST
         response = await http.post(
           Uri.parse('${ApiConstants.baseUrl}/turmas'),
-          headers: {'Content-Type': 'application/json; charset=UTF-8'},
+          headers: _getAuthHeaders(),
           body: json.encode(payload),
         );
       }
@@ -131,8 +141,10 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
 
   Future<void> _excluirTurma(int idTurma) async {
     try {
+      // 👇 5. Injetando Token no DELETE da Turma
       final response = await http.delete(
         Uri.parse('${ApiConstants.baseUrl}/turmas/$idTurma'),
+        headers: _getAuthHeaders(),
       );
       if (response.statusCode == 200) {
         _carregarDados();
@@ -155,7 +167,8 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
       final url = Uri.parse(
         '${ApiConstants.baseUrl}/mentorias/$idVinculo/recusar',
       );
-      final response = await http.delete(url);
+      // 👇 6. Injetando Token no DELETE do Vinculo
+      final response = await http.delete(url, headers: _getAuthHeaders());
 
       if (response.statusCode == 200) {
         if (context.mounted) {
@@ -260,7 +273,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showGroupModal(context), // Abre vazio (Criação)
+        onPressed: () => _showGroupModal(context), 
         backgroundColor: const Color(0xFF06B6D4),
         icon: const Icon(Icons.add, color: Colors.black),
         label: const Text(
@@ -595,7 +608,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
-  // 👇 OPÇÕES DA TURMA: AGORA COM "EDITAR" 👇
   void _showEditDeleteGroupOptions(BuildContext context, Map group) {
     showModalBottomSheet(
       context: context,
@@ -617,7 +629,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
               _showGroupModal(
                 context,
                 existingGroup: group,
-              ); // 👈 Abre o modal passando a turma!
+              ); 
             },
           ),
           ListTile(
@@ -637,9 +649,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
     );
   }
 
-  // 👇 MODAL DE CRIAÇÃO/EDIÇÃO INTELIGENTE 👇
   void _showGroupModal(BuildContext context, {Map? existingGroup}) {
-    // Se for edição, preenche com os dados da turma. Se não, limpa tudo.
     if (existingGroup != null) {
       _nomeTurmaController.text = existingGroup['nome'] ?? "";
       _descTurmaController.text = existingGroup['descricao'] ?? "";
@@ -648,7 +658,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
       _descTurmaController.clear();
     }
 
-    // Pega os IDs que vieram do banco (agora o Java manda!)
     List<int> selecionados = existingGroup != null
         ? List<int>.from(existingGroup['atletasIds'] ?? [])
         : [];
@@ -677,7 +686,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                   Text(
                     existingGroup == null
                         ? "NOVA TURMA"
-                        : "EDITAR TURMA", // 👈 Título Dinâmico
+                        : "EDITAR TURMA", 
                     style: const TextStyle(
                       color: Color(0xFF06B6D4),
                       fontWeight: FontWeight.bold,
@@ -740,7 +749,7 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                                   ),
                                   value: selecionados.contains(
                                     idAtleta,
-                                  ), // 👈 Se estiver na lista, já vem marcado!
+                                  ), 
                                   onChanged: (bool? value) {
                                     setModalState(() {
                                       if (value == true) {
@@ -761,7 +770,6 @@ class _StudentManagementScreenState extends State<StudentManagementScreen> {
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
-                      // 👇 Envia o ID para o método saber que é PUT, se existir 👇
                       onPressed: () => _salvarTurma(
                         selecionados,
                         idTurmaExistente: existingGroup?['id'],

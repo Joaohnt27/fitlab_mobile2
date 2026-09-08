@@ -30,7 +30,7 @@ class AuthService {
   }
 
   // Faz o login de um usuário no back-end
-  Future<UserModel?> fazerLogin(String email, String senha) async {
+  Future<Map<String, dynamic>?> fazerLogin(String email, String senha) async {
     try {
       final response = await http.post(
         Uri.parse('http://localhost:8080/api/usuarios/login'),
@@ -42,7 +42,12 @@ class AuthService {
       );
 
       if (response.statusCode == 200) {
-        return UserModel.fromJson(jsonDecode(response.body));
+        // Decode the response and return both the token and the user
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return {
+          'token': data['token'],
+          'usuario': UserModel.fromJson(data['usuario']),
+        };
       } else {
         return null; 
       }

@@ -4,7 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart'; // 👇 NOVO PACOTE AQUI 👇
+import 'package:share_plus/share_plus.dart'; 
 import '../providers/user_provider.dart';
 import '../config/api_constants.dart';
 
@@ -38,6 +38,16 @@ class _SummarySheetState extends State<SummarySheet>
   late Animation<double> _medalAnimation;
   bool _isPosting = false;
 
+  // 👇 1. Helper para pegar o Header com Token
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -58,7 +68,6 @@ class _SummarySheetState extends State<SummarySheet>
     super.dispose();
   }
 
-  // 👇 Função para Gerar o Texto de Compartilhamento Externo 👇
   String _gerarTextoCompartilhamento() {
     final minutos = widget.duration ~/ 60;
     final segundos = widget.duration % 60;
@@ -79,9 +88,8 @@ Baixe o FitLab e venha pro laboratório também! 🧬
 """;
   }
 
-  // 👇 Compartilhar via Share Plus (WhatsApp, Insta, etc) 👇
   void _compartilharExterno() {
-    Navigator.pop(context); // Fecha a BottomSheet
+    Navigator.pop(context); 
     final texto = _gerarTextoCompartilhamento();
     Share.share(texto);
   }
@@ -122,9 +130,10 @@ Baixe o FitLab e venha pro laboratório também! 🧬
     );
 
     try {
+      // 👇 2. Injetando o Token no POST AQUI!
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(), 
         body: json.encode(payload),
       );
 
@@ -169,7 +178,6 @@ Baixe o FitLab e venha pro laboratório também! 🧬
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Tracinho no topo do Modal
               Container(
                 width: 40,
                 height: 4,
@@ -190,12 +198,10 @@ Baixe o FitLab e venha pro laboratório também! 🧬
               ),
               const SizedBox(height: 24),
               
-              // 👇 NOVO VISUAL DOS BOTÕES 👇
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
                   children: [
-                    // Botão FEED
                     Expanded(
                       child: GestureDetector(
                         onTap: _isPosting ? null : () => _postarNoFeed(context),
@@ -222,7 +228,6 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Botão OUTROS APPS (Usa o Share Plus)
                     Expanded(
                       child: GestureDetector(
                         onTap: _compartilharExterno,
@@ -424,7 +429,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                         child: const Text(
                           "FECHAR",
                           style: TextStyle(
-                            color: Colors.black, // 👇 Ajustei para contraste
+                            color: Colors.black, 
                             fontWeight: FontWeight.bold,
                           ),
                         ),

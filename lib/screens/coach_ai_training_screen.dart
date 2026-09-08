@@ -71,6 +71,16 @@ class _CoachAITrainingScreenState extends State<CoachAITrainingScreen> {
     "16 semanas",
   ];
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   Future<void> _gerarTreinoIA() async {
     // 1. Validação
     if (_selectedObjective == null ||
@@ -110,9 +120,11 @@ class _CoachAITrainingScreenState extends State<CoachAITrainingScreen> {
       final url = Uri.parse(
         '${ApiConstants.baseUrl}/ia/treinadores/$idTreinador/sintetizar',
       );
+      
+      // 👇 INJETANDO O TOKEN NO POST AQUI 👇
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(), 
         body: json.encode({"prompt_estruturado": promptMontado}),
       );
 

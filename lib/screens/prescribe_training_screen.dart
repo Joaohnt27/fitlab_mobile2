@@ -29,6 +29,15 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
   final TextEditingController _volumeController = TextEditingController();
   final TextEditingController _protocoloController = TextEditingController();
 
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +63,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         final List<dynamic> dados = json.decode(
           utf8.decode(response.bodyBytes),
@@ -80,7 +89,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     final url = Uri.parse('${ApiConstants.baseUrl}/turmas/treinador/$idCoach');
 
     try {
-      final response = await http.get(url);
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         final List<dynamic> dados = json.decode(
           utf8.decode(response.bodyBytes),
@@ -126,7 +135,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     try {
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/templates'),
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(),
         body: json.encode(payload),
       );
 
@@ -163,6 +172,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     try {
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/templates/treinador/$idTreinador'),
+        headers: _getAuthHeaders(),
       );
       if (context.mounted) Navigator.pop(context);
 
@@ -188,6 +198,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     try {
       final response = await http.delete(
         Uri.parse('${ApiConstants.baseUrl}/templates/$idTemplate'),
+        headers: _getAuthHeaders(),
       );
       if (response.statusCode == 200) {
         setModalState(() {
@@ -406,9 +417,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
 
     final payload = {
       "treinadorId": idTreinador,
-      "alvoId": int.parse(
-        _selectedTargetId!,
-      ), // Pode ser ID do Atleta ou ID da Turma!
+      "alvoId": int.parse(_selectedTargetId!),
       "tipoAlvo": _targetType == 0 ? "INDIVIDUAL" : "TURMA",
       "titulo": _tituloController.text.trim(),
       "volume": _volumeController.text.trim(),
@@ -426,7 +435,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
     try {
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/treinos/prescrever'),
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(),
         body: json.encode(payload),
       );
 
@@ -754,7 +763,7 @@ class _PrescribeTrainingScreenState extends State<PrescribeTrainingScreen> {
                 value: t["id"],
                 child: Text(
                   "${t["nome"]} (${t["count"]} alunos)",
-                ), // Mostra o nome e a qtd de alunos
+                ),
               ),
             )
             .toList(),

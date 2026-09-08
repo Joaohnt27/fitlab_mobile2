@@ -25,23 +25,36 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+
+  // 👇 1. Helper para pegar o Header com Token
+  Map<String, String> _getAuthHeaders(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   // Chamada HTTP para buscar o pacote completo do Perfil
-  Future<Map<String, dynamic>> _carregarDadosPerfil(int idUsuario) async {
+  Future<Map<String, dynamic>> _carregarDadosPerfil(BuildContext context, int idUsuario) async {
     final response = await http.get(
       Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/perfil'),
+      headers: _getAuthHeaders(context), // 👇 Injetando Token AQUI!
     );
 
     if (response.statusCode == 200) {
       return json.decode(utf8.decode(response.bodyBytes));
     } else {
-      throw Exception('Falha ao carregar o perfil da API');
+      throw Exception('Falha ao carregar o perfil da API (Status: ${response.statusCode})');
     }
   }
 
   // Busca as badges reais da API para a prévia do perfil
-  Future<List<dynamic>> _carregarBadges(int idUsuario) async {
+  Future<List<dynamic>> _carregarBadges(BuildContext context, int idUsuario) async {
     final response = await http.get(
       Uri.parse('${ApiConstants.baseUrl}/usuarios/$idUsuario/badges'),
+      headers: _getAuthHeaders(context), // 👇 Injetando Token AQUI!
     );
     if (response.statusCode == 200) {
       return json.decode(utf8.decode(response.bodyBytes)) as List<dynamic>;
@@ -78,6 +91,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             TextButton(
               onPressed: () {
+                // 👇 Aqui limpamos a sessão no UserProvider
+                Provider.of<UserProvider>(context, listen: false).logout();
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/login',
@@ -108,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final idBusca = usuario?.id ?? 1;
 
           return FutureBuilder<Map<String, dynamic>>(
-            future: _carregarDadosPerfil(idBusca),
+            future: _carregarDadosPerfil(context, idBusca),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
@@ -464,10 +479,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ATUALIZADO: Ordenação dinâmica no preview de conquistas
   Widget _buildBadgesGallery(BuildContext context, int idUsuario) {
     return FutureBuilder<List<dynamic>>(
-      future: _carregarBadges(idUsuario),
+      future: _carregarBadges(context, idUsuario),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -477,14 +491,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         final badgesData = snapshot.data ?? [];
 
-        // 👇 Ordena as badges: Desbloqueadas primeiro
         badgesData.sort((a, b) {
           final aUnlocked = a['unlocked'] == true ? 1 : 0;
           final bUnlocked = b['unlocked'] == true ? 1 : 0;
           return bUnlocked.compareTo(aUnlocked);
         });
 
-        // Exibe no máximo as 8 primeiras para a prévia do perfil
         final displayBadges = badgesData.take(8).toList();
 
         return Container(

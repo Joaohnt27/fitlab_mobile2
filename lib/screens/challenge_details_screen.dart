@@ -22,6 +22,16 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   double _progressoReal = 0.0;
   double _totalReal = 1.0;
 
+  // 👇 1. Helper for Auth Headers
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -32,23 +42,23 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
     final idDesafio = widget.desafio['id'];
-    // Pega o nome exato da insígnia que este desafio dá
+    
     final nomeBadgeExclusiva = widget.desafio['badgeExclusiva']
         ?.toString()
         .trim();
 
     try {
-      // 1. Busca os Desafios Ativos
       final urlAtivos = Uri.parse(
         '${ApiConstants.baseUrl}/usuarios/$idUsuario/desafios',
       );
-      final resAtivos = await http.get(urlAtivos);
+      // 👇 2. Inject Headers
+      final resAtivos = await http.get(urlAtivos, headers: _getAuthHeaders());
 
-      // 2. Busca as Insígnias do Usuário (O Pulo do Gato para saber se concluiu)
       final urlBadges = Uri.parse(
         '${ApiConstants.baseUrl}/usuarios/$idUsuario/badges',
       );
-      final resBadges = await http.get(urlBadges);
+      // 👇 3. Inject Headers
+      final resBadges = await http.get(urlBadges, headers: _getAuthHeaders());
 
       bool jaConcluiu = false;
 
@@ -56,7 +66,6 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         final List<dynamic> badges = json.decode(
           utf8.decode(resBadges.bodyBytes),
         );
-        // Verifica se o usuário tem a insígnia que tenha o mesmo nome da recompensa deste desafio e está desbloqueada
         jaConcluiu = badges.any(
           (b) =>
               b['unlocked'] == true &&
@@ -66,7 +75,6 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
       }
 
       if (jaConcluiu) {
-        // Se já tem a badge, trava tudo em 100% concluído!
         setState(() {
           _concluido = true;
           _aceito = true;
@@ -79,7 +87,6 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         return;
       }
 
-      // Se não concluiu, verifica se está em andamento
       if (resAtivos.statusCode == 200) {
         final List<dynamic> desafiosAtivos = json.decode(
           utf8.decode(resAtivos.bodyBytes),
@@ -130,7 +137,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     );
 
     try {
-      final response = await http.post(url);
+      // 👇 4. Inject Headers for POST request
+      final response = await http.post(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -157,7 +165,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     );
 
     try {
-      final response = await http.delete(url);
+      // 👇 5. Inject Headers for DELETE request
+      final response = await http.delete(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -180,6 +189,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ... layout code remains exactly the same ...
     final title =
         widget.desafio['titulo'] ?? widget.desafio['title'] ?? 'Desafio';
     final descricao =

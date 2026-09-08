@@ -32,6 +32,16 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   StompClient? _stompClient;
   late int _meuId;
 
+  // 👇 1. Helper para o Token JWT 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -56,7 +66,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      // 👇 2. Injeta o Header com Token AQUI! 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         setState(() {
           _mensagens = json.decode(utf8.decode(response.bodyBytes));
@@ -64,6 +75,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         });
         _conectarWebSocket(); // Conecta só depois de carregar o passado
         _rolarParaFim();
+      } else {
+        debugPrint("Erro na API (Status: ${response.statusCode})");
+        setState(() => _isLoadingHistorico = false);
       }
     } catch (e) {
       debugPrint("Erro ao carregar histórico: $e");
@@ -89,6 +103,11 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     _stompClient = StompClient(
       config: StompConfig(
         url: wsUrl,
+        // 👇 NOTA SOBRE WEBSOCKETS E JWT: 
+        // Em um ambiente de produção rigoroso, você passaria o Token aqui nos headers STOMP.
+        // Para este TCC, se o '/ws' estiver liberado no SecurityConfig do Java, isso basta.
+        stompConnectHeaders: _getAuthHeaders(), 
+        webSocketConnectHeaders: _getAuthHeaders(),
         onConnect: _onConnect,
         onWebSocketError: (dynamic error) =>
             debugPrint("Erro de WebSocket: $error"),
@@ -126,8 +145,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   // 4. ENVIA MENSAGEM DO FLUTTER PARA O JAVA
   void _enviarMensagem() {
     final texto = _msgController.text.trim();
-    if (texto.isEmpty || _stompClient == null || !_stompClient!.isActive)
-      return;
+    if (texto.isEmpty || _stompClient == null || !_stompClient!.isActive) {
+        return;
+    }
 
     final msgParaEnviar = {
       "remetenteId": _meuId,
@@ -164,6 +184,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // (O restante do layout build() permanece exatamente igual)
     return Scaffold(
       backgroundColor: const Color(0xFF0D0D0D),
       appBar: AppBar(

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // 👇 IMPORT PARA COPIAR PARA A ÁREA DE TRANSFERÊNCIA
+import 'package:flutter/services.dart'; 
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -22,6 +22,16 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   late Future<Map<String, dynamic>> _perfilFuture;
   int? _seguidoresTempoReal;
 
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -31,8 +41,11 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   Future<Map<String, dynamic>> _carregarPerfil() async {
     final idAlvo = widget.usuarioAlvo['id'];
+    
+    // 👇 INJETANDO TOKEN NO GET 👇
     final response = await http.get(
       Uri.parse('${ApiConstants.baseUrl}/usuarios/$idAlvo/perfil'),
+      headers: _getAuthHeaders(),
     );
 
     if (response.statusCode == 200) {
@@ -52,7 +65,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     );
 
     try {
-      final response = await http.get(url);
+      // 👇 INJETANDO TOKEN NO GET 👇
+      final response = await http.get(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         setState(() {
           _isFollowing = json.decode(response.body) == true;
@@ -79,7 +93,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     );
 
     try {
-      final response = await http.post(url);
+      // 👇 INJETANDO TOKEN NO POST 👇
+      final response = await http.post(url, headers: _getAuthHeaders());
 
       if (response.statusCode == 200) {
         setState(() {
@@ -145,7 +160,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               perfilAPI['bio'] ??
               "Sem biografia cadastrada.";
 
-          // 👇 RESGATA O CÓDIGO DA API
           final String codigoAmigo =
               perfilAPI['codigoAmizade'] ?? perfilAPI['codigo_amizade'] ?? "";
 
@@ -162,8 +176,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverAppBar(
-                expandedHeight:
-                    290.0, // Aumentei um pouquinho pra caber o código
+                expandedHeight: 290.0, 
                 floating: false,
                 pinned: true,
                 backgroundColor: const Color(0xFF1A1A1A),
@@ -225,7 +238,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                             ),
                           ),
                         ),
-                        // 👇 NOVA PÍLULA COPIÁVEL COM O CÓDIGO DE AMIZADE 👇
                         if (codigoAmigo.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           InkWell(

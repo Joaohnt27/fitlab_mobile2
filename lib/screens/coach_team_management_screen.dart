@@ -22,7 +22,17 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
     "totalTurmas": 0,
   };
   List<dynamic> _coaches = [];
-  List<dynamic> _alunosDoLider = []; // Para poder transferir para o staff
+  List<dynamic> _alunosDoLider = [];
+
+  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
+  Map<String, String> _getAuthHeaders() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final token = userProvider.token;
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 
   @override
   void initState() {
@@ -44,11 +54,12 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
       );
       final urlAlunos = Uri.parse(
         '${ApiConstants.baseUrl}/mentorias/treinador/$idLider/alunos',
-      ); // Alunos da base
+      ); 
 
-      final resMetricas = await http.get(urlMetricas);
-      final resMembros = await http.get(urlMembros);
-      final resAlunos = await http.get(urlAlunos);
+      // 👇 INJETANDO O TOKEN NAS TRÊS CHAMADAS DE BUSCA 👇
+      final resMetricas = await http.get(urlMetricas, headers: _getAuthHeaders());
+      final resMembros = await http.get(urlMembros, headers: _getAuthHeaders());
+      final resAlunos = await http.get(urlAlunos, headers: _getAuthHeaders());
 
       if (mounted) {
         setState(() {
@@ -70,11 +81,11 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
     }
   }
 
-  // FUNÇÃO PARA DESVINCULAR STAFF
   Future<void> _desvincularStaff(int idStaff) async {
     try {
       final url = Uri.parse('${ApiConstants.baseUrl}/equipes/staff/$idStaff');
-      final response = await http.delete(url);
+      // 👇 INJETANDO O TOKEN NO DELETE 👇
+      final response = await http.delete(url, headers: _getAuthHeaders());
 
       if (response.statusCode == 200) {
         if (mounted) {
@@ -104,18 +115,18 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
     }
   }
 
-  // FUNÇÃO PARA SALVAR TRANSFERÊNCIA DE ALUNOS
   Future<void> _transferirAlunos(int idStaff, List<int> vinculosIds) async {
-    Navigator.pop(context); // Fecha o modal
+    Navigator.pop(context); 
     setState(() => _isLoading = true);
 
     try {
       final url = Uri.parse(
         '${ApiConstants.baseUrl}/equipes/staff/$idStaff/alunos',
       );
+      // 👇 INJETANDO O TOKEN NO PUT 👇
       final response = await http.put(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: _getAuthHeaders(),
         body: json.encode({"vinculosIds": vinculosIds}),
       );
 
@@ -295,7 +306,7 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
               ),
             ),
             subtitle: Text(
-              "${coach['role']} • ${coach['students']} alunos",
+              "${coach['role']} •${coach['students']} alunos",
               style: const TextStyle(color: Colors.white38, fontSize: 11),
             ),
             trailing: PopupMenuButton(
@@ -334,7 +345,6 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
     );
   }
 
-  // MODAL PARA ATRIBUIR ALUNOS AO STAFF
   void _showAssignStudentsModal(
     BuildContext context,
     int idStaff,
@@ -456,7 +466,6 @@ class _CoachTeamManagementScreenState extends State<CoachTeamManagementScreen> {
     );
   }
 
-  // ALERTA ANTES DE DEMITIR O STAFF
   void _confirmRemoveStaff(
     BuildContext context,
     int idStaff,
