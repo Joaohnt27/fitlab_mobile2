@@ -32,7 +32,7 @@ class AuthService {
   Future<Map<String, dynamic>?> fazerLogin(String email, String senha) async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConstants.baseUrl}/login'),
+        Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'senha': senha}),
       );
