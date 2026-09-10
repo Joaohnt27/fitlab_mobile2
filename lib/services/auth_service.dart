@@ -1,24 +1,23 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../models/user_model.dart'; 
+import '../models/user_model.dart';
+import '../config/api_constants.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://localhost:8080/api/usuarios';
+  static const String baseUrl = '${ApiConstants.baseUrl}/usuarios';
 
   // Cadastra um novo usuário no back-end
   Future<UserModel?> cadastrarUsuario(UserModel usuario) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/cadastro'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(usuario.toJson()), 
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(usuario.toJson()),
       );
 
       if (response.statusCode == 201) {
         final Map<String, dynamic> dadosRetornados = jsonDecode(response.body);
-        return UserModel.fromJson(dadosRetornados); 
+        return UserModel.fromJson(dadosRetornados);
       } else {
         print('Erro no back-end: ${response.statusCode} - ${response.body}');
         return null;
@@ -33,12 +32,9 @@ class AuthService {
   Future<Map<String, dynamic>?> fazerLogin(String email, String senha) async {
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:8080/api/usuarios/login'),
+        Uri.parse('${ApiConstants.baseUrl}/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'senha': senha,
-        }),
+        body: jsonEncode({'email': email, 'senha': senha}),
       );
 
       if (response.statusCode == 200) {
@@ -49,7 +45,7 @@ class AuthService {
           'usuario': UserModel.fromJson(data['usuario']),
         };
       } else {
-        return null; 
+        return null;
       }
     } catch (e) {
       print('Erro de conexão no login: $e');
