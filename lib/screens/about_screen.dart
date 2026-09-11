@@ -57,7 +57,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             const Text(
-              "Versão 1.1.0",
+              "Versão 1.1.1",
               style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
             const SizedBox(height: 40),
@@ -92,7 +92,7 @@ class AboutScreen extends StatelessWidget {
                   child: _buildDeveloperProfile(
                     name: "Arthur Vital\nFontana",
                     ra: "RA: 839832",
-                    // imagePath: 'assets/images/arthur.png', 
+                    imagePath: 'assets/images/arthur.jpeg', 
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -126,7 +126,7 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  // Card Textual Padrão (Usado para o Objetivo)
+  // Card Textual Padrão (usado para o objetivo)
   Widget _buildAboutCard({required String title, required String content}) {
     return Container(
       width: double.infinity,
@@ -169,7 +169,6 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  // Widget para a foto e dados do Desenvolvedor
   Widget _buildDeveloperProfile({
     required String name,
     required String ra,
@@ -184,7 +183,6 @@ class AboutScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Borda em degradê ao redor da foto
           Container(
             padding: const EdgeInsets.all(3),
             decoration: const BoxDecoration(
@@ -236,7 +234,6 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  // Card para as informações acadêmicas
   Widget _buildInstitutionalCard() {
     return Container(
       width: double.infinity,
@@ -287,7 +284,6 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  // Linha de informação com ícone
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
