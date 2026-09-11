@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../config/api_constants.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -25,6 +26,24 @@ class UserProvider with ChangeNotifier {
   UserModel? get usuarioLogado => _usuarioLogado;
   String get nome => _usuarioLogado?.nome ?? "Usuário";
 
+  // 👇 1. Construtor que tenta carregar a sessão ao abrir o app
+  UserProvider() {
+    _carregarSessaoLocal();
+  }
+
+  // 👇 2. Método interno que lê a memória física
+  Future<void> _carregarSessaoLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tokenSalvo = prefs.getString('auth_token');
+    final userSalvo = prefs.getString('user_data');
+
+    if (tokenSalvo != null && userSalvo != null) {
+      _token = tokenSalvo;
+      _usuarioLogado = UserModel.fromJson(json.decode(userSalvo));
+      notifyListeners(); 
+    }
+  }
+
   // 👇 Helper para montar o Header com o Token 👇
   Map<String, String> _getHeaders() {
     return {
@@ -41,6 +60,11 @@ class UserProvider with ChangeNotifier {
         _usuarioLogado = resultado['usuario'];
         _token = resultado['token']; 
 
+        // 👇 3. Salva os dados na memória física após o login com sucesso
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', _token!);
+        await prefs.setString('user_data', json.encode(_usuarioLogado!.toJson()));
+
         notifyListeners();
         return true; 
       }
@@ -51,9 +75,15 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  void logout() {
+  // 👇 4. Transforma o logout em async para limpar a memória física
+  Future<void> logout() async {
     _usuarioLogado = null;
     _token = null; 
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('user_data');
+
     notifyListeners();
   }
 

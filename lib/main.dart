@@ -10,7 +10,6 @@ import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/main_layout.dart';
 
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -48,7 +47,16 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
 
-      initialRoute: '/login',
+      home: Consumer<UserProvider>(
+        builder: (context, userProvider, child) {
+          // Se tiver token na memória física, joga direto pra tela principal
+          if (userProvider.token != null) {
+            return const MainLayout();
+          }
+          // Se não tiver, cai na tela de login
+          return const LoginScreen();
+        },
+      ),
 
       routes: {
         '/login': (context) => const LoginScreen(),

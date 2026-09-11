@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math' show pi; 
+import 'dart:math' show pi;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -35,15 +35,15 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
   String selectedGoalType = "Distância";
   double targetValue = 3.0;
 
-  LatLng currentPosition = const LatLng(0, 0); 
-  double currentHeading = 0.0; 
-  
+  LatLng currentPosition = const LatLng(0, 0);
+  double currentHeading = 0.0;
+
   List<LatLng> route = [];
   List<Map<String, dynamic>> routeData = [];
-  
+
   final MapController _mapController = MapController();
   Timer? _timer;
-  StreamSubscription<Position>? _positionStream; 
+  StreamSubscription<Position>? _positionStream;
 
   final List<String> goalOptions = [
     "Distância",
@@ -53,16 +53,13 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     "Ganho de Elevação",
     "Sem Metas",
   ];
-  
-  final List<String> modeOptions = [
-    "Corrida",
-    "Caminhada",
-  ];
+
+  final List<String> modeOptions = ["Corrida", "Caminhada"];
 
   @override
   void initState() {
     super.initState();
-    _checkPermissionsAndGetLocation(); 
+    _checkPermissionsAndGetLocation();
   }
 
   @override
@@ -78,9 +75,9 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Ative o GPS do celular.")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Ative o GPS do celular.")));
       return;
     }
 
@@ -88,12 +85,12 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        return; 
+        return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      return; 
+      return;
     }
 
     Position position = await Geolocator.getCurrentPosition(
@@ -108,7 +105,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
   void _moveCameraToPlayer() {
     if (currentPosition.latitude == 0 && currentPosition.longitude == 0) return;
-    
+
     double offset = 0.0025;
     LatLng adjustedPosition = LatLng(
       currentPosition.latitude - offset,
@@ -195,55 +192,64 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       }
     });
 
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 3, 
-      ),
-    ).listen((Position position) {
-      if (!isPaused) {
-        setState(() {
-          LatLng newPosition = LatLng(position.latitude, position.longitude);
-          final timestamp = DateTime.now().toIso8601String();
+    _positionStream =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            distanceFilter: 3,
+          ),
+        ).listen((Position position) {
+          if (!isPaused) {
+            setState(() {
+              LatLng newPosition = LatLng(
+                position.latitude,
+                position.longitude,
+              );
+              final timestamp = DateTime.now().toIso8601String();
 
-          routeData.add({
-            "lat": newPosition.latitude,
-            "lng": newPosition.longitude,
-            "timestamp": timestamp,
-          });
+              routeData.add({
+                "lat": newPosition.latitude,
+                "lng": newPosition.longitude,
+                "timestamp": timestamp,
+              });
 
-          if (route.isNotEmpty) {
-            final double incrementMeters = distanceCalculator.distance(
-              currentPosition,
-              newPosition,
-            );
-            
-            // Calcula a direção do deslocamento para girar o ícone
-            if (incrementMeters > 1.0) {
-              double bearing = distanceCalculator.bearing(currentPosition, newPosition);
-              currentHeading = bearing * (pi / 180.0); // Converte para radianos
-            }
+              if (route.isNotEmpty) {
+                final double incrementMeters = distanceCalculator.distance(
+                  currentPosition,
+                  newPosition,
+                );
 
-            distance += (incrementMeters / 1000.0);
-            
-            steps = (distance * 1300).toInt(); 
-            calories = (distance * 65).toInt();
+                // Calcula a direção do deslocamento para girar o ícone
+                if (incrementMeters > 1.0) {
+                  double bearing = distanceCalculator.bearing(
+                    currentPosition,
+                    newPosition,
+                  );
+                  currentHeading =
+                      bearing * (pi / 180.0); // Converte para radianos
+                }
+
+                distance += (incrementMeters / 1000.0);
+
+                steps = (distance * 1300).toInt();
+                calories = (distance * 65).toInt();
+              }
+
+              currentPosition = newPosition;
+              route.add(currentPosition);
+              _moveCameraToPlayer();
+            });
           }
-
-          currentPosition = newPosition;
-          route.add(currentPosition);
-          _moveCameraToPlayer();
         });
-      }
-    });
   }
 
   Future<void> _stopRun() async {
     _timer?.cancel();
-    _positionStream?.cancel(); 
+    _positionStream?.cancel();
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
+    final token = userProvider.token;
 
     final body = jsonEncode({
       "idUsuario": idUsuario,
@@ -259,7 +265,10 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     try {
       final response = await http.post(
         Uri.parse('${ApiConstants.baseUrl}/atividades/registrar'),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          if (token != null) "Authorization": "Bearer $token",
+        },
         body: body,
       );
 
@@ -280,14 +289,14 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Erro na API: ${response.statusCode}")),
         );
-        _showSummary(0, distance, []); 
+        _showSummary(0, distance, []);
       }
     } catch (e) {
       debugPrint("Erro de conexão: $e");
       _showSummary(0, distance, []);
     }
   }
-  
+
   void _showSummary(int xp, double finalDistance, List<dynamic> badgesGanhas) {
     showModalBottomSheet(
       context: context,
@@ -361,10 +370,26 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
                 tileBuilder: (context, widget, tile) {
                   return ColorFiltered(
                     colorFilter: const ColorFilter.matrix([
-                      -0.2126, -0.7152, -0.0722, 0, 255,
-                      -0.2126, -0.7152, -0.0722, 0, 255,
-                      -0.2126, -0.7152, -0.0722, 0, 255,
-                      0,       0,       0,       1, 0,
+                      -0.2126,
+                      -0.7152,
+                      -0.0722,
+                      0,
+                      255,
+                      -0.2126,
+                      -0.7152,
+                      -0.0722,
+                      0,
+                      255,
+                      -0.2126,
+                      -0.7152,
+                      -0.0722,
+                      0,
+                      255,
+                      0,
+                      0,
+                      0,
+                      1,
+                      0,
                     ]),
                     child: widget,
                   );
@@ -380,7 +405,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
-              if (currentPosition.latitude != 0) 
+              if (currentPosition.latitude != 0)
                 MarkerLayer(
                   markers: [
                     Marker(
@@ -834,10 +859,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             const SizedBox(height: 20),
             ...options.map((opt) {
               return ListTile(
-                title: Text(
-                  opt,
-                  style: const TextStyle(color: Colors.white),
-                ),
+                title: Text(opt, style: const TextStyle(color: Colors.white)),
                 onTap: () {
                   if (title == "Meta") {
                     _updateGoalValue(opt);

@@ -1695,12 +1695,16 @@ class _RankingTile extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                      Expanded( // 👇 1. ENVOLVE COM EXPANDED
+                        child: Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          overflow: TextOverflow.ellipsis, 
+                          maxLines: 1, 
                         ),
                       ),
                       if (isTrainer) ...[
@@ -1814,7 +1818,7 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(color: const Color(0xFF0D0D0D), child: _tabBar);
+    return Container(color: const Color(0xFF0D0D0D), child: _tabBar); 
   }
 
   @override

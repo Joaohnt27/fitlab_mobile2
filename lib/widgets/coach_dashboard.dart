@@ -183,14 +183,19 @@ class _CoachDashboardState extends State<CoachDashboard> {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start, // Alinha pelo topo caso quebre linha
               children: [
-                Row(
-                  children: [
-                    _buildCoachPlanBadge(nomePlanoAtual.toUpperCase()),
-                    const SizedBox(width: 8),
-                    _buildCrefBadge(statusCref),
-                  ],
+                Expanded( 
+                  child: Wrap( 
+                    spacing: 8, 
+                    runSpacing: 8, 
+                    children: [
+                      _buildCoachPlanBadge(nomePlanoAtual.toUpperCase()),
+                      _buildCrefBadge(statusCref),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8), // Margem de segurança para a nota não colar
                 _buildRatingBadge(_ratingCoach),
               ],
             ),

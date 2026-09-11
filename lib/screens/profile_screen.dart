@@ -307,27 +307,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildStatCard(IconData icon, String value, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4), // Adicionei padding horizontal
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, // Centraliza os itens no eixo Y
         children: [
           Icon(icon, color: Colors.white70, size: 20),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+          FittedBox( // 👇 Garante que o número grande diminua de tamanho em vez de quebrar a linha
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          Text(
-            label,
-            style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 9),
+          const SizedBox(height: 2), // Separação sutil
+          FittedBox( // 👇 Protege os labels também
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 9),
+            ),
           ),
         ],
       ),
