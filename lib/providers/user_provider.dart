@@ -26,12 +26,10 @@ class UserProvider with ChangeNotifier {
   UserModel? get usuarioLogado => _usuarioLogado;
   String get nome => _usuarioLogado?.nome ?? "Usuário";
 
-  // 👇 1. Construtor que tenta carregar a sessão ao abrir o app
   UserProvider() {
     _carregarSessaoLocal();
   }
 
-  // 👇 2. Método interno que lê a memória física
   Future<void> _carregarSessaoLocal() async {
     final prefs = await SharedPreferences.getInstance();
     final tokenSalvo = prefs.getString('auth_token');
@@ -41,10 +39,12 @@ class UserProvider with ChangeNotifier {
       _token = tokenSalvo;
       _usuarioLogado = UserModel.fromJson(json.decode(userSalvo));
       notifyListeners(); 
+
+      recarregarUsuario();
     }
   }
 
-  // 👇 Helper para montar o Header com o Token 👇
+  // Helper para montar o Header com o Token 
   Map<String, String> _getHeaders() {
     return {
       'Content-Type': 'application/json; charset=UTF-8',
@@ -60,7 +60,7 @@ class UserProvider with ChangeNotifier {
         _usuarioLogado = resultado['usuario'];
         _token = resultado['token']; 
 
-        // 👇 3. Salva os dados na memória física após o login com sucesso
+        // Salva os dados na memória física após o login com sucesso
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', _token!);
         await prefs.setString('user_data', json.encode(_usuarioLogado!.toJson()));
@@ -75,7 +75,7 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  // 👇 4. Transforma o logout em async para limpar a memória física
+  // Transforma o logout em async para limpar a memória física
   Future<void> logout() async {
     _usuarioLogado = null;
     _token = null; 
@@ -107,7 +107,7 @@ class UserProvider with ChangeNotifier {
     try {
       final response = await http.put(
         url,
-        headers: _getHeaders(), // 👈 USANDO O HEADER COM TOKEN
+        headers: _getHeaders(), 
         body: json.encode(payload),
       );
 
@@ -134,7 +134,7 @@ class UserProvider with ChangeNotifier {
     try {
       final response = await http.put(
         url,
-        headers: _getHeaders(), // 👈 USANDO O HEADER COM TOKEN
+        headers: _getHeaders(), 
         body: json.encode({"email": novoEmail}),
       );
 
@@ -159,7 +159,7 @@ class UserProvider with ChangeNotifier {
     try {
       final response = await http.put(
         url,
-        headers: _getHeaders(), // 👈 USANDO O HEADER COM TOKEN
+        headers: _getHeaders(), 
         body: json.encode({"senhaAtual": senhaAtual, "novaSenha": novaSenha}),
       );
 
@@ -182,7 +182,7 @@ class UserProvider with ChangeNotifier {
     try {
       final response = await http.delete(
         url,
-        headers: _getHeaders(), // 👈 USANDO O HEADER COM TOKEN (Delete pode precisar de Auth)
+        headers: _getHeaders(),
       );
       if (response.statusCode == 200) {
         _usuarioLogado = null; 

@@ -595,6 +595,40 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       progress = (duration / (targetValue * 60));
     }
 
+    // CÁLCULO CIENTÍFICO DO BPM (TANAKA + KARVONEN)
+    int bpmAtual = 70; // Batimento de repouso padrão
+    if (duration > 0 && distance > 0) {
+      // Descobre a idade do atleta (com fallback seguro para 22 anos)
+      int idade = 22;
+      final dtNasc = context.read<UserProvider>().usuarioLogado?.dtNascimento;
+      if (dtNasc != null && dtNasc.length >= 4) {
+        try {
+          // Extrai o ano da string (ex: "27/04/2004" -> 2004)
+          int anoNasc = int.parse(dtNasc.substring(dtNasc.length - 4));
+          idade = DateTime.now().year - anoNasc;
+        } catch (_) {} // Se a data vier vazia ou mal formatada, mantém 22
+      }
+
+      // FÓRMULA DE TANAKA (Frequência Cardíaca Máxima)
+      double hrMax = 208.0 - (0.7 * idade);
+
+      // Frequência de repouso estimada para um adulto jovem ativo
+      double hrRest = 70.0;
+
+      // FÓRMULA DE KARVONEN (Heart Rate Reserve - HRR)
+      double hrr = hrMax - hrRest;
+
+      // INTENSIDADE DO ESFORÇO (Baseado na velocidade real)
+      double speedKmh = (distance / (duration / 3600.0));
+
+      // Assumi que 16 km/h é o esforço máximo (100% ou 1.0 de intensidade). Se ele estiver a 8 km/h, a intensidade será 0.5 (50%).
+      double intensity = (speedKmh / 16.0).clamp(0.0, 1.0);
+
+      // CÁLCULO FINAL (Karvonen Target HR)
+      // BPM = (Reserva * Intensidade) + Repouso
+      bpmAtual = ((hrr * intensity) + hrRest).toInt();
+    }
+
     return Column(
       children: [
         Stack(
@@ -616,9 +650,9 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             ),
             Column(
               children: [
-                const Text(
-                  "CORRENDO",
-                  style: TextStyle(
+                Text(
+                  selectedMode == "Caminhada" ? "CAMINHANDO" : "CORRENDO",
+                  style: const TextStyle(
                     color: Colors.white54,
                     fontSize: 10,
                     letterSpacing: 2,
@@ -678,7 +712,12 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
               "Passos",
               Colors.white70,
             ),
-            _statItem(Icons.favorite_border, "95", "bpm", Colors.redAccent),
+            _statItem(
+              Icons.favorite_border,
+              "$bpmAtual",
+              "bpm",
+              Colors.redAccent,
+            ),
           ],
         ),
         const SizedBox(height: 30),
