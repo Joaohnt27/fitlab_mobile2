@@ -22,7 +22,6 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   double _progressoReal = 0.0;
   double _totalReal = 1.0;
 
-  // 👇 1. Helper for Auth Headers
   Map<String, String> _getAuthHeaders() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final token = userProvider.token;
@@ -42,7 +41,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final idUsuario = userProvider.usuarioLogado?.id ?? 1;
     final idDesafio = widget.desafio['id'];
-    
+
     final nomeBadgeExclusiva = widget.desafio['badgeExclusiva']
         ?.toString()
         .trim();
@@ -51,13 +50,11 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
       final urlAtivos = Uri.parse(
         '${ApiConstants.baseUrl}/usuarios/$idUsuario/desafios',
       );
-      // 👇 2. Inject Headers
       final resAtivos = await http.get(urlAtivos, headers: _getAuthHeaders());
 
       final urlBadges = Uri.parse(
         '${ApiConstants.baseUrl}/usuarios/$idUsuario/badges',
       );
-      // 👇 3. Inject Headers
       final resBadges = await http.get(urlBadges, headers: _getAuthHeaders());
 
       bool jaConcluiu = false;
@@ -101,14 +98,24 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         setState(() {
           if (desafioAtivo != null) {
             _aceito = true;
+
             _progressoReal =
                 (desafioAtivo['progressoAtual'] ??
                         desafioAtivo['progress'] ??
+                        desafioAtivo['progressoKm'] ??
                         0)
                     .toDouble();
+
             _totalReal =
-                (desafioAtivo['total'] ?? desafioAtivo['objetivoKm'] ?? 1)
+                (desafioAtivo['total'] ??
+                        desafioAtivo['objetivoKm'] ??
+                        (desafioAtivo['desafio'] != null
+                            ? desafioAtivo['desafio']['objetivoKm']
+                            : null) ??
+                        widget.desafio['objetivoKm'] ??
+                        1)
                     .toDouble();
+
             _concluido = _progressoReal >= _totalReal && _totalReal > 0;
           } else {
             _aceito = false;
@@ -137,7 +144,6 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     );
 
     try {
-      // 👇 4. Inject Headers for POST request
       final response = await http.post(url, headers: _getAuthHeaders());
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -147,7 +153,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
           ),
         );
         await userProvider.recarregarUsuario();
-        setState(() => _aceito = true);
+
+        await _checkChallengeStatus();
       }
     } catch (e) {
       debugPrint("Erro ao aceitar: $e");
