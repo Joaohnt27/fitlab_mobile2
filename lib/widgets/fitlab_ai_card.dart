@@ -34,7 +34,6 @@ class _FitLabAICardState extends State<FitLabAICard> {
   String _selectedPrazo = "3 meses (Foco)";
   String _selectedNivel = "Iniciante";
 
-  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
   Map<String, String> _getAuthHeaders() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final token = userProvider.token;
@@ -58,7 +57,6 @@ class _FitLabAICardState extends State<FitLabAICard> {
     super.dispose();
   }
 
-  // 👇 BUSCA OS DADOS DE COTA E HISTÓRICO NO BACKEND 👇
   Future<void> _fetchResumoIA() async {
     final usuario = Provider.of<UserProvider>(
       context,
@@ -71,7 +69,7 @@ class _FitLabAICardState extends State<FitLabAICard> {
     try {
       // 👇 INJETANDO O TOKEN NO GET AQUI 👇
       final response = await http.get(url, headers: _getAuthHeaders());
-      
+
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
         if (mounted) {
@@ -226,7 +224,6 @@ class _FitLabAICardState extends State<FitLabAICard> {
     );
   }
 
-  // 👇 SEU FORMULÁRIO PERFEITO MANTIDO INTACTO 👇
   void _abrirFormularioIA() {
     showGeneralDialog(
       context: context,
@@ -240,202 +237,210 @@ class _FitLabAICardState extends State<FitLabAICard> {
           scale: anim1.value,
           child: Opacity(
             opacity: anim1.value,
-            child: Center(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 40,
-                  ),
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF06B6D4),
-                        Colors.transparent,
-                        Color(0xFF1D4ED8),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
+            child: Padding(
+              // Isso aqui descobre o tamanho do teclado e empurra o formulário pra cima!
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Center(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
                   child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0D0D0D),
-                      borderRadius: BorderRadius.circular(26),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 40,
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: StatefulBuilder(
-                        builder: (context, setStateModal) {
-                          return Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Center(
-                                child: Text(
-                                  "BIOMETRIA & METAS",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 2,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Center(
-                                child: Container(
-                                  width: 40,
-                                  height: 3,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF06B6D4),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-
-                              // --- LINHA 1: PESO E ALTURA ---
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTextField(
-                                      label: "Peso (kg)",
-                                      controller: _pesoController,
-                                      icon: Icons.monitor_weight_outlined,
-                                      isNumber: true,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildTextField(
-                                      label: "Altura (cm)",
-                                      controller: _alturaController,
-                                      icon: Icons.height,
-                                      isNumber: true,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-
-                              // --- LINHA 2: EXPERIÊNCIA ---
-                              _buildDropdown(
-                                label: "Nível de Experiência",
-                                value: _selectedNivel,
-                                options: [
-                                  "Iniciante",
-                                  "Amador",
-                                  "Praticante Assíduo",
-                                ],
-                                onChanged: (val) =>
-                                    setStateModal(() => _selectedNivel = val!),
-                              ),
-                              const SizedBox(height: 16),
-
-                              // --- LINHA 3: META ---
-                              _buildDropdown(
-                                label: "Objetivo Principal",
-                                value: _selectedMeta,
-                                options: [
-                                  "Preparar para maratona",
-                                  "Corrida por Hobby",
-                                  "Performance em Esportes",
-                                ],
-                                onChanged: (val) =>
-                                    setStateModal(() => _selectedMeta = val!),
-                              ),
-                              const SizedBox(height: 16),
-
-                              // --- LINHA 4: PRAZO ---
-                              _buildDropdown(
-                                label: "Prazo da Meta",
-                                value: _selectedPrazo,
-                                options: [
-                                  "1 mês (Intensivo)",
-                                  "3 meses (Foco)",
-                                  "6 meses (Evolução)",
-                                ],
-                                onChanged: (val) =>
-                                    setStateModal(() => _selectedPrazo = val!),
-                              ),
-                              const SizedBox(height: 16),
-
-                              // --- LINHA 5: CONTEXTO LIVRE ---
-                              _buildTextField(
-                                label: "Contexto Adicional (Opcional)",
-                                hint:
-                                    "Ex: Transição da musculação para o cardio...",
-                                controller: _contextoController,
-                                icon: Icons.notes,
-                                maxLines: 2,
-                              ),
-                              const SizedBox(height: 32),
-
-                              // --- BOTÃO GERAR DENTRO DO MODAL ---
-                              SizedBox(
-                                width: double.infinity,
-                                height: 50,
-                                child: ElevatedButton.icon(
-                                  onPressed: () {
-                                    if (_pesoController.text.isEmpty ||
-                                        _alturaController.text.isEmpty) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "Preencha peso e altura para segurança do treino.",
-                                          ),
-                                          backgroundColor: Colors.redAccent,
-                                        ),
-                                      );
-                                      return;
-                                    }
-
-                                    Navigator.pop(context);
-                                    widget.onGenerate({
-                                      "peso_kg":
-                                          double.tryParse(
-                                            _pesoController.text,
-                                          ) ??
-                                          0.0,
-                                      "altura_cm":
-                                          int.tryParse(
-                                            _alturaController.text,
-                                          ) ??
-                                          0,
-                                      "nivel_experiencia": _selectedNivel,
-                                      "meta": _selectedMeta,
-                                      "prazo": _selectedPrazo,
-                                      "contexto_adicional":
-                                          _contextoController.text,
-                                    });
-                                  },
-                                  icon: const Icon(Icons.bolt, size: 20),
-                                  label: const Text(
-                                    "SINTETIZAR TREINO IA",
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF06B6D4),
+                          Colors.transparent,
+                          Color(0xFF1D4ED8),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0D0D0D),
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: StatefulBuilder(
+                          builder: (context, setStateModal) {
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Center(
+                                  child: Text(
+                                    "BIOMETRIA & METAS",
                                     style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF06B6D4),
-                                    foregroundColor: Colors.black,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(15),
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 2,
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          );
-                        },
+                                const SizedBox(height: 8),
+                                Center(
+                                  child: Container(
+                                    width: 40,
+                                    height: 3,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF06B6D4),
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+
+                                // --- LINHA 1: PESO E ALTURA ---
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildTextField(
+                                        label: "Peso (kg)",
+                                        controller: _pesoController,
+                                        icon: Icons.monitor_weight_outlined,
+                                        isNumber: true,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: _buildTextField(
+                                        label: "Altura (cm)",
+                                        controller: _alturaController,
+                                        icon: Icons.height,
+                                        isNumber: true,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+
+                                // --- LINHA 2: EXPERIÊNCIA ---
+                                _buildDropdown(
+                                  label: "Nível de Experiência",
+                                  value: _selectedNivel,
+                                  options: [
+                                    "Iniciante",
+                                    "Amador",
+                                    "Praticante Assíduo",
+                                  ],
+                                  onChanged: (val) => setStateModal(
+                                    () => _selectedNivel = val!,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // --- LINHA 3: META ---
+                                _buildDropdown(
+                                  label: "Objetivo Principal",
+                                  value: _selectedMeta,
+                                  options: [
+                                    "Preparar para maratona",
+                                    "Corrida por Hobby",
+                                    "Performance em Esportes",
+                                  ],
+                                  onChanged: (val) =>
+                                      setStateModal(() => _selectedMeta = val!),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // --- LINHA 4: PRAZO ---
+                                _buildDropdown(
+                                  label: "Prazo da Meta",
+                                  value: _selectedPrazo,
+                                  options: [
+                                    "1 mês (Intensivo)",
+                                    "3 meses (Foco)",
+                                    "6 meses (Evolução)",
+                                  ],
+                                  onChanged: (val) => setStateModal(
+                                    () => _selectedPrazo = val!,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // --- LINHA 5: CONTEXTO LIVRE ---
+                                _buildTextField(
+                                  label: "Contexto Adicional (Opcional)",
+                                  hint:
+                                      "Ex: Transição da musculação para o cardio...",
+                                  controller: _contextoController,
+                                  icon: Icons.notes,
+                                  maxLines: 2,
+                                ),
+                                const SizedBox(height: 32),
+
+                                // --- BOTÃO GERAR DENTRO DO MODAL ---
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 50,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      if (_pesoController.text.isEmpty ||
+                                          _alturaController.text.isEmpty) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "Preencha peso e altura para segurança do treino.",
+                                            ),
+                                            backgroundColor: Colors.redAccent,
+                                          ),
+                                        );
+                                        return;
+                                      }
+
+                                      Navigator.pop(context);
+                                      widget.onGenerate({
+                                        "peso_kg":
+                                            double.tryParse(
+                                              _pesoController.text,
+                                            ) ??
+                                            0.0,
+                                        "altura_cm":
+                                            int.tryParse(
+                                              _alturaController.text,
+                                            ) ??
+                                            0,
+                                        "nivel_experiencia": _selectedNivel,
+                                        "meta": _selectedMeta,
+                                        "prazo": _selectedPrazo,
+                                        "contexto_adicional":
+                                            _contextoController.text,
+                                      });
+                                    },
+                                    icon: const Icon(Icons.bolt, size: 20),
+                                    label: const Text(
+                                      "SINTETIZAR TREINO IA",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF06B6D4),
+                                      foregroundColor: Colors.black,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(15),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -488,7 +493,6 @@ class _FitLabAICardState extends State<FitLabAICard> {
           ),
           const SizedBox(height: 24),
 
-          // 👇 NOVA BARRA DE PROGRESSO E STATUS 👇
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -575,7 +579,6 @@ class _FitLabAICardState extends State<FitLabAICard> {
             ),
           ],
         ),
-        // 👇 BOTÃO DE HISTÓRICO ADICIONADO NO CABEÇALHO 👇
         if (_historico.isNotEmpty)
           GestureDetector(
             onTap: _abrirHistorico,
@@ -610,7 +613,6 @@ class _FitLabAICardState extends State<FitLabAICard> {
               ],
       ),
       child: ElevatedButton.icon(
-        // 👇 O PULO DO GATO: SE O LIMITE ATINGIU, FORÇA O ERRO NO BACKEND E ABRE O PAYWALL
         onPressed: limiteAtingido
             ? () => widget.onGenerate({})
             : _abrirFormularioIA,

@@ -4,7 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart'; 
+import 'package:share_plus/share_plus.dart';
 import '../providers/user_provider.dart';
 import '../config/api_constants.dart';
 
@@ -89,7 +89,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
   }
 
   void _compartilharExterno() {
-    Navigator.pop(context); 
+    Navigator.pop(context);
     final texto = _gerarTextoCompartilhamento();
     Share.share(texto);
   }
@@ -116,7 +116,9 @@ Baixe o FitLab e venha pro laboratório também! 🧬
         '${minutos.toString().padLeft(2, '0')}:${segundos.toString().padLeft(2, '0')}';
 
     final String nomeAtividade = widget.tipoAtividade.toLowerCase();
-    final String iconeAtividade = nomeAtividade == "corrida" ? "🏃‍♂️" : "🚶‍♂️";
+    final String iconeAtividade = nomeAtividade == "corrida"
+        ? "🏃‍♂️"
+        : "🚶‍♂️";
 
     final payload = {
       "titulo":
@@ -133,7 +135,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
       // 👇 2. Injetando o Token no POST AQUI!
       final response = await http.post(
         url,
-        headers: _getAuthHeaders(), 
+        headers: _getAuthHeaders(),
         body: json.encode(payload),
       );
 
@@ -197,7 +199,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
@@ -211,17 +213,24 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                             color: const Color(0xFF06B6D4).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: const Color(0xFF06B6D4).withOpacity(0.3)),
+                              color: const Color(0xFF06B6D4).withOpacity(0.3),
+                            ),
                           ),
                           child: Column(
                             children: const [
-                              Icon(Icons.dynamic_feed_rounded,
-                                  color: Color(0xFF06B6D4), size: 32),
+                              Icon(
+                                Icons.dynamic_feed_rounded,
+                                color: Color(0xFF06B6D4),
+                                size: 32,
+                              ),
                               SizedBox(height: 12),
-                              Text("FitLab Feed",
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold)),
+                              Text(
+                                "FitLab Feed",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -237,17 +246,24 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                             color: Colors.white.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: Colors.white.withOpacity(0.1)),
+                              color: Colors.white.withOpacity(0.1),
+                            ),
                           ),
                           child: Column(
                             children: const [
-                              Icon(Icons.ios_share_rounded,
-                                  color: Colors.white, size: 32),
+                              Icon(
+                                Icons.ios_share_rounded,
+                                color: Colors.white,
+                                size: 32,
+                              ),
                               SizedBox(height: 12),
-                              Text("Outros Apps",
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold)),
+                              Text(
+                                "Outros Apps",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -270,10 +286,26 @@ Baixe o FitLab e venha pro laboratório também! 🧬
       tileBuilder: (context, widget, tile) {
         return ColorFiltered(
           colorFilter: const ColorFilter.matrix([
-            -0.2126, -0.7152, -0.0722, 0, 255,
-            -0.2126, -0.7152, -0.0722, 0, 255,
-            -0.2126, -0.7152, -0.0722, 0, 255,
-            0,       0,       0,       1, 0,
+            -0.2126,
+            -0.7152,
+            -0.0722,
+            0,
+            255,
+            -0.2126,
+            -0.7152,
+            -0.0722,
+            0,
+            255,
+            -0.2126,
+            -0.7152,
+            -0.0722,
+            0,
+            255,
+            0,
+            0,
+            0,
+            1,
+            0,
           ]),
           child: widget,
         );
@@ -306,9 +338,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                     flags: InteractiveFlag.none,
                   ),
                 ),
-                children: [
-                  _buildDarkTileLayer(),
-                ],
+                children: [_buildDarkTileLayer()],
               ),
             ),
           ),
@@ -376,6 +406,58 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                               ),
                             ],
                           ),
+
+                        if (widget.route.isNotEmpty)
+                          MarkerLayer(
+                            markers: [
+                              // 🏁 Bandeira de Início
+                              Marker(
+                                point: widget.route.first,
+                                width: 36,
+                                height: 36,
+                                alignment: Alignment.topCenter,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black87,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.greenAccent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.flag,
+                                    color: Colors.greenAccent,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+
+                              // 🏁 Bandeira de Fim 
+                              if (widget.route.length > 1)
+                                Marker(
+                                  point: widget.route.last,
+                                  width: 36,
+                                  height: 36,
+                                  alignment: Alignment.topCenter,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black87,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.sports_score,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
@@ -429,7 +511,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                         child: const Text(
                           "FECHAR",
                           style: TextStyle(
-                            color: Colors.black, 
+                            color: Colors.black,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

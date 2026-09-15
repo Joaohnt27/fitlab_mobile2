@@ -199,6 +199,9 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             distanceFilter: 3,
           ),
         ).listen((Position position) {
+          // Se a margem de erro do GPS for maior que 15 metros, ignora o ponto!
+          if (position.accuracy > 15.0) return;
+
           if (!isPaused) {
             setState(() {
               LatLng newPosition = LatLng(
