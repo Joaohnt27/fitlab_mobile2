@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -41,7 +41,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   Future<Map<String, dynamic>> _carregarPerfil() async {
     final idAlvo = widget.usuarioAlvo['id'];
-    
+
     // 👇 INJETANDO TOKEN NO GET 👇
     final response = await http.get(
       Uri.parse('${ApiConstants.baseUrl}/usuarios/$idAlvo/perfil'),
@@ -176,7 +176,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverAppBar(
-                expandedHeight: 290.0, 
+                expandedHeight: 290.0,
                 floating: false,
                 pinned: true,
                 backgroundColor: const Color(0xFF1A1A1A),
@@ -529,6 +529,17 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   }
 
   Widget _buildPostCard(Map<String, dynamic> post) {
+    String dataFormatada = "Data Desconhecida";
+    if (post['dataCriacao'] != null) {
+      DateTime? dataParsed = DateTime.tryParse(post['dataCriacao']);
+      if (dataParsed != null) {
+        final dia = dataParsed.day.toString().padLeft(2, '0');
+        final mes = dataParsed.month.toString().padLeft(2, '0');
+        final ano = dataParsed.year.toString();
+        dataFormatada = "$dia/$mes/$ano";
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -581,7 +592,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                post['dataCriacao']?.split('T')[0] ?? "Data Desconhecida",
+                dataFormatada,
                 style: const TextStyle(color: Colors.white38, fontSize: 10),
               ),
               Row(

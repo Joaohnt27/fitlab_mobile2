@@ -234,8 +234,8 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
                 distance += (incrementMeters / 1000.0);
 
-                steps = (distance * 1300).toInt();
-                calories = (distance * 65).toInt();
+                steps = (distance * 1200).toInt();
+                calories = (distance * 55).toInt();
               }
 
               currentPosition = newPosition;
@@ -630,6 +630,10 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       // CÁLCULO FINAL (Karvonen Target HR)
       // BPM = (Reserva * Intensidade) + Repouso
       bpmAtual = ((hrr * intensity) + hrRest).toInt();
+
+      if (selectedMode == "Caminhada" && bpmAtual > 110) {
+        bpmAtual = 110;
+      }
     }
 
     return Column(

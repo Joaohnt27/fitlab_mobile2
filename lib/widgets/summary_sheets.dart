@@ -378,7 +378,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Container(
-                  height: 180,
+                  height: 280,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: Colors.white10),
@@ -388,6 +388,14 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                     borderRadius: BorderRadius.circular(24),
                     child: FlutterMap(
                       options: MapOptions(
+                        initialCameraFit: widget.route.isNotEmpty
+                            ? CameraFit.bounds(
+                                bounds: LatLngBounds.fromPoints(widget.route),
+                                padding: const EdgeInsets.all(
+                                  40,
+                                ), 
+                              )
+                            : null,
                         initialCenter: mapCenter,
                         initialZoom: 14,
                         interactionOptions: const InteractionOptions(
@@ -433,7 +441,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                                 ),
                               ),
 
-                              // 🏁 Bandeira de Fim 
+                              // 🏁 Bandeira de Fim
                               if (widget.route.length > 1)
                                 Marker(
                                   point: widget.route.last,
