@@ -38,7 +38,7 @@ class _SummarySheetState extends State<SummarySheet>
   late Animation<double> _medalAnimation;
   bool _isPosting = false;
 
-  // 👇 1. Helper para pegar o Header com Token
+  // Helper para pegar o Header com Token
   Map<String, String> _getAuthHeaders() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final token = userProvider.token;
@@ -120,11 +120,18 @@ Baixe o FitLab e venha pro laboratório também! 🧬
         ? "🏃‍♂️"
         : "🚶‍♂️";
 
+    // transforma a rota em uma String codificada
+    final String rotaCodificada = widget.route
+        .map((p) => "${p.latitude},${p.longitude}")
+        .join("|");
+
     final payload = {
       "titulo":
           "Finalizei meu treino de $nomeAtividade no FitLab! Percorri ${widget.distance.toStringAsFixed(2)} km em $minutos minutos!",
       "texto":
           "$iconeAtividade Distância: ${widget.distance.toStringAsFixed(2)} km \n⏱️ Tempo: $tempoFormatado \n⚡ Pace: ${widget.pace}/km \n📈 +${widget.xp} XP ganhos",
+      // Enviando a rota como "imagem"
+      "imagem": widget.route.isNotEmpty ? rotaCodificada : null,
     };
 
     final url = Uri.parse(
@@ -132,7 +139,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
     );
 
     try {
-      // 👇 2. Injetando o Token no POST AQUI!
+      // Injetando o Token no POST AQUI
       final response = await http.post(
         url,
         headers: _getAuthHeaders(),
@@ -391,9 +398,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                         initialCameraFit: widget.route.isNotEmpty
                             ? CameraFit.bounds(
                                 bounds: LatLngBounds.fromPoints(widget.route),
-                                padding: const EdgeInsets.all(
-                                  40,
-                                ), 
+                                padding: const EdgeInsets.all(40),
                               )
                             : null,
                         initialCenter: mapCenter,

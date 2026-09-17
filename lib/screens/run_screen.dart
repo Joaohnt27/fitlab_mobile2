@@ -247,6 +247,33 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _stopRun() async {
+    // TRAVA ANTI-CHEAT (Bloqueia treinos < 60s ou < 50 metros) - Identifiquei esse problema testando o app por 3 dias 
+    if (duration < 60 || distance < 0.05) {
+      _timer?.cancel();
+      _positionStream?.cancel();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Treino muito curto para ser registrado no Lab! 🧪"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+
+      setState(() {
+        isRunning = false;
+        isPaused = false;
+        duration = 0;
+        distance = 0;
+        route = [];
+        routeData = [];
+        steps = 0;
+        calories = 0;
+        currentHeading = 0.0;
+        pace = "0:00";
+      });
+      return;
+    }
+
     _timer?.cancel();
     _positionStream?.cancel();
 
@@ -598,42 +625,39 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       progress = (duration / (targetValue * 60));
     }
 
-    // CÁLCULO CIENTÍFICO DO BPM (TANAKA + KARVONEN)
+    // CÁLCULO CIENTÍFICO DO BPM (TANAKA + KARVONEN REFINADO)
     int bpmAtual = 70; // Batimento de repouso padrão
     if (duration > 0 && distance > 0) {
-      // Descobre a idade do atleta (com fallback seguro para 22 anos)
+      // Descobre a idade do atleta
       int idade = 22;
       final dtNasc = context.read<UserProvider>().usuarioLogado?.dtNascimento;
       if (dtNasc != null && dtNasc.length >= 4) {
         try {
-          // Extrai o ano da string (ex: "27/04/2004" -> 2004)
           int anoNasc = int.parse(dtNasc.substring(dtNasc.length - 4));
           idade = DateTime.now().year - anoNasc;
-        } catch (_) {} // Se a data vier vazia ou mal formatada, mantém 22
+        } catch (_) {}
       }
 
-      // FÓRMULA DE TANAKA (Frequência Cardíaca Máxima)
       double hrMax = 208.0 - (0.7 * idade);
-
-      // Frequência de repouso estimada para um adulto jovem ativo
       double hrRest = 70.0;
-
-      // FÓRMULA DE KARVONEN (Heart Rate Reserve - HRR)
       double hrr = hrMax - hrRest;
-
-      // INTENSIDADE DO ESFORÇO (Baseado na velocidade real)
       double speedKmh = (distance / (duration / 3600.0));
+      if (speedKmh > 30.0) speedKmh = 30.0; // ignora saltos loucos do GPS
 
-      // Assumi que 16 km/h é o esforço máximo (100% ou 1.0 de intensidade). Se ele estiver a 8 km/h, a intensidade será 0.5 (50%).
-      double intensity = (speedKmh / 16.0).clamp(0.0, 1.0);
+      double maxSpeed = selectedMode == "Caminhada" ? 8.0 : 15.0;
+      double intensity = (speedKmh / maxSpeed).clamp(0.1, 1.0);
 
-      // CÁLCULO FINAL (Karvonen Target HR)
-      // BPM = (Reserva * Intensidade) + Repouso
-      bpmAtual = ((hrr * intensity) + hrRest).toInt();
+      double fatorEsforco = selectedMode == "Caminhada" ? 0.6 : 1.0;
+      int variacaoNatural = (duration % 5) - 2; // Oscilação viva (+-2 bpm)
 
-      if (selectedMode == "Caminhada" && bpmAtual > 110) {
-        bpmAtual = 110;
+      bpmAtual =
+          ((hrr * (intensity * fatorEsforco)) + hrRest).toInt() +
+          variacaoNatural;
+
+      if (selectedMode == "Caminhada" && bpmAtual > 115) {
+        bpmAtual = 115 + variacaoNatural;
       }
+      if (bpmAtual < hrRest) bpmAtual = hrRest.toInt();
     }
 
     return Column(

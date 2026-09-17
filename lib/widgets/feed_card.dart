@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'dart:convert'; 
+import 'dart:convert';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../providers/user_provider.dart';
 import '../widgets/comments_sheet.dart';
 import '../config/api_constants.dart';
@@ -20,7 +22,6 @@ class _FeedCardState extends State<FeedCard> {
   late int _likesCount;
   bool _isLoadingLike = false;
 
-  // 👇 MÉTODO AUXILIAR PARA PEGAR O HEADER COM TOKEN 👇
   Map<String, String> _getAuthHeaders() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final token = userProvider.token;
@@ -38,7 +39,7 @@ class _FeedCardState extends State<FeedCard> {
   }
 
   Future<void> _toggleLike() async {
-    if (_isLoadingLike) return; 
+    if (_isLoadingLike) return;
 
     setState(() => _isLoadingLike = true);
 
@@ -51,7 +52,6 @@ class _FeedCardState extends State<FeedCard> {
     );
 
     try {
-      // 👇 INJETANDO O TOKEN NO POST AQUI 👇
       final response = await http.post(url, headers: _getAuthHeaders());
 
       if (response.statusCode == 200) {
@@ -82,12 +82,10 @@ class _FeedCardState extends State<FeedCard> {
       ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(
-            context,
-          ).viewInsets.bottom, 
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.6, 
+          height: MediaQuery.of(context).size.height * 0.6,
           child: CommentsSheet(
             idPost: widget.post['id'] ?? 0,
             onComentarioAdicionado: () {
@@ -106,7 +104,6 @@ class _FeedCardState extends State<FeedCard> {
 
   @override
   Widget build(BuildContext context) {
-    // (Restante do build permanece exatamente igual)
     final nome = widget.post['nomeUsuario'] ?? 'Atleta FitLab';
     final avatar =
         widget.post['avatarUsuario'] ?? (nome.isNotEmpty ? nome[0] : 'F');
@@ -122,6 +119,32 @@ class _FeedCardState extends State<FeedCard> {
         dataFormatada =
             "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} às ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
       } catch (_) {}
+    }
+
+    // DECODIFICADOR DO MAPA 
+    String? imagemData = widget.post['imagem'];
+    bool isMapRoute =
+        imagemData != null &&
+        imagemData.contains(',') &&
+        !imagemData.startsWith('http');
+    List<LatLng> routePoints = [];
+
+    if (isMapRoute) {
+      try {
+        final points = imagemData.split('|');
+        for (var p in points) {
+          final coords = p.split(',');
+          if (coords.length == 2) {
+            final lat = double.tryParse(coords[0]);
+            final lng = double.tryParse(coords[1]);
+            if (lat != null && lng != null) {
+              routePoints.add(LatLng(lat, lng));
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("Erro ao decodificar rota no feed: $e");
+      }
     }
 
     return Container(
@@ -197,6 +220,74 @@ class _FeedCardState extends State<FeedCard> {
                     style: const TextStyle(color: Colors.white70, fontSize: 13),
                   ),
                 ],
+
+                // RENDERIZADOR DO MAPA NO FEED 
+                if (isMapRoute && routePoints.length > 1)
+                  Container(
+                    height: 160,
+                    margin: const EdgeInsets.only(top: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: FlutterMap(
+                        options: MapOptions(
+                          initialCameraFit: CameraFit.bounds(
+                            bounds: LatLngBounds.fromPoints(routePoints),
+                            padding: const EdgeInsets.all(16),
+                          ),
+                          interactionOptions: const InteractionOptions(
+                            flags: InteractiveFlag.none,
+                          ),
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.fitlab.app',
+                            tileBuilder: (context, widget, tile) {
+                              return ColorFiltered(
+                                colorFilter: const ColorFilter.matrix([
+                                  -0.2126,
+                                  -0.7152,
+                                  -0.0722,
+                                  0,
+                                  255,
+                                  -0.2126,
+                                  -0.7152,
+                                  -0.0722,
+                                  0,
+                                  255,
+                                  -0.2126,
+                                  -0.7152,
+                                  -0.0722,
+                                  0,
+                                  255,
+                                  0,
+                                  0,
+                                  0,
+                                  1,
+                                  0,
+                                ]),
+                                child: widget,
+                              );
+                            },
+                          ),
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: routePoints,
+                                color: const Color(0xFF06B6D4),
+                                strokeWidth: 4,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -218,7 +309,7 @@ class _FeedCardState extends State<FeedCard> {
                   icon: Icons.chat_bubble_outline,
                   count: comentarios,
                   isActive: false,
-                  onTap: _abrirModalComentarios, 
+                  onTap: _abrirModalComentarios,
                 ),
               ],
             ),
