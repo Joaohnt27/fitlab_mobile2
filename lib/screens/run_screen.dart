@@ -247,7 +247,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _stopRun() async {
-    // TRAVA ANTI-CHEAT (Bloqueia treinos < 60s ou < 50 metros) - Identifiquei esse problema testando o app por 3 dias 
+    // TRAVA ANTI-CHEAT (Bloqueia treinos < 60s ou < 50 metros) - Identifiquei esse problema testando o app por 3 dias
     if (duration < 60 || distance < 0.05) {
       _timer?.cancel();
       _positionStream?.cancel();
@@ -625,41 +625,6 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
       progress = (duration / (targetValue * 60));
     }
 
-    // CÁLCULO CIENTÍFICO DO BPM (TANAKA + KARVONEN REFINADO)
-    int bpmAtual = 70; // Batimento de repouso padrão
-    if (duration > 0 && distance > 0) {
-      // Descobre a idade do atleta
-      int idade = 22;
-      final dtNasc = context.read<UserProvider>().usuarioLogado?.dtNascimento;
-      if (dtNasc != null && dtNasc.length >= 4) {
-        try {
-          int anoNasc = int.parse(dtNasc.substring(dtNasc.length - 4));
-          idade = DateTime.now().year - anoNasc;
-        } catch (_) {}
-      }
-
-      double hrMax = 208.0 - (0.7 * idade);
-      double hrRest = 70.0;
-      double hrr = hrMax - hrRest;
-      double speedKmh = (distance / (duration / 3600.0));
-      if (speedKmh > 30.0) speedKmh = 30.0; // ignora saltos loucos do GPS
-
-      double maxSpeed = selectedMode == "Caminhada" ? 8.0 : 15.0;
-      double intensity = (speedKmh / maxSpeed).clamp(0.1, 1.0);
-
-      double fatorEsforco = selectedMode == "Caminhada" ? 0.6 : 1.0;
-      int variacaoNatural = (duration % 5) - 2; // Oscilação viva (+-2 bpm)
-
-      bpmAtual =
-          ((hrr * (intensity * fatorEsforco)) + hrRest).toInt() +
-          variacaoNatural;
-
-      if (selectedMode == "Caminhada" && bpmAtual > 115) {
-        bpmAtual = 115 + variacaoNatural;
-      }
-      if (bpmAtual < hrRest) bpmAtual = hrRest.toInt();
-    }
-
     return Column(
       children: [
         Stack(
@@ -709,8 +674,9 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
           ],
         ),
         const SizedBox(height: 25),
+
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _statItem(
               Icons.timer_outlined,
@@ -727,9 +693,9 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             _statItem(Icons.speed_outlined, pace, "min/km", Colors.greenAccent),
           ],
         ),
-        const SizedBox(height: 15),
+        const SizedBox(height: 20),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _statItem(
               Icons.local_fire_department_outlined,
@@ -743,15 +709,10 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
               "Passos",
               Colors.white70,
             ),
-            _statItem(
-              Icons.favorite_border,
-              "$bpmAtual",
-              "bpm",
-              Colors.redAccent,
-            ),
           ],
         ),
-        const SizedBox(height: 30),
+
+        const SizedBox(height: 35),
         Row(
           children: [
             if (isPaused) ...[
@@ -864,11 +825,17 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
   Widget _buildPlayerMarker() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF06B6D4).withOpacity(0.2),
+        color: const Color(0xFF1D4ED8), // Azul vibrante
         shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF06B6D4), width: 3),
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1D4ED8).withOpacity(0.5),
+            blurRadius: 10,
+            spreadRadius: 4,
+          ),
+        ],
       ),
-      child: const Icon(Icons.navigation, color: Color(0xFF06B6D4), size: 30),
     );
   }
 
