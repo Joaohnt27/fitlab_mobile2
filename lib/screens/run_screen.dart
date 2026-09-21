@@ -5,12 +5,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../providers/user_provider.dart';
 import '../widgets/summary_sheets.dart';
 import '../widgets/countdown_overlay.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../config/api_constants.dart';
+import '../services/notification_service.dart'; 
 
 class RunScreen extends StatefulWidget {
   const RunScreen({super.key});
@@ -44,6 +45,8 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
   final MapController _mapController = MapController();
   Timer? _timer;
   StreamSubscription<Position>? _positionStream;
+
+  bool _jaNotificouMeta = false; 
 
   final List<String> goalOptions = [
     "Distância",
@@ -157,7 +160,49 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     });
   }
 
+  void _checarProgressoE_Notificar() {
+    if (selectedGoalType == "Sem Metas") return;
+
+    double progress = 0.0;
+    if (targetValue > 0) {
+      if (selectedGoalType == "Duração") {
+        progress = (duration / (targetValue * 60));
+      } else if (selectedGoalType == "Calorias") {
+        progress = (calories / targetValue);
+      } else if (selectedGoalType == "Passos") {
+        progress = (steps / targetValue);
+      } else {
+        progress = (distance / targetValue);
+      }
+    }
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final isRunAlertsEnabled = userProvider.prefsNotificacoes['run_alerts'] ?? true;
+
+    if (progress >= 1.0 && isRunAlertsEnabled && !_jaNotificouMeta) {
+      _jaNotificouMeta = true;
+      // 👇 Disparo usando o novo Serviço 👇
+      NotificationService().showNotification(
+        title: 'Meta Atingida! 🥇', 
+        body: 'Parabéns! Você concluiu 100% do seu objetivo de hoje no FitLab.',
+      );
+    }
+  }
+
   void _startRun() {
+    _jaNotificouMeta = false;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final isRunAlertsEnabled = userProvider.prefsNotificacoes['run_alerts'] ?? true;
+    
+    if (isRunAlertsEnabled) {
+      // 👇 Disparo usando o novo Serviço 👇
+      NotificationService().showNotification(
+        title: 'Treino Iniciado 🏃‍♂️', 
+        body: 'Bora suar a camisa no laboratório! O FitLab está monitorando.',
+      );
+    }
+
     setState(() {
       isRunning = true;
       isPaused = false;
@@ -189,6 +234,8 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             pace = "$mins:${secs.toString().padLeft(2, '0')}";
           }
         });
+        
+        _checarProgressoE_Notificar();
       }
     });
 
@@ -199,7 +246,6 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             distanceFilter: 3,
           ),
         ).listen((Position position) {
-          // Se a margem de erro do GPS for maior que 15 metros, ignora o ponto!
           if (position.accuracy > 15.0) return;
 
           if (!isPaused) {
@@ -222,14 +268,12 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
                   newPosition,
                 );
 
-                // Calcula a direção do deslocamento para girar o ícone
                 if (incrementMeters > 1.0) {
                   double bearing = distanceCalculator.bearing(
                     currentPosition,
                     newPosition,
                   );
-                  currentHeading =
-                      bearing * (pi / 180.0); // Converte para radianos
+                  currentHeading = bearing * (pi / 180.0);
                 }
 
                 distance += (incrementMeters / 1000.0);
@@ -247,7 +291,6 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _stopRun() async {
-    // TRAVA ANTI-CHEAT (Bloqueia treinos < 60s ou < 50 metros) - Identifiquei esse problema testando o app por 3 dias
     if (duration < 60 || distance < 0.05) {
       _timer?.cancel();
       _positionStream?.cancel();
@@ -270,6 +313,7 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
         calories = 0;
         currentHeading = 0.0;
         pace = "0:00";
+        _jaNotificouMeta = false;
       });
       return;
     }
@@ -350,7 +394,8 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
             routeData = [];
             steps = 0;
             calories = 0;
-            currentHeading = 0.0; // Zera a rotação ao finalizar
+            currentHeading = 0.0;
+            _jaNotificouMeta = false;
           });
 
           Navigator.pop(context);
@@ -400,26 +445,10 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
                 tileBuilder: (context, widget, tile) {
                   return ColorFiltered(
                     colorFilter: const ColorFilter.matrix([
-                      -0.2126,
-                      -0.7152,
-                      -0.0722,
-                      0,
-                      255,
-                      -0.2126,
-                      -0.7152,
-                      -0.0722,
-                      0,
-                      255,
-                      -0.2126,
-                      -0.7152,
-                      -0.0722,
-                      0,
-                      255,
-                      0,
-                      0,
-                      0,
-                      1,
-                      0,
+                      -0.2126, -0.7152, -0.0722, 0, 255,
+                      -0.2126, -0.7152, -0.0722, 0, 255,
+                      -0.2126, -0.7152, -0.0722, 0, 255,
+                      0, 0, 0, 1, 0,
                     ]),
                     child: widget,
                   );
@@ -623,6 +652,10 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     double progress = targetValue > 0 ? (distance / targetValue) : 0.0;
     if (selectedGoalType == "Duração") {
       progress = (duration / (targetValue * 60));
+    } else if (selectedGoalType == "Calorias") {
+      progress = (calories / targetValue);
+    } else if (selectedGoalType == "Passos") {
+      progress = (steps / targetValue);
     }
 
     return Column(
@@ -819,22 +852,29 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
 
   IconData _getModeIcon() {
     if (selectedMode == "Caminhada") return Icons.directions_walk;
-    return Icons.directions_run; // Padrão
+    return Icons.directions_run; 
   }
 
   Widget _buildPlayerMarker() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1D4ED8), // Azul vibrante
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1D4ED8).withOpacity(0.5),
-            blurRadius: 10,
-            spreadRadius: 4,
-          ),
-        ],
+    return Center(
+      child: Container(
+        width: 22, 
+        height: 22,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1D4ED8),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white,
+            width: 2.5,
+          ), 
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1D4ED8).withOpacity(0.6),
+              blurRadius: 8,
+              spreadRadius: 2, 
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -877,26 +917,40 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
+      isScrollControlled: true, 
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.only(top: 16, bottom: 32, left: 24, right: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
             Text(
-              title,
+              title.toUpperCase(),
               style: const TextStyle(
-                color: Colors.white,
+                color: Color(0xFF06B6D4),
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
+                fontSize: 12,
+                letterSpacing: 2,
               ),
             ),
             const SizedBox(height: 20),
+            
             ...options.map((opt) {
-              return ListTile(
-                title: Text(opt, style: const TextStyle(color: Colors.white)),
+              bool isSelected = (title == "Meta" && selectedGoalType == opt) ||
+                                (title == "Modalidade" && selectedMode == opt);
+
+              return GestureDetector(
                 onTap: () {
                   if (title == "Meta") {
                     _updateGoalValue(opt);
@@ -905,11 +959,87 @@ class _RunScreenState extends State<RunScreen> with TickerProviderStateMixin {
                   }
                   Navigator.pop(context);
                 },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? const Color(0xFF06B6D4).withOpacity(0.1) 
+                        : Colors.white.withOpacity(0.03),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected 
+                          ? const Color(0xFF06B6D4).withOpacity(0.5) 
+                          : Colors.transparent,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      _buildOptionIcon(opt, isSelected),
+                      const SizedBox(width: 16),
+                      Text(
+                        opt,
+                        style: TextStyle(
+                          color: isSelected ? const Color(0xFF06B6D4) : Colors.white,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (isSelected)
+                        const Icon(
+                          Icons.check_circle_rounded, 
+                          color: Color(0xFF06B6D4), 
+                          size: 22,
+                        ),
+                    ],
+                  ),
+                ),
               );
             }),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildOptionIcon(String option, bool isSelected) {
+    IconData iconData;
+    
+    switch (option) {
+      case "Distância": 
+        iconData = Icons.map_outlined; 
+        break;
+      case "Duração": 
+        iconData = Icons.timer_outlined; 
+        break;
+      case "Calorias": 
+        iconData = Icons.local_fire_department_outlined; 
+        break;
+      case "Passos": 
+        iconData = Icons.directions_walk_rounded; 
+        break;
+      case "Ganho de Elevação": 
+        iconData = Icons.terrain_rounded; 
+        break;
+      case "Sem Metas": 
+        iconData = Icons.all_inclusive_rounded; 
+        break;
+      case "Corrida": 
+        iconData = Icons.directions_run_rounded; 
+        break;
+      case "Caminhada": 
+        iconData = Icons.directions_walk_rounded; 
+        break;
+      default: 
+        iconData = Icons.fitness_center;
+    }
+
+    return Icon(
+      iconData,
+      color: isSelected ? const Color(0xFF06B6D4) : Colors.white54,
+      size: 24,
     );
   }
 }

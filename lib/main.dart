@@ -9,6 +9,7 @@ import 'providers/user_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/main_layout.dart';
+import 'services/notification_service.dart'; 
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,9 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Inicializa o motor de notificações globalmente antes do app abrir 
+  await NotificationService().init();
 
   runApp(
     DevicePreview(

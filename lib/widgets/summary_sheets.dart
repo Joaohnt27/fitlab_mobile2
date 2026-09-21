@@ -37,8 +37,9 @@ class _SummarySheetState extends State<SummarySheet>
   late AnimationController _medalController;
   late Animation<double> _medalAnimation;
   bool _isPosting = false;
+  
+  String _privacidade = "TODOS";
 
-  // Helper para pegar o Header com Token
   Map<String, String> _getAuthHeaders() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final token = userProvider.token;
@@ -95,11 +96,19 @@ Baixe o FitLab e venha pro laboratório também! 🧬
   }
 
   Future<void> _postarNoFeed(BuildContext context) async {
-    setState(() => _isPosting = true);
+    // Salva as referências que dependem do context ANTES de fechar a tela 
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final idUsuario = userProvider.usuarioLogado?.id ?? 1;
+    final headers = _getAuthHeaders();
 
+    setState(() => _isPosting = true);
+    
+    // Fecha o modal 
     Navigator.pop(context);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    // Usa a referência salva da tela principal para mostrar o SnackBar 
+    scaffoldMessenger.showSnackBar(
       const SnackBar(
         content: Text("Enviando para o feed..."),
         backgroundColor: Colors.white38,
@@ -107,31 +116,38 @@ Baixe o FitLab e venha pro laboratório também! 🧬
       ),
     );
 
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final idUsuario = userProvider.usuarioLogado?.id ?? 1;
-
     final minutos = widget.duration ~/ 60;
     final segundos = widget.duration % 60;
     final tempoFormatado =
         '${minutos.toString().padLeft(2, '0')}:${segundos.toString().padLeft(2, '0')}';
 
     final String nomeAtividade = widget.tipoAtividade.toLowerCase();
-    final String iconeAtividade = nomeAtividade == "corrida"
-        ? "🏃‍♂️"
-        : "🚶‍♂️";
+    final String iconeAtividade = nomeAtividade == "corrida" ? "🏃‍♂️" : "🚶‍♂️";
 
-    // transforma a rota em uma String codificada
-    final String rotaCodificada = widget.route
-        .map((p) => "${p.latitude},${p.longitude}")
+    // Algoritmo de Amostragem (Evita erro 500 no Banco)
+    List<LatLng> rotaOtimizada = [];
+    if (widget.route.isNotEmpty) {
+      int step = (widget.route.length / 50).ceil();
+      if (step < 1) step = 1;
+      
+      for (int i = 0; i < widget.route.length; i += step) {
+        rotaOtimizada.add(widget.route[i]);
+      }
+      
+      if (rotaOtimizada.last != widget.route.last) {
+        rotaOtimizada.add(widget.route.last);
+      }
+    }
+
+    final String rotaCodificada = rotaOtimizada
+        .map((p) => "${p.latitude.toStringAsFixed(5)},${p.longitude.toStringAsFixed(5)}")
         .join("|");
 
     final payload = {
-      "titulo":
-          "Finalizei meu treino de $nomeAtividade no FitLab! Percorri ${widget.distance.toStringAsFixed(2)} km em $minutos minutos!",
-      "texto":
-          "$iconeAtividade Distância: ${widget.distance.toStringAsFixed(2)} km \n⏱️ Tempo: $tempoFormatado \n⚡ Pace: ${widget.pace}/km \n📈 +${widget.xp} XP ganhos",
-      // Enviando a rota como "imagem"
+      "titulo": "Finalizei meu treino de $nomeAtividade no FitLab! Percorri ${widget.distance.toStringAsFixed(2)} km em $minutos minutos!",
+      "texto": "$iconeAtividade Distância: ${widget.distance.toStringAsFixed(2)} km \n⏱️ Tempo: $tempoFormatado \n⚡ Pace: ${widget.pace}/km \n📈 +${widget.xp} XP ganhos",
       "imagem": widget.route.isNotEmpty ? rotaCodificada : null,
+      "privacidade": _privacidade, 
     };
 
     final url = Uri.parse(
@@ -139,22 +155,21 @@ Baixe o FitLab e venha pro laboratório também! 🧬
     );
 
     try {
-      // Injetando o Token no POST AQUI
       final response = await http.post(
         url,
-        headers: _getAuthHeaders(),
+        headers: headers, 
         body: json.encode(payload),
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           const SnackBar(
             content: Text("Publicado com sucesso no seu Feed! 🚀"),
             backgroundColor: Color(0xFF06B6D4),
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(
             content: Text("Erro ao publicar: ${response.statusCode}"),
             backgroundColor: Colors.orange,
@@ -163,7 +178,7 @@ Baixe o FitLab e venha pro laboratório também! 🧬
       }
     } catch (e) {
       debugPrint("Erro ao postar: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(
           content: Text("Erro ao publicar. Verifique sua conexão."),
           backgroundColor: Colors.redAccent,
@@ -182,105 +197,199 @@ Baixe o FitLab e venha pro laboratório também! 🧬
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 32, top: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                "COMPARTILHAR RESULTADO",
-                style: TextStyle(
-                  color: Color(0xFF06B6D4),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 24),
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 32, top: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "COMPARTILHAR RESULTADO",
+                    style: TextStyle(
+                      color: Color(0xFF06B6D4),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: _isPosting ? null : () => _postarNoFeed(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF06B6D4).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: const Color(0xFF06B6D4).withOpacity(0.3),
+                  // SELETOR DE PRIVACIDADE
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setModalState(() => _privacidade = "TODOS");
+                              setState(() => _privacidade = "TODOS");
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _privacidade == "TODOS" 
+                                    ? const Color(0xFF06B6D4) 
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.public, 
+                                    size: 16, 
+                                    color: _privacidade == "TODOS" ? Colors.black : Colors.white54
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "Público", 
+                                    style: TextStyle(
+                                      color: _privacidade == "TODOS" ? Colors.black : Colors.white54, 
+                                      fontWeight: FontWeight.bold, 
+                                      fontSize: 12
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          child: Column(
-                            children: const [
-                              Icon(
-                                Icons.dynamic_feed_rounded,
-                                color: Color(0xFF06B6D4),
-                                size: 32,
-                              ),
-                              SizedBox(height: 12),
-                              Text(
-                                "FitLab Feed",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: _compartilharExterno,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.1),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setModalState(() => _privacidade = "AMIGOS");
+                              setState(() => _privacidade = "AMIGOS");
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _privacidade == "AMIGOS" 
+                                    ? const Color(0xFF06B6D4) 
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.group, 
+                                    size: 16, 
+                                    color: _privacidade == "AMIGOS" ? Colors.black : Colors.white54
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "Amigos", 
+                                    style: TextStyle(
+                                      color: _privacidade == "AMIGOS" ? Colors.black : Colors.white54, 
+                                      fontWeight: FontWeight.bold, 
+                                      fontSize: 12
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          child: Column(
-                            children: const [
-                              Icon(
-                                Icons.ios_share_rounded,
-                                color: Colors.white,
-                                size: 32,
-                              ),
-                              SizedBox(height: 12),
-                              Text(
-                                "Outros Apps",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: _isPosting ? null : () => _postarNoFeed(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF06B6D4).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFF06B6D4).withOpacity(0.3),
                                 ),
                               ),
-                            ],
+                              child: Column(
+                                children: const [
+                                  Icon(
+                                    Icons.dynamic_feed_rounded,
+                                    color: Color(0xFF06B6D4),
+                                    size: 32,
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    "FitLab Feed",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: _compartilharExterno,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.1),
+                                ),
+                              ),
+                              child: Column(
+                                children: const [
+                                  Icon(
+                                    Icons.ios_share_rounded,
+                                    color: Colors.white,
+                                    size: 32,
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    "Outros Apps",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -293,26 +402,10 @@ Baixe o FitLab e venha pro laboratório também! 🧬
       tileBuilder: (context, widget, tile) {
         return ColorFiltered(
           colorFilter: const ColorFilter.matrix([
-            -0.2126,
-            -0.7152,
-            -0.0722,
-            0,
-            255,
-            -0.2126,
-            -0.7152,
-            -0.0722,
-            0,
-            255,
-            -0.2126,
-            -0.7152,
-            -0.0722,
-            0,
-            255,
-            0,
-            0,
-            0,
-            1,
-            0,
+            -0.2126, -0.7152, -0.0722, 0, 255,
+            -0.2126, -0.7152, -0.0722, 0, 255,
+            -0.2126, -0.7152, -0.0722, 0, 255,
+            0, 0, 0, 1, 0,
           ]),
           child: widget,
         );
@@ -419,11 +512,9 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                               ),
                             ],
                           ),
-
                         if (widget.route.isNotEmpty)
                           MarkerLayer(
                             markers: [
-                              // 🏁 Bandeira de Início
                               Marker(
                                 point: widget.route.first,
                                 width: 36,
@@ -445,8 +536,6 @@ Baixe o FitLab e venha pro laboratório também! 🧬
                                   ),
                                 ),
                               ),
-
-                              // 🏁 Bandeira de Fim
                               if (widget.route.length > 1)
                                 Marker(
                                   point: widget.route.last,

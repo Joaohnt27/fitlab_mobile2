@@ -6,6 +6,7 @@ import '../config/api_constants.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/notification_service.dart';
 
 class UserProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -34,6 +35,12 @@ class UserProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final tokenSalvo = prefs.getString('auth_token');
     final userSalvo = prefs.getString('user_data');
+
+    _prefsNotificacoes['reminders'] = prefs.getBool('pref_notif_reminders') ?? true;
+    _prefsNotificacoes['run_alerts'] = prefs.getBool('pref_notif_run_alerts') ?? true;
+    _prefsNotificacoes['achievements'] = prefs.getBool('pref_notif_achievements') ?? true;
+    _prefsNotificacoes['ranking'] = prefs.getBool('pref_notif_ranking') ?? false;
+    _prefsNotificacoes['marketing'] = prefs.getBool('pref_notif_marketing') ?? false;
 
     if (tokenSalvo != null && userSalvo != null) {
       _token = tokenSalvo;
@@ -203,6 +210,7 @@ class UserProvider with ChangeNotifier {
   }
 
   void mostrarAlertaBadge(BuildContext context, String nome, String icon) {
+    // Mostra o alerta visual dentro do app 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: Colors.transparent,
@@ -248,6 +256,16 @@ class UserProvider with ChangeNotifier {
         behavior: SnackBarBehavior.floating,
       ),
     );
+
+    // Dispara a Notificação Local no Celular 
+    final isAchievementAlertsEnabled = _prefsNotificacoes['achievements'] ?? true;
+    
+    if (isAchievementAlertsEnabled) {
+      NotificationService().showNotification(
+        title: 'Nova Conquista: $icon $nome',
+        body: 'Sua biometria evoluiu no FitLab. Você ganhou uma nova badge!',
+      );
+    }
   }
 
   void atualizarEstatisticas({
@@ -281,7 +299,7 @@ class UserProvider with ChangeNotifier {
     try {
       final response = await http.post(
         url,
-        headers: _getHeaders(), // 👈 USANDO O HEADER COM TOKEN
+        headers: _getHeaders(), // USANDO O HEADER COM TOKEN
         body: json.encode({"volume": volume, "frequencia": freq}),
       );
 
@@ -442,7 +460,7 @@ class UserProvider with ChangeNotifier {
     try {
       final response = await http.get(
         url,
-        headers: _getHeaders(), // 👈 USANDO O HEADER COM TOKEN
+        headers: _getHeaders(), // USANDO O HEADER COM TOKEN
       );
 
       if (response.statusCode == 200) {
@@ -455,8 +473,12 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  void alternarNotificacao(String chave, bool valor) {
+  Future<void> alternarNotificacao(String chave, bool valor) async {
     _prefsNotificacoes[chave] = valor;
     notifyListeners();
+    
+    // Salva na memória física do cllr 
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('pref_notif_$chave', valor);
   }
 }

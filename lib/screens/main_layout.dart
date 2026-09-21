@@ -25,44 +25,105 @@ class _MainLayoutState extends State<MainLayout> {
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (_selectedIndex != index) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
+  }
+
+  void _handleDrag(DragUpdateDetails details, double innerWidth) {
+    double itemWidth = innerWidth / 5;
+    int newIndex = (details.localPosition.dx / itemWidth).floor().clamp(0, 4);
+
+    if (newIndex != _selectedIndex) {
+      setState(() {
+        _selectedIndex = newIndex;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    double screenWidth = MediaQuery.of(context).size.width;
+    double barWidth = screenWidth - 48; 
+    double innerWidth = barWidth - 4.0; 
+    double itemWidth = innerWidth / 5;
+    double barHeight = 65.0; 
+    // Cápsula mais gordinha para preencher o espaço do item
+    double indicatorWidth = itemWidth * 0.95; 
+    double indicatorHeight = 55.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
-      extendBody: true, // conteúdo passando por trás da barra
-      body: _screens[_selectedIndex],
+      extendBody: true, 
+      
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
 
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.only(left: 24, right: 24, bottom: 12),
+        padding: const EdgeInsets.only(left: 24, right: 24, bottom: 30),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(40),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+            filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0), 
             child: Container(
-              height: 65,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              height: barHeight,
+              width: barWidth,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.15), 
+                    Colors.white.withOpacity(0.03), 
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(40),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.08),
-                  width: 1,
+                  color: Colors.white.withOpacity(0.25), 
+                  width: 1.5,
                 ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(0, Icons.home_rounded, 'Feed'),
-                  _buildNavItem(1, Icons.fitness_center_rounded, 'Lab'),
-                  _buildNavItem(2, Icons.play_arrow_rounded, 'Iniciar'),
-                  _buildNavItem(3, Icons.people_alt_rounded, 'Social'),
-                  _buildNavItem(4, Icons.person_rounded, 'Você'),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 30,
+                    spreadRadius: -2,
+                  )
                 ],
+              ),
+              child: GestureDetector(
+                onPanUpdate: (details) => _handleDrag(details, innerWidth),
+                child: Stack(
+                  alignment: Alignment.centerLeft, 
+                  children: [
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      left: (_selectedIndex * itemWidth) + ((itemWidth - indicatorWidth) / 2) + 2.0,
+                      width: indicatorWidth,
+                      height: indicatorHeight,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.25), 
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                    ),
+                    
+                    Row(
+                      children: [
+                        _buildNavItem(0, Icons.home_rounded, 'Feed', itemWidth, barHeight),
+                        _buildNavItem(1, Icons.fitness_center_rounded, 'Lab', itemWidth, barHeight),
+                        _buildNavItem(2, Icons.play_arrow_rounded, 'Iniciar', itemWidth, barHeight),
+                        _buildNavItem(3, Icons.people_alt_rounded, 'Social', itemWidth, barHeight),
+                        _buildNavItem(4, Icons.person_rounded, 'Você', itemWidth, barHeight),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -71,34 +132,35 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(int index, IconData icon, String label, double itemWidth, double barHeight) {
     final bool active = _selectedIndex == index;
     final color = active ? const Color(0xFF06B6D4) : Colors.white;
 
-    return GestureDetector(
-      onTap: () => _onItemTapped(index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? Colors.white.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(30),
-        ),
+    return SizedBox(
+      width: itemWidth,
+      height: barHeight,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _onItemTapped(index),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 22),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              transform: Matrix4.translationValues(0, active ? -2 : 0, 0),
+              child: Icon(icon, color: color, size: active ? 26 : 24),
+            ),
             const SizedBox(height: 2),
-            Text(
-              label,
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 250),
               style: TextStyle(
                 color: color,
-                fontSize: 9,
-                fontWeight: active ? FontWeight.bold : FontWeight.w500,
+                fontSize: 10,
+                fontWeight: active ? FontWeight.bold : FontWeight.w600,
                 letterSpacing: 0.5,
               ),
+              child: Text(label),
             ),
           ],
         ),

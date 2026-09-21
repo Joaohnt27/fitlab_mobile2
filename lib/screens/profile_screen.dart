@@ -453,13 +453,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               MaterialPageRoute(builder: (context) => const AboutScreen()),
             );
           }, isHighlight: true),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _buildMenuTile(
             Icons.logout,
             "Sair",
             () => _showLogoutDialog(context),
             color: Colors.redAccent,
           ),
+          const SizedBox(height: 20),
         ],
       ),
     );

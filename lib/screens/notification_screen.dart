@@ -12,19 +12,19 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  // 👇 NOVA FUNÇÃO: Sincroniza o Provider local com os Tópicos do Firebase
-  Future<void> _handleNotificationToggle(
+  
+  //Função APENAS para notificações PUSH (Firebase) que exigem internet 
+  Future<void> _handlePushNotificationToggle(
     String topicKey,
     bool isEnabled,
     UserProvider userProvider,
   ) async {
-    // 1. Atualiza a interface e a memória local instantaneamente
+    // Salva na memória local
     userProvider.alternarNotificacao(topicKey, isEnabled);
 
-    // 2. Avisa o Firebase Cloud Messaging sobre a preferência
+    // Sincroniza com a nuvem
     try {
       final fcm = FirebaseMessaging.instance;
-      // Adicionamos um prefixo 'fitlab_' para organizar os tópicos no painel do Firebase
       final String topicName = 'fitlab_$topicKey';
 
       if (isEnabled) {
@@ -36,8 +36,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     } catch (e) {
       debugPrint("⚠️ Erro ao sincronizar tópico com Firebase: $e");
-      // Opcional: Você pode exibir um SnackBar aqui avisando que falhou a conexão
     }
+  }
+
+  // 👇 Função APENAS para notificações LOCAIS (Offline) 👇
+  void _handleLocalNotificationToggle(
+    String topicKey,
+    bool isEnabled,
+    UserProvider userProvider,
+  ) {
+    // Salva apenas no aparelho. O seu app vai ler isso antes de disparar o alerta local.
+    userProvider.alternarNotificacao(topicKey, isEnabled);
+    debugPrint("📱 Local: Preferência '$topicKey' alterada para $isEnabled");
   }
 
   @override
@@ -75,29 +85,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               "Lembretes de Treino",
               "Avisar quando for hora de iniciar o experimento do dia.",
               prefs['reminders'] ?? true,
-              (val) => _handleNotificationToggle(
-                'reminders',
-                val,
-                userProvider,
-              ), // 👇 Usando a nova função
+              // LOCAL
+              (val) => _handleLocalNotificationToggle('reminders', val, userProvider), 
             ),
+            
+            _buildNotificationTile(
+              Icons.directions_run_rounded,
+              "Alertas de Metas (Treino)",
+              "Notificações no celular ao iniciar a corrida e ao bater 100% da meta.",
+              prefs['run_alerts'] ?? true,
+              // LOCAL
+              (val) => _handleLocalNotificationToggle('run_alerts', val, userProvider), 
+            ),
+            
             const Divider(color: Colors.white10, height: 1),
 
             _buildSectionHeader("GAMIFICAÇÃO"),
             _buildNotificationTile(
               Icons.emoji_events_outlined,
               "Conquistas e Badges",
-              "Notificar imediatamente ao desbloquear um novo badge.",
+              "Notificar no celular ao desbloquear um novo badge.",
               prefs['achievements'] ?? true,
-              (val) =>
-                  _handleNotificationToggle('achievements', val, userProvider),
+              // LOCAL
+              (val) => _handleLocalNotificationToggle('achievements', val, userProvider), 
             ),
             _buildNotificationTile(
               Icons.leaderboard_outlined,
               "Alertas de Ranking",
               "Avisar se alguém te ultrapassar no ranking global.",
               prefs['ranking'] ?? false,
-              (val) => _handleNotificationToggle('ranking', val, userProvider),
+              // FIREBASE (Precisa vir do servidor)
+              (val) => _handlePushNotificationToggle('ranking', val, userProvider), 
             ),
 
             _buildSectionHeader("COMUNICADOS"),
@@ -106,8 +124,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               "Novidades do Lab",
               "Receba atualizações sobre novas funcionalidades e eventos.",
               prefs['marketing'] ?? false,
-              (val) =>
-                  _handleNotificationToggle('marketing', val, userProvider),
+              // FIREBASE (Precisa vir do servidor)
+              (val) => _handlePushNotificationToggle('marketing', val, userProvider), 
             ),
 
             const SizedBox(height: 40),
